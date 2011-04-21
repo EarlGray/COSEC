@@ -1,0 +1,14 @@
+# menu.lst for COSEC Floppy
+# (c) Dmytro Sirenko, 2010
+
+default 0
+timeout 5
+
+title COSEC
+    root (fd0)
+    kernel --type=multiboot (fd0)/kernel 
+
+title Boot from hard drive
+    rootnoverify (hd0)
+    chainloader +1
+
