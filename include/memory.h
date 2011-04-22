@@ -56,11 +56,19 @@ typedef struct {
 	uint8_t		base_h;
 } segdescr_t;
 
-void segdescr_init(segdescr_t *seg, segdesc_e segtype, uint32_t limit, uint32_t base, segdesc_type_e type, uint8_t dpl, uint8_t bits);
+typedef struct {
+    uint16_t offset:13;
+    uint8_t  local_bit:1;
+    uint8_t  dpl:2;
+} segsel_t;
 
-uint32_t segdescr_base(segdescr_t *seg);
-uint20_t segdescr_limit(segdescr_t *seg);
-
+typedef struct registers
+{
+    uint16_t es, ds;                                // saved
+    uint32_t edi, esi, ebp, esp, ebx, edx, ecx, eax;// pushed by 'pusha'
+    uint32_t int_no, err_code;                      // by isr entries / CPU
+    unsigned int eip, cs, eflags, useresp, ss;      // by CPU 
+} regs_t;
 
 void memory_setup(void);
 

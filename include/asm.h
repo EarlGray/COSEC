@@ -1,14 +1,14 @@
 #ifndef __ASM_H
 #define __ASM_t
 
-#define thread_hang()	\
-	asm volatile ("hang:	hlt\n\tjmp hang\n" ::)
+#define thread_hang()   \
+    asm volatile ("hang:    hlt\n\tjmp hang\n" ::)
 
-#define lidt(ptr)	\
-	__asm__ __volatile__ ("lidt (%%eax)\n" : : "r"((void *)(ptr)))
+#define lidt(ptr)   \
+    __asm__ __volatile__ ("lidt (%%eax)\n" : : "r"((void *)(ptr)))
 
-#define lgdt(ptr)	\
-	__asm__ __volatile__ ("lgdt (%%eax)\n" : : "r"((void *)(ptr)))
+#define lgdt(ptr)   \
+    __asm__ __volatile__ ("lgdt (%%eax)\n" : : "r"((void *)(ptr)))
 
 #define inb(port, value) \
     asm volatile ("inb %%dx,%%al\n": "=a"(value): "d"(port))
@@ -19,6 +19,22 @@
 #define io_wait() \
     asm ("\tjmp 1f\n1:\tjmp 1f\n1:") 
 
+#define inb_p(port, value)  \
+    do {                    \
+        inb(port, value);   \
+        io_wait();          \
+    } while (0);        
 
+#define outb_p(port, value) \
+    do {                    \
+        outb(port, value);  \
+        io_wait();          \
+    } while (0);
+
+#define intrs_enable() \
+    asm ("\t sti \n")
+
+#define intrs_disable() \
+    asm ("\t cli \n")                                                       
 
 #endif // __ASM_H

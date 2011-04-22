@@ -3,6 +3,16 @@
 
 #include <memory.h>
 
+/**
+  *     Internal declarations
+  */
+
+uint32_t segdescr_base(segdescr_t *seg);
+uint20_t segdescr_limit(segdescr_t *seg);
+
+void segdescr_init(segdescr_t *seg, segdesc_e segtype, uint32_t limit, uint32_t base, segdesc_type_e type, uint8_t dpl, uint8_t bits);
+
+
 /*****************************************************************************
 		GDT
 ******************************************************************************/
@@ -57,6 +67,7 @@ segdescr_limit(segdescr_t *seg) {
 }
 
 void memory_setup(void) {
+    k_printf("sizeof(segsel) = %d\n", sizeof(segsel_t));
     memset(theGDT, 0, N_TASKS * sizeof(segdescr_t));
     segdescr_init(theGDT + (KERN_CODE_SEG >> 3), CODE_SEGDESC, 0xFFFFF, 0x0, SEGDESC_TYPE_ER_CODE, PL_KERN, SEGDESC_4KB_GRANULARITY);
     segdescr_init(theGDT + (KERN_DATA_SEG >> 3), DATA_SEGDESC, 0xFFFFF, 0x0, SEGDESC_TYPE_RW_DATA, PL_KERN, SEGDESC_4KB_GRANULARITY);
