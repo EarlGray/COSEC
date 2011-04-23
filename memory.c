@@ -7,10 +7,10 @@
   *     Internal declarations
   */
 
-uint32_t segdescr_base(segdescr_t *seg);
-uint20_t segdescr_limit(segdescr_t *seg);
+uint32_t segdescr_base(struct segdescr *seg);
+uint20_t segdescr_limit(struct segdescr *seg);
 
-void segdescr_init(segdescr_t *seg, segdesc_e segtype, uint32_t limit, uint32_t base, segdesc_type_e type, uint8_t dpl, uint8_t bits);
+void segdescr_init(struct segdescr *seg, enum segdesc segtype, uint32_t limit, uint32_t base, enum segdesc_type type, uint8_t dpl, uint8_t bits);
 
 
 /*****************************************************************************
@@ -23,7 +23,7 @@ void segdescr_init(segdescr_t *seg, segdesc_e segtype, uint32_t limit, uint32_t 
     #error "N_TASKS is too big"
 #endif
 
-segdescr_t theGDT[N_GDT];
+struct segdescr theGDT[N_GDT];
 
 inline void *
 memset(void *s, int c, size_t n) {
@@ -44,7 +44,7 @@ gdt_load(void) {
 }
 
 inline void
-segdescr_init(segdescr_t *seg, segdesc_e segtype, uint32_t limit, uint32_t base, segdesc_type_e type, uint8_t dpl, uint8_t granularity) { 
+segdescr_init(struct segdescr *seg, enum segdesc segtype, uint32_t limit, uint32_t base, enum segdesc_type type, uint8_t dpl, uint8_t granularity) { 
     uint8_t *segm = (uint8_t *) seg;
     uint16_t *segm16 = (uint16_t *) seg;
 
@@ -57,18 +57,18 @@ segdescr_init(segdescr_t *seg, segdesc_e segtype, uint32_t limit, uint32_t base,
 }
 
 inline uint32_t 
-segdescr_base(segdescr_t *seg) {
+segdescr_base(struct segdescr *seg) {
     return (seg->base_h << 24) | (seg->base_m << 16) | seg->base_l;
 }
 
 inline uint20_t 
-segdescr_limit(segdescr_t *seg) {
+segdescr_limit(struct segdescr *seg) {
     return (seg->limit_h << 16) | seg->limit_l;
 }
 
 void memory_setup(void) {
-    k_printf("sizeof(segsel) = %d\n", sizeof(segsel_t));
-    memset(theGDT, 0, N_TASKS * sizeof(segdescr_t));
+    k_printf("sizeof(segsel) = %d\n", sizeof(struct segsel));
+    memset(theGDT, 0, N_TASKS * sizeof(struct segdescr));
     segdescr_init(theGDT + (KERN_CODE_SEG >> 3), CODE_SEGDESC, 0xFFFFF, 0x0, SEGDESC_TYPE_ER_CODE, PL_KERN, SEGDESC_4KB_GRANULARITY);
     segdescr_init(theGDT + (KERN_DATA_SEG >> 3), DATA_SEGDESC, 0xFFFFF, 0x0, SEGDESC_TYPE_RW_DATA, PL_KERN, SEGDESC_4KB_GRANULARITY);
     segdescr_init(theGDT + (USER_CODE_SEG >> 3), CODE_SEGDESC, 0xFFFFF, 0x0, SEGDESC_TYPE_ER_CODE, PL_USER, SEGDESC_4KB_GRANULARITY);

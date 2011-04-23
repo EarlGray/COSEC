@@ -30,31 +30,23 @@
  *      Declarations
  */
 
-typedef enum {
-    FLT_DE = 0, INT_DB,     INT_NMI,    TRP_BP,    
-    TRP_OF,     FLT_BR,     FLT_UD,     FLT_NM,
-    ABR_DF,     INT_FP,     FLT_TS,     FLT_NP,
-    FLT_SS,     FLT_GP,     FLT_PF,     INT0x0F,
-    FLT_MF,     FLT_AC,     ABR_MC,     FLT_XM,
-} intr_name;
-
-typedef enum {
-    GATE_INTR = 0,
+enum gatetype {
+    GATE_INTR,
     GATE_TRAP,
     GATE_CALL,
     // GATE_TASK - no hardware multitasking
-} gatetype_e;
+};
 
-typedef struct {
+struct gatedescr {
     uint16_t addr_l;
-    segsel_t seg;
+    struct segsel seg;
     uint8_t rsrvdb;
     uint8_t trap_bit:1;
     uint8_t rsrvd32:4;  // always 0x3
     uint8_t dpl:2;
     uint8_t present:1;
     uint16_t addr_h;
-} gatedescr_t;
+};
 
 // enter points
 extern void isr00(void);    // #DE, division by zero,   fault,  no code
@@ -81,24 +73,20 @@ extern void isr13(void);    // #XM, SIMD fp exc         fault,  no
 
 extern void isr14to1F(void);    // reserved
 
-#define init_idt_size   20
-struct {
-    gatetype_e type,
-    void (*entry)(void),
-    privilege_level_e priv,
-} init_idt[init_idt_size] = {
-    { GATE_TRAP, isr00, PL_KERN },
-};
-    
-intr_handler_f intr_handler_table[IDT_SIZE];
+// interrupt handlers
+void dummy_interrupt(void *);
 
-void gatedescr_init(gatedescr_t *gated, segsel_t seg, uint32_t addr, privilege_level_e dpl);
+void gatedescr_set(struct gatedescr *gated, enum gatetype type, struct segsel seg, uint32_t addr, enum privilege_level dpl);
 
 /* 
  *    Implementations
  */
 
-gatedescr_t theIDT[IDT_SIZE];
+typedef void (*intr_entry_f)(void);
+
+intr_handler_f intr_handler_table[IDT_SIZE];
+
+struct gatedescr  theIDT[IDT_SIZE];
 
 inline void
 idt_load(void) {
@@ -135,7 +123,17 @@ irq_remap(uint8_t master, uint8_t slave) {
     outb(PIC2_DATA_PORT, slave_mask);
 }
 
-inline void gatedescr_init(gatedescr_t *gated, gatetype_e type, segsel_t seg, uint32_t addr, privilege_level_e dpl) {
+void set_trap_gate(int intrnum, intr_handler_f handler) {
+    intr_handler_table[intrnum] = handler;
+}
+
+void set_call_gate(int intrnum, intr_handler_f handler) {
+}
+
+void set_intr_gate(int intrnum, intr_handler_f handler) {
+}
+
+inline void gatedescr_set(struct gatedescr *gated, enum gatetype type, struct segsel seg, uint32_t addr, enum privilege_level dpl) {
     gated->addr_l = (uint16_t) addr;
     gated->seg = seg;
     gated->dpl = dpl;
@@ -152,24 +150,10 @@ void intrs_setup(void) {
 
     int i;
     // prepare handlers
-    for (i = 0; i < IDT_SIZE; ++i) {
-        intr_handler_table[i] = dummy_interrupt;
-    }
-
-    //  prepare idt     
-    for (i = 0; i < init_idt_size; ++i)
-        gatedescr_init(theIDT + i, init_idt[i].type, KERN_CODE_SEG, init_idt[i].entry, init_idt[i].priv);
-
-    for (i = init_idt_size; i < 0x20; ++i)
-        gatedescr_init(theIDT + i, GATE_FAULT, KERN_CODE_SEG, isr14to1F, PL_KERN);
-
-    for (i = I8259A_BASE_VECTOR; i < I8259A_BASE_VECTOR+8; ++i)
-        gatedescr_init(theIDT + i, GATE_IRQ, ;
-        
 
     idt_load();
 }
 
-void dummy_interrupt(int intrnum) {
-    k_printf("interrupt 0x%x\n", intrnum);
+void dummy_interrupt(void *stack) {
+    k_printf("dummy interrupt\n");
 }
