@@ -7,6 +7,11 @@
   *     Internal declarations
   */
 
+const struct segsel SEL_KERN_CS = { .index = GDT_KERN_CS, .local_bit = 0, .dpl = PL_KERN };
+const struct segsel SEL_KERN_DS = { .index = GDT_KERN_DS, .local_bit = 0, .dpl = PL_KERN };
+const struct segsel SEL_USER_CS = { .index = GDT_USER_CS, .local_bit = 0, .dpl = PL_USER };
+const struct segsel SEL_USER_DS = { .index = GDT_USER_DS, .local_bit = 0, .dpl = PL_USER };
+
 uint32_t segdescr_base(struct segdescr *seg);
 uint20_t segdescr_limit(struct segdescr *seg);
 
@@ -34,14 +39,7 @@ memset(void *s, int c, size_t n) {
     return s;
 }
 
-inline void
-gdt_load(void) {
-    uint32_t gdtr[3];
-    gdtr[0] = N_GDT << 16;
-    gdtr[1] = (uint32_t) theGDT;
-
-    lgdt(((char *) gdtr) + 2);
-}
+extern void gdt_load(uint16_t limit, uint32_t base);
 
 inline void
 segdescr_init(struct segdescr *seg, enum segdesc segtype, uint32_t limit, uint32_t base, enum segdesc_type type, uint8_t dpl, uint8_t granularity) { 
@@ -69,11 +67,15 @@ segdescr_limit(struct segdescr *seg) {
 void memory_setup(void) {
     k_printf("sizeof(segsel) = %d\n", sizeof(struct segsel));
     memset(theGDT, 0, N_TASKS * sizeof(struct segdescr));
-    segdescr_init(theGDT + (KERN_CODE_SEG >> 3), CODE_SEGDESC, 0xFFFFF, 0x0, SEGDESC_TYPE_ER_CODE, PL_KERN, SEGDESC_4KB_GRANULARITY);
-    segdescr_init(theGDT + (KERN_DATA_SEG >> 3), DATA_SEGDESC, 0xFFFFF, 0x0, SEGDESC_TYPE_RW_DATA, PL_KERN, SEGDESC_4KB_GRANULARITY);
-    segdescr_init(theGDT + (USER_CODE_SEG >> 3), CODE_SEGDESC, 0xFFFFF, 0x0, SEGDESC_TYPE_ER_CODE, PL_USER, SEGDESC_4KB_GRANULARITY);
-    segdescr_init(theGDT + (USER_DATA_SEG >> 3), DATA_SEGDESC, 0xFFFFF, 0x0, SEGDESC_TYPE_RW_DATA, PL_USER, SEGDESC_4KB_GRANULARITY);
+    segdescr_init(theGDT + SEL_KERN_CS.index, CODE_SEGDESC, 0xFFFFF, 0x0, SEGDESC_TYPE_ER_CODE, PL_KERN, SEGDESC_4KB_GRANULARITY);
+    segdescr_init(theGDT + SEL_KERN_DS.index, DATA_SEGDESC, 0xFFFFF, 0x0, SEGDESC_TYPE_RW_DATA, PL_KERN, SEGDESC_4KB_GRANULARITY);
+    segdescr_init(theGDT + SEL_USER_CS.index, CODE_SEGDESC, 0xFFFFF, 0x0, SEGDESC_TYPE_ER_CODE, PL_USER, SEGDESC_4KB_GRANULARITY);
+    segdescr_init(theGDT + SEL_USER_DS.index, DATA_SEGDESC, 0xFFFFF, 0x0, SEGDESC_TYPE_RW_DATA, PL_USER, SEGDESC_4KB_GRANULARITY);
     //segdescr_init(theGDT + (DEFAULT_LDT >> 3), SYS_SEGDESC, 0xFFFFF, 0x0, SEGDESCR_TYPE_RW_DATA, PL_USER, SEGDESC_4KB_GRANULARITY);
-	gdt_load();
+
+    int sp = 0;
+    asm ("movl %%esp, %0 \n" : "=r"(sp));
+    k_printf("Loading GDT %x : %x\n", theGDT, sp);
+	gdt_load(N_GDT, theGDT);
 }
 

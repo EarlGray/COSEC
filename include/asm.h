@@ -5,10 +5,10 @@
     asm volatile ("hang:    hlt\n\tjmp hang\n" ::)
 
 #define lidt(ptr)   \
-    __asm__ __volatile__ ("lidt (%%eax)\n" : : "r"((void *)(ptr)))
-
+{} //asm ("lidt %0 \n" : : "p"((int)ptr))
+        
 #define lgdt(ptr)   \
-    __asm__ __volatile__ ("lgdt (%%eax)\n" : : "r"((void *)(ptr)))
+    asm ("lgdt (%0)\n" : : "p"(ptr)) 
 
 #define inb(port, value) \
     asm volatile ("inb %%dx,%%al\n": "=a"(value): "d"(port))

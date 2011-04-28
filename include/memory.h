@@ -1,15 +1,15 @@
 #ifndef __MEMORY_H
 #define __MEMORY_H
 
-#include <misc.h>
+/*
+ *      This file provides basic structures of Intel CPUs:
+ *   - privilige levels used by the OS.
+ *   - segment descriptor structure
+ *   - segment selector structure,
+ *   - basic selectors constants;
+ */
 
-enum seg_offset {
-    KERN_CODE_SEG = 0x0008,
-    KERN_DATA_SEG = 0x0010,
-    USER_CODE_SEG = 0x0018,
-    USER_DATA_SEG = 0x0020,
-    DEFAULT_LDT =   0x0028,
-} ;
+#include <misc.h>
 
 ///	privilege levels
 enum privilege_level {
@@ -56,8 +56,16 @@ struct segdescr {
 	uint8_t		base_h;
 };
 
+enum gdt_sels {
+    GDT_DUMMY   =   0,
+    GDT_KERN_CS,
+    GDT_KERN_DS,
+    GDT_USER_CS,
+    GDT_USER_DS,
+};
+
 struct segsel {
-    uint16_t offset:13;
+    uint16_t index:13;
     uint8_t  local_bit:1;
     uint8_t  dpl:2;
 };
@@ -68,6 +76,11 @@ struct regs {
     uint32_t int_no, err_code;                      // by isr entries / CPU
     unsigned int eip, cs, eflags, useresp, ss;      // by CPU 
 };
+
+extern const struct segsel SEL_KERN_CS;
+extern const struct segsel SEL_KERN_DS;
+extern const struct segsel SEL_USER_CS;
+extern const struct segsel SEL_USER_DS;
 
 void memory_setup(void);
 

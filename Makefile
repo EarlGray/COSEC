@@ -20,6 +20,7 @@ kernel      := kernel
 mnt_dir     := mnt
 image       := cosec.img
 vbox_name   := COSEC
+log_name	:= fail.log
 
 objdump     := $(kernel).objd
 
@@ -31,7 +32,8 @@ run:	$(image)
 			VBoxManage modifyvm $(vbox_name)			\
 				--memory 32 --floppy `pwd`/$(image);	\
 		fi; 					\
-		VirtualBox --startvm $(vbox_name);	\
+		VirtualBox --startvm $(vbox_name) 2>&1 | tee $(log_name);	\
+		rm -f 2011*;	\
 	else if [ `which qemu 2>/dev/null` ]; then	\
 		qemu -fda $(image) -curses -boot a;	\
 	else echo "Error: qemu or VirtualBox must be installed";\

@@ -27,12 +27,12 @@ void kmain(uint32_t magic, uint32_t mbi_addr)
 	memory_setup();
     intrs_setup();
 
+    // test #DE
+    intrs_enable();
+    //asm ("into \n");  //*/
+
     print_welcome();
     k_printf("   We are here ->");
-
-    /*/ test #DE
-    int a = 0;
-    int b = 10/a;*/
 
     thread_hang();
 }
