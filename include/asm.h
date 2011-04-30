@@ -2,7 +2,7 @@
 #define __ASM_t
 
 #define thread_hang()   \
-    asm volatile ("hang:    hlt\n\tjmp hang\n" ::)
+    asm volatile ("1:    hlt\n\tjmp 1b\n" ::)
 
 #define lidt(ptr)   \
 {} //asm ("lidt %0 \n" : : "p"((int)ptr))

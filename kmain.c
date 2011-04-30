@@ -10,8 +10,9 @@ void print_welcome()
     clear_screen();
 
     int i;
-    for (i = 0; i < 19; ++i) k_printf("\n");
+    for (i = 0; i < 18; ++i) k_printf("\n");
 
+	k_printf("\t\t\t\t   O_o\n");
 	k_printf("\t\t\t<<<<< Welcome to COSEC >>>>> \n\n");
 }
 
@@ -32,7 +33,6 @@ void kmain(uint32_t magic, uint32_t mbi_addr)
     //asm ("into \n");  //*/
 
     print_welcome();
-    k_printf("   We are here ->");
 
     thread_hang();
 }

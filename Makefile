@@ -34,10 +34,14 @@ run:	$(image)
 		fi; 					\
 		VirtualBox --startvm $(vbox_name) 2>&1 | tee $(log_name);	\
 		rm -f 2011*;	\
-	else if [ `which qemu 2>/dev/null` ]; then	\
+	else \
+	if [ `which qemu 2>/dev/null` ]; then	\
 		qemu -fda $(image) -curses -boot a;	\
 	else echo "Error: qemu or VirtualBox must be installed";\
 	fi; fi
+
+vboxrun:	$(image)
+	
 
 $(image):	$(kernel) 
 	### Check if there is an image

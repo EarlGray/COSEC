@@ -1,3 +1,10 @@
+/*
+ *      This file contains high-level interupts handlers
+ *  Now it also includes PIC-related code, though it would be nice to put it
+ *  to its own header, but I don't wnat mupltiply files now
+ *  TODO: separate pic.c
+ */
+
 #include <misc.h>
 #include <asm.h>
 
@@ -30,6 +37,9 @@
 
 // interrupt handlers
 void int_dummy(void *);
+void int_syscall(void *);
+void int_odd_exception(void *);
+void irq_stub(void *);
 
 /* 
  *    Implementations
@@ -74,5 +84,24 @@ void intrs_setup(void) {
 }
 
 void int_dummy(void *stack) {
-    k_printf("dummy interrupt\n");
+    k_printf("INTR: dummy interrupt\n");
+    intrs_disable();
+    thread_hang();
+}
+
+void int_syscall(void *stack) {
+    k_printf("INTR: syscall]n");
+    intrs_disable();
+    thread_hang();
+}
+
+void int_odd_exception(void *stack) {
+    k_printf("INTR: odd exception\n");
+    intrs_disable();
+    thread_hang();
+}
+
+void irq_stub(void *stack) {
+    k_printf("IRQ\n");
+    thread_hang();
 }

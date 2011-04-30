@@ -27,10 +27,10 @@ multiboot_header:
 #endif
 
 multiboot_entry:
-    movl    $(stack + STACK_SIZE),  %esp
+    movl $(kern_stack + STACK_SIZE), %esp
 
     pushl   $0
-    popf
+    popf                    // clear eflags
     
     pushl   %ebx            // multiboot info structure pointer
     pushl   %eax            // magic
@@ -39,4 +39,4 @@ multiboot_entry:
 hang:   hlt
     jmp hang
 
-.comm stack, STACK_SIZE
+.comm kern_stack, STACK_SIZE
