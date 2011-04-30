@@ -16,6 +16,17 @@ void print_welcome()
 	k_printf("\t\t\t<<<<< Welcome to COSEC >>>>> \n\n");
 }
 
+void print_mem(char *p, size_t count) {
+    int i;
+    for (i = 0; i < count; ++i) {
+        if (0 == (uint32_t)(p + i) % 0x10) 
+            k_printf("\n%x : ", (uint32_t)(p + i));
+        int t = (uint8_t) p[i];
+        k_printf("%x ", t);
+    }
+    k_printf("\n");
+}
+
 void kmain(uint32_t magic, uint32_t mbi_addr)
 {
 	multiboot_info_t *mbi = (multiboot_info_t *) mbi_addr;
@@ -25,14 +36,19 @@ void kmain(uint32_t magic, uint32_t mbi_addr)
 		return;
 	}
 
+    print_welcome();
+
 	memory_setup();
     intrs_setup();
 
-    // test #DE
-    intrs_enable();
-    //asm ("into \n");  //*/
+    k_printf("\nGDT:");
+    print_mem((char *)0x116c40, 0x20);
+    k_printf("\nIDT:");
+    print_mem((char *)0x116140, 0x20);
 
-    print_welcome();
+    intrs_enable();
+    // test #DE
+    //asm ("into \n");  //*/
 
     thread_hang();
 }

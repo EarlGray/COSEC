@@ -18,7 +18,7 @@ enum privilege_level {
 };
 
 #define SEGDESC_BYTE_GRANULARITY	0
-#define SEGDESC_4KB_GRANULARITY		8
+#define SEGDESC_4KB_GRANULARITY		1
 
 enum segdesc {
 	CODE_SEGDESC,
@@ -65,9 +65,9 @@ enum gdt_sels {
 };
 
 struct segsel {
-    uint16_t index:13;
     uint8_t  local_bit:1;
     uint8_t  dpl:2;
+    uint16_t index:13;
 };
 
 struct regs {

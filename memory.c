@@ -49,7 +49,7 @@ segdescr_init(struct segdescr *seg, enum segdesc segtype, uint32_t limit, uint32
     segm16[0] = (uint16_t) limit;
     segm16[1] = (uint16_t) base;
     segm[4] = (uint8_t) (base >> 16);
-    segm[5] = type + (segtype == SYS_SEGDESC ? 0x00 : 0x10 ) + (dpl << 5) + 0x80;
+    segm[5] = type | (segtype == SYS_SEGDESC ? 0x10 : 0x00 ) | (dpl << 5) | 0x80;
     segm[6] = (0x0F & (uint8_t)(limit >> 16)) + 0x40 + (granularity << 7);
     segm[7] = (uint8_t) (base >> 24);
 }
