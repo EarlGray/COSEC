@@ -7,10 +7,10 @@
   *     Internal declarations
   */
 
-const struct segsel SEL_KERN_CS = { .index = GDT_KERN_CS, .local_bit = 0, .dpl = PL_KERN };
-const struct segsel SEL_KERN_DS = { .index = GDT_KERN_DS, .local_bit = 0, .dpl = PL_KERN };
-const struct segsel SEL_USER_CS = { .index = GDT_USER_CS, .local_bit = 0, .dpl = PL_USER };
-const struct segsel SEL_USER_DS = { .index = GDT_USER_DS, .local_bit = 0, .dpl = PL_USER };
+const struct selector SEL_KERN_CS = { .index = GDT_KERN_CS, .local_bit = 0, .dpl = PL_KERN };
+const struct selector SEL_KERN_DS = { .index = GDT_KERN_DS, .local_bit = 0, .dpl = PL_KERN };
+const struct selector SEL_USER_CS = { .index = GDT_USER_CS, .local_bit = 0, .dpl = PL_USER };
+const struct selector SEL_USER_DS = { .index = GDT_USER_DS, .local_bit = 0, .dpl = PL_USER };
 
 uint32_t segdescr_base(struct segdescr *seg);
 uint20_t segdescr_limit(struct segdescr *seg);
@@ -49,7 +49,7 @@ segdescr_init(struct segdescr *seg, enum segdesc segtype, uint32_t limit, uint32
     segm16[0] = (uint16_t) limit;
     segm16[1] = (uint16_t) base;
     segm[4] = (uint8_t) (base >> 16);
-    segm[5] = type | (segtype == SYS_SEGDESC ? 0x10 : 0x00 ) | (dpl << 5) | 0x80;
+    segm[5] = type | (segtype == SYS_SEGDESC ? 0x00 : 0x10 ) | (dpl << 5) | 0x80;
     segm[6] = (0x0F & (uint8_t)(limit >> 16)) + 0x40 + (granularity << 7);
     segm[7] = (uint8_t) (base >> 24);
 }
@@ -64,8 +64,18 @@ segdescr_limit(struct segdescr *seg) {
     return (seg->limit_h << 16) | seg->limit_l;
 }
 
+struct gdt_ptr {
+    uint16_t limit;
+    uint32_t base;
+} __attribute__((packed));
+
+extern void gdt_get(struct gdt_ptr *idt);
+extern void print_mem(uint32_t ptr, size_t count);
+
 void memory_setup(void) {
-    k_printf("sizeof(segsel) = %d\n", sizeof(struct segsel));
+    struct gdt_ptr gdt;
+    gdt_get(&gdt);
+    
     memset(theGDT, 0, N_TASKS * sizeof(struct segdescr));
     segdescr_init(theGDT + SEL_KERN_CS.index, CODE_SEGDESC, 0xFFFFF, 0x0, SEGDESC_TYPE_ER_CODE, PL_KERN, SEGDESC_4KB_GRANULARITY);
     segdescr_init(theGDT + SEL_KERN_DS.index, DATA_SEGDESC, 0xFFFFF, 0x0, SEGDESC_TYPE_RW_DATA, PL_KERN, SEGDESC_4KB_GRANULARITY);
@@ -73,9 +83,6 @@ void memory_setup(void) {
     segdescr_init(theGDT + SEL_USER_DS.index, DATA_SEGDESC, 0xFFFFF, 0x0, SEGDESC_TYPE_RW_DATA, PL_USER, SEGDESC_4KB_GRANULARITY);
     //segdescr_init(theGDT + (DEFAULT_LDT >> 3), SYS_SEGDESC, 0xFFFFF, 0x0, SEGDESCR_TYPE_RW_DATA, PL_USER, SEGDESC_4KB_GRANULARITY);
 
-    int sp = 0;
-    asm ("movl %%esp, %0 \n" : "=r"(sp));
-    k_printf("Loading GDT %x : %x\n", theGDT, sp);
 	gdt_load(N_GDT, theGDT);
 }
 

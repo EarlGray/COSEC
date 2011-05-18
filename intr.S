@@ -4,24 +4,28 @@
  *  are interrupts and exections entry points now.
  */
 
-.equ dummy_errcode, 0
-.extern intr_handler_table
-
-/************ Handlers **************/
-.extern int_syscall
-.extern int_dummy
-.extern int_odd_exception
-.extern irq_stub
-
+.data
 /* temporary 48bit structure for IDT/GDT loading */
 dtreg:
 .word 0
 .long 0
 
-.text
 
+/********************** text *****************************/
+.text
+.align 4
+
+/************ Handlers ***************/
+.extern int_handlers_table
+
+.extern int_syscall
+.extern int_dummy
+.extern int_odd_exception
+.extern irq_stub
+
+
+/******** Tables-related *************/
 .global gdt_load
-/* */
 gdt_load:
     movw 4(%esp), %ax
     movw %ax, dtreg
@@ -29,10 +33,28 @@ gdt_load:
     movl %eax, dtreg + 2
 
     lgdt dtreg
+    
+    movw $0x0010, %dx
+    movw %dx, %ds
+    movw %dx, %es
+    movw %dx, %fs
+    movw %dx, %gs
+    
+    ljmp $0x0008, $reload_gdt
+reload_gdt:
+    ret
+
+.global gdt_get
+gdt_get:
+    movl 4(%esp), %esi
+    sgdt dtreg
+    movw dtreg, %ax
+    movw %ax, (%esi)
+    movl dtreg+2, %eax
+    movl %eax, 2(%esi)
     ret
 
 .global idt_load
-/* */
 idt_load:
     movw 4(%esp), %ax
     movw %ax, dtreg
@@ -42,147 +64,96 @@ idt_load:
     lidt dtreg
     ret
 
-.global dummyentry
-/*  Every unrecognized software interrupt  */
-dummyentry:
-    call int_dummy
-    
-.global syscallentry
-syscallentry:
-    call int_syscall
 
-/* Intel is shit and encourages indian coders to multiply code */
-/************** Exceptions *****************/
-.globl isr00
-isr00:
+/********** ENTRY macros *************/
 
-.globl isr01
-isr01:
-
-.globl isr02
-isr02:
-
-.globl isr03
-isr03:
-
-.globl isr04
-isr04:
-
-.globl isr05
-isr05:
-
-.globl isr06
-isr06:
-
-.globl isr07
-isr07:
-
-.globl isr08
-isr08:
-
-.globl isr09
-isr09:
-
-.globl isr0A
-isr0A:
-
-.globl isr0B
-isr0B:
-
-.globl isr0C
-isr0C:
-
-.globl isr0D
-isr0D:
-
-.globl isr0E
-isr0E:
-
-.globl isr0F
-isr0F:
-
-.globl isr10
-isr10:
-
-.globl isr11
-isr11:
-
-.globl isr12
-isr12:
-
-.globl isr13
-isr13:
-
-.global isr14to1F
-isr14to1F:
-    cli
-    subl 4, %esp
+.macro INTR_PROLOG
+    pushf
+    pusha
+    subl $4, %esp   
     movl %esp, (%esp)
-    call int_odd_exception
+.endm
+
+.macro INTR_END
+    addl $4, %esp
+    popa
+    popf
+.endm
+
+.macro ENTRY_NOERR name, handler
+.extern \handler
+.global \name
+\name :
+    INTR_PROLOG
+    call \handler    
+    INTR_END
+    iret
+.endm
+
+.macro ENTRY_ERR name, handler
+.extern \handler
+.global \name
+\name :
+    INTR_PROLOG
+    call \handler
+    INTR_END
+    addl $4, %esp    /* pop errcode */
+    iret
+.endm
+
+.macro ENTRY_IRQ name, handler
+.global \name
+\name :
+    INTR_PROLOG
+    call \handler
+    INTR_END
+    iret
+.endm
+
+/******** multiple entries ***********/
+
+ENTRY_NOERR dummyentry, int_dummy           /* unrecognized software interrupt   */
+ENTRY_NOERR syscallentry, int_syscall       /* sys int                           */
+ENTRY_NOERR isr14to1F, int_odd_exception    /* unused exceptions                 */
+
+/************* exceptions ************/
+ENTRY_NOERR isr00, int_division_by_zero
+ENTRY_NOERR isr01, int_odd_exception
+ENTRY_NOERR isr02, int_nonmaskable
+ENTRY_NOERR isr03, int_odd_exception
+ENTRY_NOERR isr04, int_odd_exception
+ENTRY_NOERR isr05, int_odd_exception
+ENTRY_NOERR isr06, int_invalid_op
+ENTRY_NOERR isr07, int_odd_exception
+ENTRY_ERR   isr08, int_double_fault
+ENTRY_NOERR isr09, int_odd_exception
+ENTRY_ERR   isr0A, int_odd_exception
+ENTRY_ERR   isr0B, int_odd_exception
+ENTRY_ERR   isr0C, int_odd_exception
+ENTRY_ERR   isr0D, int_gpf
+ENTRY_ERR   isr0E, int_page_fault
+ENTRY_NOERR isr0F, int_odd_exception
+ENTRY_NOERR isr10, int_odd_exception
+ENTRY_NOERR isr11, int_odd_exception
+ENTRY_NOERR isr12, int_odd_exception
+ENTRY_NOERR isr13, int_odd_exception
 
 /************ IRQS  **************/
+.extern irq
+ENTRY_IRQ   irq00, irq
+ENTRY_IRQ   irq01, irq+4
+ENTRY_IRQ   irq02, irq+8
+ENTRY_IRQ   irq03, irq+12
+ENTRY_IRQ   irq04, irq+16
+ENTRY_IRQ   irq05, irq+20
+ENTRY_IRQ   irq06, irq+24
+ENTRY_IRQ   irq07, irq+28
+ENTRY_IRQ   irq08, irq+32
+ENTRY_IRQ   irq09, irq+36
+ENTRY_IRQ   irq0A, irq+40
+ENTRY_IRQ   irq0B, irq+44
+ENTRY_IRQ   irq0C, irq+48
+ENTRY_IRQ   irq0D, irq+52
+ENTRY_IRQ   irq0E, irq+56
+ENTRY_IRQ   irq0F, irq+60
 
-.global irq00
-irq00:
-
-.global irq01
-irq01:
-
-.globl irq02
-irq02:
-    
-.global irq03
-irq03:
-
-
-.global irq04
-irq04:
-
-.global irq05
-irq05:
-
-.global irq06
-irq06:
-
-.global irq07
-irq07:
-
-.global irq08
-irq08:
-.global irq09
-irq09:
-.global irq0A
-irq0A:
-.global irq0B
-irq0B:
-.global irq0C
-irq0C:
-.global irq0D
-irq0D:
-.global irq0E
-irq0E:
-.global irq0F
-irq0F:
-    cli
-    subl 4, %esp
-    call irq_stub
-
-
-irq_enter:
-    pusha
-    pushw %ds
-    pushw %es
-    movl %eax, (intr_handler_table)
-
-isr_enter:
-    pusha
-    pushw %ds
-    pushw %es
-    // call routine
-
-isr_exit:
-    pop %es
-    pop %ds
-    popa
-    //po
-    iret

@@ -5,9 +5,15 @@ build           := .
 cc  :=  gcc
 as  :=  gcc
 ld  :=  ld
-cc_flags    := -c -ffreestanding -nostdlib -nostdinc -Wall -Wextra -Winline -MD -m32 -O2
-as_flags    := -c -nostdlib -nostdinc -Wall -MD -m32
-ld_flags    := -static -nostdlib -Ttext=0x110000 --oformat=elf32-i386 -melf_i386 #-s
+
+cc_flags    := -c -ffreestanding -nostdinc -Wall -Wextra -Winline -MD -O2 #-fdump-tree-gimple
+as_flags    := -c -Wall -MD 
+ld_flags    := -static -nostdlib -Ttext=0x110000  #-s
+
+# for 64bit host
+cc_flags 	+= -m32
+as_flags	+= -m32
+ld_flags	+= --oformat=elf32-i386 -melf_i386
 
 objs        := $(addsuffix /sluice.S, $(build))                                      # must come first
 objs		+= $(patsubst ../%, %, $(wildcard $(addsuffix /[^s]*.S, $(build))))		 # no s*.S files to make sliuce.S first :(
@@ -17,28 +23,32 @@ objs		:= $(objs:.S=.o)
 objs		:= $(objs:.c=.o)
 
 kernel      := kernel
-mnt_dir     := mnt
-image       := cosec.img
-vbox_name   := COSEC
-log_name	:= fail.log
 
+mnt_dir     := mnt
+vbox_name   := COSEC
+image       := cosec.img
+
+log_name	:= fail.log
 objdump     := $(kernel).objd
 
 run:	$(image)
 	@echo -e "\n#### Running..."
-	@if [ `which VirtualBox 2>/dev/null` ]; then 	\
+	@if [ `which NO_VBoxManage 2>/dev/null` ]; then 	\
 		if [ -z "`VBoxManage list vms | grep $(vbox_name)`" ]; then	\
 			VBoxManage createvm --name $(vbox_name) --register;	\
 			VBoxManage modifyvm $(vbox_name)			\
 				--memory 32 --floppy `pwd`/$(image);	\
 		fi; 					\
-		VirtualBox --startvm $(vbox_name) 2>&1 | tee $(log_name);	\
+		VBoxManage startvm $(vbox_name) 2>&1 | tee $(log_name);	\
 		rm -f 2011*;	\
 	else \
+	if [ `which bochs 2>/dev/null` ]; then 	\
+		bochs 2>&1 | tee $(log_name);	\
+	else \
 	if [ `which qemu 2>/dev/null` ]; then	\
-		qemu -fda $(image) -curses -boot a;	\
+		qemu -fda $(image) -boot a;	\
 	else echo "Error: qemu or VirtualBox must be installed";\
-	fi; fi
+	fi; fi; fi
 
 vboxrun:	$(image)
 	

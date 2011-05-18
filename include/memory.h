@@ -11,7 +11,7 @@
 
 #include <misc.h>
 
-///	privilege levels
+//	privilege levels
 enum privilege_level {
     PL_KERN = 0,
     PL_USER = 3
@@ -64,7 +64,7 @@ enum gdt_sels {
     GDT_USER_DS,
 };
 
-struct segsel {
+struct selector {
     uint8_t  local_bit:1;
     uint8_t  dpl:2;
     uint16_t index:13;
@@ -77,10 +77,10 @@ struct regs {
     unsigned int eip, cs, eflags, useresp, ss;      // by CPU 
 };
 
-extern const struct segsel SEL_KERN_CS;
-extern const struct segsel SEL_KERN_DS;
-extern const struct segsel SEL_USER_CS;
-extern const struct segsel SEL_USER_DS;
+extern const struct selector SEL_KERN_CS;
+extern const struct selector SEL_KERN_DS;
+extern const struct selector SEL_USER_CS;
+extern const struct selector SEL_USER_DS;
 
 void memory_setup(void);
 

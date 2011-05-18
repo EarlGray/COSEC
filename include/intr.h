@@ -26,7 +26,6 @@ extern void isr11(void);    // #AC, alignment check     fault,  0
 extern void isr12(void);    // #MC, machine check       abort,  no
 extern void isr13(void);    // #XM, SIMD fp exc         fault,  no
 
-extern void isr14to1F(void);    // reserved
 
 extern void irq00(void);
 extern void irq01(void);
@@ -45,9 +44,9 @@ extern void irq0D(void);
 extern void irq0E(void);
 extern void irq0F(void);
 
-extern void dummyentry(void);       // for all unused software interrupts
-
 extern void syscallentry(void);     // for system call interrupt
+extern void dummyentry(void);       // for all unused software interrupts
+extern void isr14to1F(void);        // reserved
 
 #include <idt.h>
 

@@ -20,7 +20,7 @@
 /* IDT entry structure */
 struct gatedescr {
     uint16_t addr_l;
-    struct segsel seg;
+    struct selector seg;
     uint8_t rsrvdb;     // always 0
     uint8_t trap_bit:1;
     uint8_t rsrvd32:4;  // always 0x3
@@ -32,7 +32,7 @@ struct gatedescr {
 /*****  The IDT   *****/
 struct gatedescr  theIDT[IDT_SIZE];
 
-inline void gatedescr_set(struct gatedescr *gated, enum gatetype type, struct segsel seg, uint32_t addr, enum privilege_level dpl) {
+inline void gatedescr_set(struct gatedescr *gated, enum gatetype type, struct selector seg, uint32_t addr, enum privilege_level dpl) {
     gated->addr_l = (uint16_t) addr;
     gated->seg = seg;
     gated->dpl = dpl;
@@ -44,20 +44,11 @@ inline void gatedescr_set(struct gatedescr *gated, enum gatetype type, struct se
 }
 
 inline void idt_set_gate(uint8_t i, enum gatetype type, intr_entry_f intr_entry) {
-    switch (type) {
-    case GATE_TRAP: 
-        gatedescr_set(theIDT + i, GATE_TRAP, SEL_KERN_CS, (uint32_t)intr_entry, PL_KERN);
-        break;
-    case GATE_CALL:
-        gatedescr_set(theIDT + i, GATE_CALL, SEL_KERN_CS, (uint32_t)intr_entry, PL_USER);
-        break;
-    case GATE_INTR:
-        gatedescr_set(theIDT + i, GATE_INTR, SEL_KERN_CS, (uint32_t)intr_entry, PL_KERN);
-        break;
-    }
+    gatedescr_set(theIDT + i, type, SEL_KERN_CS, 
+                  (uint32_t)intr_entry, (type == GATE_CALL)? PL_USER : PL_KERN);
 }
 
-inline void idt_set_gates(uint8_t start, uint8_t end, enum gatetype type, intr_entry_f intr_entry) {
+inline void idt_set_gates(uint8_t start, uint16_t end, enum gatetype type, intr_entry_f intr_entry) {
     int i;
     for (i = start; i < end; ++i) 
         idt_set_gate(i, type, intr_entry);
@@ -65,18 +56,17 @@ inline void idt_set_gates(uint8_t start, uint8_t end, enum gatetype type, intr_e
 
 void idt_setup(void) {
     int i;
-    /* 0x00 - 0x20 : exceptions entry points */
+    /* 0x00 - 0x1F : exceptions entry points */
     for (i = 0; i < 0x14; ++i)
         idt_set_gate(i, exceptions[i].type, exceptions[i].entry);
     idt_set_gates(0x14, 0x20, GATE_INTR, isr14to1F);
 
-    /* 0x20 - 0x2F : IRQs entries */
-    for (i = I8259A_BASE_VECTOR; i < I8259A_BASE_VECTOR + 16; ++i)
-        idt_set_gate(i, GATE_INTR, interrupts[i - I8259A_BASE_VECTOR]);
+    /* 0x20 - 0xFF : dummy software interrupts */
+    idt_set_gates(0x20, 0x100, GATE_CALL, dummyentry);
 
-    /* 0x30 - 0xFF : dummy software interrupts */
-    for (i = 0x30; i < 0x100; ++i)
-        idt_set_gate(i, GATE_CALL, dummyentry);
+    /* 0x20 - 0x2F : IRQs entries */
+    for (i = I8259A_BASE; i < I8259A_BASE + 16; ++i)
+        idt_set_gate(i, GATE_INTR, interrupts[i - I8259A_BASE]);
 
     /* 0xSYS_INT : system call entry */
     idt_set_gate(SYS_INT, GATE_CALL, syscallentry);

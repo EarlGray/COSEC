@@ -40,12 +40,20 @@ void int_dummy(void *);
 void int_syscall(void *);
 void int_odd_exception(void *);
 void irq_stub(void *);
+void irq_slave(void *);
+
+void int_division_by_zero(void );
+void int_nonmaskable(void );
+void int_invalid_op(void *);
+void int_gpf(void );
+void int_page_fault(void );
+
+// IRQ handlers
+intr_handler_f irq[16];
 
 /* 
  *    Implementations
  */
-
-intr_handler_f intr_handler_table[IDT_SIZE];
 
 static void 
 irq_remap(uint8_t master, uint8_t slave) {
@@ -73,35 +81,79 @@ irq_remap(uint8_t master, uint8_t slave) {
     outb(PIC2_DATA_PORT, slave_mask);
 }
 
-void intrs_setup(void) {
-    //  remap interrupts   
-    irq_remap(I8259A_BASE_VECTOR, I8259A_BASE_VECTOR + 8);
+inline void irq_eoi(bool slave) {
+    outb_p(0x20, 0x20);
+    if (slave) outb_p(0x20, 0x20);
+}
 
-    // prepare handler table
+void irq_stub(void *stack) {
+    k_printf("q");
+    irq_eoi(false);
+}
 
-    idt_setup();
-    idt_deploy();
+void irq_slave(void *stack) {
+    k_printf("s");
+    irq_eoi(true);
 }
 
 void int_dummy(void *stack) {
     k_printf("INTR: dummy interrupt\n");
-    intrs_disable();
-    thread_hang();
 }
 
 void int_syscall(void *stack) {
-    k_printf("INTR: syscall]n");
-    intrs_disable();
-    thread_hang();
+    k_printf("INTR: syscall\n");
 }
+
+extern void print_mem(uint32_t p, size_t size);
 
 void int_odd_exception(void *stack) {
-    k_printf("INTR: odd exception\n");
-    intrs_disable();
+    k_printf("i");         //"INTR: odd exception\n");
+
+    /*volatile uint32_t a;
+    asm(" movl %%esp, %0 \n" : "=r"(a) : :);
+    for (a = 0; a < 40; ++a);
+    k_printf("Stack at 0x%x\n", a); // (uint32_t)stack);
+    print_mem((uint32_t)stack, 0x10);
+    thread_hang();      */
+}
+
+void int_double_fault(void *stack) {
+    k_printf("\nDouble fault...\n");
     thread_hang();
 }
 
-void irq_stub(void *stack) {
-    k_printf("IRQ\n");
-    thread_hang();
+void int_division_by_zero(void ) {
+    k_printf("INTR: division by zero\n");
+}
+
+void int_nonmaskable(void ) {
+    k_printf("@");
+}
+
+void int_invalid_op(void *stack) {
+    k_printf("\n#UD\n");
+    print_mem(stack, 0x30);
+    print_mem(0x116040, 0x100);
+    thread_hang(); 
+}
+
+void int_page_fault(void ) {
+    k_printf("p");
+}
+
+void int_gpf(void ) {
+    k_printf("#GP");
+}
+
+void intrs_setup(void) {
+    //  remap interrupts   
+    irq_remap(I8259A_BASE, I8259A_BASE + 8);
+
+    // prepare handler table
+    int i;
+    for (i = 0; i < sizeof(irq)/sizeof(void *); ++i)
+        irq[i] = irq_stub;
+
+    idt_setup();
+    idt_deploy();
 }
