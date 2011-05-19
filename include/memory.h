@@ -70,13 +70,6 @@ struct selector {
     uint16_t index:13;
 };
 
-struct regs {
-    uint16_t es, ds;                                // saved
-    uint32_t edi, esi, ebp, esp, ebx, edx, ecx, eax;// pushed by 'pusha'
-    uint32_t int_no, err_code;                      // by isr entries / CPU
-    unsigned int eip, cs, eflags, useresp, ss;      // by CPU 
-};
-
 extern const struct selector SEL_KERN_CS;
 extern const struct selector SEL_KERN_DS;
 extern const struct selector SEL_USER_CS;

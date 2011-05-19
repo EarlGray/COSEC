@@ -1,6 +1,7 @@
 #include <asm.h>
 #include <multiboot.h>
-#include <kconsole.h>
+#include <screen.h>
+#include <kbd.h>
 #include <memory.h>
 #include <intrs.h>
 
@@ -39,6 +40,7 @@ void kmain(uint32_t magic, uint32_t mbi_addr)
     print_welcome();
 
     memory_setup();
+    kbd_setup();
     intrs_setup();
 
     k_printf("\nGDT:");

@@ -1,5 +1,5 @@
 #include <asm.h>
-#include <kconsole.h>
+#include <screen.h>
 
 #include <memory.h>
 
