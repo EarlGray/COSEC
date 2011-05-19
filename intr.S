@@ -71,7 +71,6 @@ idt_load:
     pushf
     pusha
     subl $4, %esp   
-    movl %esp, (%esp)
 .endm
 
 .macro INTR_END
@@ -85,6 +84,7 @@ idt_load:
 .global \name
 \name :
     INTR_PROLOG
+    movl %esp, (%esp)
     call \handler    
     INTR_END
     iret
@@ -95,17 +95,19 @@ idt_load:
 .global \name
 \name :
     INTR_PROLOG
+    movl %esp, (%esp)
     call \handler
     INTR_END
     addl $4, %esp    /* pop errcode */
     iret
 .endm
 
-.macro ENTRY_IRQ name, handler
+.macro ENTRY_IRQ name, num
 .global \name
 \name :
-    INTR_PROLOG
-    call \handler
+    INTR_PROLOG 
+    movl \num, (%esp)
+    call irq_handler
     INTR_END
     iret
 .endm
@@ -139,21 +141,21 @@ ENTRY_NOERR isr12, int_odd_exception
 ENTRY_NOERR isr13, int_odd_exception
 
 /************ IRQS  **************/
-.extern irq
-ENTRY_IRQ   irq00, irq
-ENTRY_IRQ   irq01, irq+4
-ENTRY_IRQ   irq02, irq+8
-ENTRY_IRQ   irq03, irq+12
-ENTRY_IRQ   irq04, irq+16
-ENTRY_IRQ   irq05, irq+20
-ENTRY_IRQ   irq06, irq+24
-ENTRY_IRQ   irq07, irq+28
-ENTRY_IRQ   irq08, irq+32
-ENTRY_IRQ   irq09, irq+36
-ENTRY_IRQ   irq0A, irq+40
-ENTRY_IRQ   irq0B, irq+44
-ENTRY_IRQ   irq0C, irq+48
-ENTRY_IRQ   irq0D, irq+52
-ENTRY_IRQ   irq0E, irq+56
-ENTRY_IRQ   irq0F, irq+60
+.extern irq_handler
+ENTRY_IRQ   irq00, $0x0
+ENTRY_IRQ   irq01, $0x1
+ENTRY_IRQ   irq02, $0x2
+ENTRY_IRQ   irq03, $0x3
+ENTRY_IRQ   irq04, $0x4
+ENTRY_IRQ   irq05, $0x5
+ENTRY_IRQ   irq06, $0x6
+ENTRY_IRQ   irq07, $0x7
+ENTRY_IRQ   irq08, $0x8
+ENTRY_IRQ   irq09, $0x9
+ENTRY_IRQ   irq0A, $0xA
+ENTRY_IRQ   irq0B, $0xB
+ENTRY_IRQ   irq0C, $0xC
+ENTRY_IRQ   irq0D, $0xD
+ENTRY_IRQ   irq0E, $0xE
+ENTRY_IRQ   irq0F, $0xF
 

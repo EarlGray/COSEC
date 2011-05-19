@@ -8,9 +8,9 @@
 
 typedef void (*intr_handler_f) (void *);
 
-extern intr_handler_f intr_handler_table[];
-
 void intrs_setup(void);
+
+void irq_set_handler(uint32_t irq_num, intr_handler_f handler);
 
 #endif
 #endif // __INTRS_H

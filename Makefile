@@ -42,7 +42,7 @@ run:	$(image)
 		VBoxManage startvm $(vbox_name) 2>&1 | tee $(log_name);	\
 		rm -f 2011*;	\
 	else \
-	if [ `which bochs 2>/dev/null` ]; then 	\
+	if [ `which NO_bochs 2>/dev/null` ]; then 	\
 		bochs 2>&1 | tee $(log_name);	\
 	else \
 	if [ `which qemu 2>/dev/null` ]; then	\

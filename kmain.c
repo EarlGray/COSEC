@@ -47,13 +47,12 @@ void kmain(uint32_t magic, uint32_t mbi_addr)
     print_mem((char *)0x116040, 0x40);
 
     intrs_enable();
-    // test #DE
-    //asm ("into \n");  //*/
 
     uint32_t stack;
     asm(" movl %%esp, %0 \n" : "=r"(stack)::);
     k_printf("stack at 0x%x\n", stack);
 
+    //asm ("into \n");  //*/
     thread_hang();
 }
 

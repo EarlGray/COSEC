@@ -34,6 +34,8 @@
 /* 
  *      Declarations
  */
+// IRQ handlers
+intr_handler_f irq[16];
 
 // interrupt handlers
 void int_dummy(void *);
@@ -45,11 +47,8 @@ void irq_slave(void *);
 void int_division_by_zero(void );
 void int_nonmaskable(void );
 void int_invalid_op(void *);
-void int_gpf(void );
+void int_gpf(void *);
 void int_page_fault(void );
-
-// IRQ handlers
-intr_handler_f irq[16];
 
 /* 
  *    Implementations
@@ -81,33 +80,52 @@ irq_remap(uint8_t master, uint8_t slave) {
     outb(PIC2_DATA_PORT, slave_mask);
 }
 
-inline void irq_eoi(bool slave) {
+inline void irq_eoi(void) {
     outb_p(0x20, 0x20);
-    if (slave) outb_p(0x20, 0x20);
 }
 
+void irq_handler(uint32_t irq_num) {
+    if (irq_num != 0) k_printf("#IRQ%x ", irq_num);
+    intr_handler_f callee = irq[irq_num];
+    callee(0);
+    irq_eoi();
+}
+
+inline void irq_set_handler(uint32_t irq_num, intr_handler_f handler) {
+    irq[irq_num] = handler;
+}
+
+/****************** IRQs ***********************/
+
 void irq_stub(void *stack) {
-    k_printf("q");
-    irq_eoi(false);
+    //
 }
 
 void irq_slave(void *stack) {
-    k_printf("s");
-    irq_eoi(true);
+    irq_eoi();
 }
+
+void irq_timer(void *arg) {
+    static uint32_t counter = 0;
+    ++counter;
+    if (0 == (counter % 100)) 
+        k_printf("#IRQ0 Timer: %d\n", counter);
+}
+
+/**************** exceptions *****************/
 
 void int_dummy(void *stack) {
     k_printf("INTR: dummy interrupt\n");
 }
 
 void int_syscall(void *stack) {
-    k_printf("INTR: syscall\n");
+    k_printf("#SYS");
 }
 
 extern void print_mem(uint32_t p, size_t size);
 
 void int_odd_exception(void *stack) {
-    k_printf("i");         //"INTR: odd exception\n");
+    k_printf("+");         //"INTR: odd exception\n");
 
     /*volatile uint32_t a;
     asm(" movl %%esp, %0 \n" : "=r"(a) : :);
@@ -118,32 +136,44 @@ void int_odd_exception(void *stack) {
 }
 
 void int_double_fault(void *stack) {
-    k_printf("\nDouble fault...\n");
+    k_printf("#DF\nDouble fault...\n");
     thread_hang();
 }
 
 void int_division_by_zero(void ) {
-    k_printf("INTR: division by zero\n");
+    k_printf("#DE\nINTR: division by zero\n");
 }
 
 void int_nonmaskable(void ) {
-    k_printf("@");
+    k_printf("#NM");
 }
+
+extern void *theIDT;
 
 void int_invalid_op(void *stack) {
     k_printf("\n#UD\n");
+    k_printf("Interrupted at 0x%x : 0x%x\n",    
+                *((uint32_t *)stack + 11), 
+                *((uint32_t *)stack + 10) );
     print_mem(stack, 0x30);
-    print_mem(0x116040, 0x100);
+    //print_mem(theIDT, 0x80);
     thread_hang(); 
 }
 
 void int_page_fault(void ) {
-    k_printf("p");
+    k_printf("#PF");
 }
 
-void int_gpf(void ) {
-    k_printf("#GP");
+void int_gpf(void *stack) {
+    k_printf("#GP\nGeneral protection fault\n");
+    k_printf("Interrupted at 0x%x : 0x%x\n", 
+                *((uint32_t *)stack + 11), 
+                *((uint32_t *)stack + 10) );
+    thread_hang();
 }
+
+
+#include <kbd.h>
 
 void intrs_setup(void) {
     //  remap interrupts   
@@ -151,8 +181,13 @@ void intrs_setup(void) {
 
     // prepare handler table
     int i;
-    for (i = 0; i < sizeof(irq)/sizeof(void *); ++i)
+    for (i = 0; i < 8; ++i)
         irq[i] = irq_stub;
+    for (i = 8; i < 16; ++i)
+        irq[i] = irq_slave;
+
+    irq_set_handler(0, irq_timer);
+    irq_set_handler(1, irq_keyboard);
 
     idt_setup();
     idt_deploy();

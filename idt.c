@@ -30,6 +30,7 @@ struct gatedescr {
 };
 
 /*****  The IDT   *****/
+extern struct gatedescr theIDT[IDT_SIZE];
 struct gatedescr  theIDT[IDT_SIZE];
 
 inline void gatedescr_set(struct gatedescr *gated, enum gatetype type, struct selector seg, uint32_t addr, enum privilege_level dpl) {
