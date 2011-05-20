@@ -78,8 +78,9 @@ umount:
 VPATH	:= 	../
 
 $(kernel): $(build) $(objs)
-	$(ld) -o $(build)/$(kernel)	$(objs) $(ld_flags) && objdump -d $(kernel) > $(objdump)
-	ctags * -R
+	$(ld) -o $(build)/$(kernel)	$(objs) $(ld_flags) && \
+	if [ `which objdump 2>/dev/null` ]; then objdump -d $(kernel) > $(objdump); fi
+	if [ `which ctags 2>/dev/null ` ]; then ctags * -R; fi
 	
 $(build):
 	mkdir -p $(build)

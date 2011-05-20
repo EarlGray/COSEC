@@ -10,10 +10,9 @@ inline void console_write(const char *msg) {
     k_printf("%s", msg);
 }
 
-inline void console_writeln(const char *msg) {
+inline void console_writeline(const char *msg) {
     k_printf("%s\n", msg);
 }
-
 
 void console_readline(char *buf, size_t size) {
     char *cur = buf;
@@ -29,6 +28,12 @@ void console_readline(char *buf, size_t size) {
             if (cur == buf) break;
             k_printf("\b \b");
             --cur;
+            break;
+        case 12:    // Ctrl-L
+            *cur = 0;
+            clear_screen();
+            console_write(prompt);
+            console_write(buf);
             break;
         default:
             if (cur - buf + 1 < size) {
@@ -54,6 +59,6 @@ void console_run(void) {
     for ever {
         console_write(prompt);
         console_readline(cmd_buf, CMD_SIZE);
-        console_writeln(cmd_buf);
+        console_writeline(cmd_buf);
     }
 }
