@@ -1,9 +1,12 @@
-#include <asm.h>
 #include <multiboot.h>
-#include <screen.h>
-#include <kbd.h>
+#include <asm.h>
 #include <memory.h>
 #include <intrs.h>
+
+#include <kbd.h>
+#include <timer.h>
+
+#include <console.h>
 
 void print_welcome()
 {
@@ -37,16 +40,11 @@ void kmain(uint32_t magic, uint32_t mbi_addr)
         return;
     }
 
-    print_welcome();
-
     memory_setup();
-    kbd_setup();
     intrs_setup();
 
-    k_printf("\nGDT:");
-    print_mem((char *)0x116880, 0x20);
-    k_printf("\nIDT:");
-    print_mem((char *)0x116040, 0x40);
+    timer_setup();
+    kbd_setup();
 
     intrs_enable();
 
@@ -54,7 +52,7 @@ void kmain(uint32_t magic, uint32_t mbi_addr)
     asm(" movl %%esp, %0 \n" : "=r"(stack)::);
     k_printf("stack at 0x%x\n", stack);
 
-    //asm ("into \n");  //*/
+    console_run();
     thread_hang();
 }
 

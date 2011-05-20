@@ -105,13 +105,6 @@ void irq_slave(void *stack) {
     irq_eoi();
 }
 
-void irq_timer(void *arg) {
-    static uint32_t counter = 0;
-    ++counter;
-    if (0 == (counter % 100)) 
-        k_printf("#IRQ0 Timer: %d\n", counter);
-}
-
 /**************** exceptions *****************/
 
 void int_dummy(void *stack) {
@@ -148,15 +141,12 @@ void int_nonmaskable(void ) {
     k_printf("#NM");
 }
 
-extern void *theIDT;
-
 void int_invalid_op(void *stack) {
     k_printf("\n#UD\n");
     k_printf("Interrupted at 0x%x : 0x%x\n",    
                 *((uint32_t *)stack + 11), 
                 *((uint32_t *)stack + 10) );
     print_mem(stack, 0x30);
-    //print_mem(theIDT, 0x80);
     thread_hang(); 
 }
 
@@ -173,8 +163,6 @@ void int_gpf(void *stack) {
 }
 
 
-#include <kbd.h>
-
 void intrs_setup(void) {
     //  remap interrupts   
     irq_remap(I8259A_BASE, I8259A_BASE + 8);
@@ -186,9 +174,11 @@ void intrs_setup(void) {
     for (i = 8; i < 16; ++i)
         irq[i] = irq_slave;
 
-    irq_set_handler(0, irq_timer);
-    irq_set_handler(1, irq_keyboard);
-
     idt_setup();
     idt_deploy();
+
+#ifdef VERBOSE
+    k_printf("\nIDT:");
+    print_mem((char *)theIDT, 0x20);
+#endif
 }

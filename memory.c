@@ -3,9 +3,9 @@
 
 #include <memory.h>
 
-/**
+/***
   *     Internal declarations
-  */
+ ***/
 
 const struct selector SEL_KERN_CS = { .index = GDT_KERN_CS, .local_bit = 0, .dpl = PL_KERN };
 const struct selector SEL_KERN_DS = { .index = GDT_KERN_DS, .local_bit = 0, .dpl = PL_KERN };
@@ -84,5 +84,9 @@ void memory_setup(void) {
     //segdescr_init(theGDT + (DEFAULT_LDT >> 3), SYS_SEGDESC, 0xFFFFF, 0x0, SEGDESCR_TYPE_RW_DATA, PL_USER, SEGDESC_4KB_GRANULARITY);
 
 	gdt_load(N_GDT, theGDT);
+#ifdef VERBOSE
+    k_printf("\nGDT:");
+    print_mem((char *)theGDT, 0x40);
+#endif
 }
 
