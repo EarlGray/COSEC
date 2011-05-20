@@ -3,13 +3,7 @@
 
 #define thread_hang()   \
     asm volatile ("1:    hlt\n\tjmp 1b\n" ::)
-
-#define lidt(ptr)   \
-{} //asm ("lidt %0 \n" : : "p"((int)ptr))
         
-#define lgdt(ptr)   \
-    asm ("lgdt (%0)\n" : : "p"(ptr)) 
-
 #define inb(port, value) \
     asm volatile ("inb %%dx,%%al\n": "=a"(value): "d"(port))
 
@@ -36,5 +30,8 @@
 
 #define intrs_disable() \
     asm ("\t cli \n")                                                       
+
+#define cpu_halt() \
+    asm ("\t hlt \n")
 
 #endif // __ASM_H

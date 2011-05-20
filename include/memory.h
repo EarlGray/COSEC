@@ -9,7 +9,7 @@
  *   - basic selectors constants;
  */
 
-#include <misc.h>
+#include <defs.h>
 
 //	privilege levels
 enum privilege_level {

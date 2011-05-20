@@ -1,5 +1,5 @@
 #include <timer.h>
-#include <misc.h>
+#include <defs.h>
 #include <intrs.h>
 
 timer_event_f timers[N_TIMERS] = { 0 };
@@ -28,8 +28,8 @@ void timer_irq(void *arg) {
     static uint32_t counter = 0;
     ++counter;
 
-    int i;
+    /*int i;
     for (i = 0; i < N_TIMERS; ++i)
-        timers[i](counter);
+        timers[i](counter); */
 }
 

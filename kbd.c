@@ -28,13 +28,15 @@ scancode_t kbd_pop_scancode(void) {
     }
 }
 
+#define next_circular(var, limit) \
+        (((var) != (limit-1)) ? ++(var) : ((var) = 0) )
+
 static void kbd_push_scancode(scancode_t scan_id) {
-    if (theKbdBuf.tail - theKbdBuf.head != 1) {    // if there is room for a new scancode
-        if (theKbdBuf.head != KBD_BUF_SIZE-1)      // if append not at border of buf
-            theKbdBuf.buf[ ++theKbdBuf.head ] = scan_id;
-        else if (theKbdBuf.tail != 0) 
-            theKbdBuf.buf [ theKbdBuf.head = 0 ] = scan_id;
-    }
+    if (theKbdBuf.tail == theKbdBuf.head+1) 
+        next_circular(theKbdBuf.tail, KBD_BUF_SIZE);
+        
+    // if append not at border of buf
+    theKbdBuf.buf[ next_circular(theKbdBuf.head, KBD_BUF_SIZE) ] = scan_id;
 }
 
 
@@ -57,19 +59,19 @@ const struct kbd_layout qwerty_layout = {
     .key = {
         { 0, 0, 0 },        { 0, 0, 0},         {'1', '!', 0 },     { '2', '@', 0 }, // 0
         { '3', '#', 0 },    { '4', '$', 0 },    { '5', '%', 0 },    { '6', '^', 0 }, // 4
-        { '7', '&', 0 },    { '8', '*', 0 },    { '9', '(', 0 },    { '0', ')', 0 }, // 8
+        { '7', '&', 0 },    { '8', '*', 0 },    { '9', '[', 0 },    { '0', ']', 0 }, // 8
         { '-', '_', 0 },    { '=', '+', 0 },    { '\b', '\b', 0 },  { 0, 0, 0 },     // 0xC
-        { 'q', 'Q', 0 },    { 'w', 'W', 0 },    { 'e', 'E', 0 },    { 'r', 'R', 0 }, // 0x10
-        { 't', 'T', 0 },    { 'y', 'Y', 0 },    { 'u', 'U', 0 },    { 'i', 'I', 0 },  // 0x14
-        { 'o', 'O', 0 },    { 'p', 'P', 0 },    { '[', '{', 0 },    { ']', '}', 0 },  // 0x18
-        { '\n', '\n', 0 },  { 0, 0, 0 },        { 'a', 'A', 1 },    { 's', 'S', 0 },  // 0x1C
-        { 'd', 'D', 0 },    { 'f', 'F', 0 },    { 'g', 'G', 0 },    { 'h', 'H', 0 },  // 0x20
-        { 'j', 'J', 0 },    { 'k', 'K', 0 },    { 'l', 'L', 0 },    { ';', ':', 0 },  // 0x24
-        { '\'', '"', 0 },   { 0, 0, 0 },        { 0, 0, 0 },        { '\\', '|', 0 },  // 0x28
-        { 'z', 'Z', 0 },    { 'x', 'X', 0 },    { 'c', 'C', 0 },    { 'v', 'V', 0 },  // 0x2C
-        { 'b', 'B', 0 },    { 'n', 'N', 0 },    { 'm', 'M', 0 },    { ',', '<', 0 },  // 0x30
+        { 'q', 'Q', 16 },   { 'w', 'W', 21 },   { 'e', 'E', 5 },    { 'r', 'R', 17 },// 0x10
+        { 't', 'T', 19 },   { 'y', 'Y', 23 },   { 'u', 'U', 20 },   { 'i', 'I', 9 }, // 0x14
+        { 'o', 'O', 14 },   { 'p', 'P', 15 },   { '(', '{', 0 },    { ')', '}', 0 }, // 0x18
+        { '\n', '\n', 0 },  { 0, 0, 0 },        { 'a', 'A', 1 },    { 's', 'S', 18 },// 0x1C
+        { 'd', 'D', 4 },    { 'f', 'F', 6 },    { 'g', 'G', 7 },    { 'h', 'H', 8 }, // 0x20
+        { 'j', 'J', 10 },   { 'k', 'K', 11 },   { 'l', 'L', 12 },   { ':', ';', 0 }, // 0x24
+        { '\'', '"', 0 },   { 0, 0, 0 },        { 0, 0, 0 },        { '\\', '|', 0 }, // 0x28
+        { 'z', 'Z', 24 },   { 'x', 'X', 22 },   { 'c', 'C', 3 },    { 'v', 'V', 0 }, // 0x2C
+        { 'b', 'B', 2 },    { 'n', 'N', 12 },   { 'm', 'M', 13 },   { ',', '<', 0 }, // 0x30
         { '.', '>', 0 },    { '/', '?', 0 },    { 0, 0, 0 },        { 0, 0, 0 },  // 0x34
-        { 0, 0, 0 }, { 0, 0, 0 },  { 0, 0, 0 }, { 0, 0, 0 },  // 0x38
+        { 0, 0, 0 }, { ' ', ' ', 0 },  { 0, 0, 0 }, { 0, 0, 0 },  // 0x38
         { 0, 0, 0 }, { 0, 0, 0 },  { 0, 0, 0 }, { 0, 0, 0 },  // 0x3C
 
         { 0, 0, 0 }, { 0, 0, 0 },  { 0, 0, 0 }, { 0, 0, 0 },  // 0x40
@@ -91,11 +93,16 @@ const struct kbd_layout qwerty_layout = {
     }
 };
 
+static bool transl_debug = false;
+
 char translate_from_scan(struct kbd_layout *layout, scancode_t scan_code) {
     if (layout == null) layout = &qwerty_layout;
 
+    if (transl_debug) 
+        k_printf("\nqwerty: %x -> %x \n", (uint32_t)scan_code, (uint32_t)(layout->key[scan_code].normal)); 
+
     if (kbd_state_ctrl()) 
-        return layout->key[scan_code].ctrl;
+        return layout->key[scan_code].ctrl; //*/
     if (kbd_state_shift())
         return layout->key[scan_code].shift;
     return layout->key[scan_code].normal;
@@ -112,7 +119,7 @@ inline bool kbd_state_shift(void) {
 	return theKeyboard[0x2A] | theKeyboard[0x36];
 }
 
-inline void kbd_state_ctrl(void) {
+inline bool kbd_state_ctrl(void) {
     return theKeyboard[0x1D]; //| theKeyboard[0x ]
 }
 
@@ -129,22 +136,31 @@ void kbd_set_oprelease(kbd_event_f onrelease) {
 	on_release = onrelease;
 }
 
+static void kbd_hotkeys(scancode_t scancode) {
+    switch (scancode) {
+    case 1:
+        transl_debug = not(transl_debug);
+        return;
+    }
+}
+
 void keyboard_irq(void *arg) {
 	uint8_t scan_code = 0;
 	inb(0x60, scan_code);
-	if (scan_code & 0x7F) {
+	if (!(scan_code & 0x80)) {
 		/* on press event */
-		theKeyboard[scan_code] = true;
         kbd_push_scancode(scan_code);
+		theKeyboard[scan_code] = true;
+        
+        kbd_hotkeys(scan_code);
         if (on_press)
             on_press(scan_code);
-        k_printf("0x%x\n", (uint32_t)scan_code);
 	}	
 	else {
 		/* on release event */
+        kbd_push_scancode(scan_code);
 		scan_code &= 0x7F;
 		theKeyboard[scan_code] = false;
-        kbd_push_scancode(scan_code);
         if (on_release)
             on_release(scan_code);
 	}

@@ -147,6 +147,7 @@ void k_printf(const char *fmt, ...) {
 		}
 		++s;	
 	}
+    update_hw_cursor();
 }
 
 /* Updates the hardware cursor: the little blinking line

@@ -1,7 +1,7 @@
 #ifndef __TIMER_H__
 #define __TIMER_H__
 
-#include <misc.h>
+#include <defs.h>
 
 #define N_TIMERS    20
 

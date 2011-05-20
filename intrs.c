@@ -5,7 +5,7 @@
  *  TODO: separate pic.c
  */
 
-#include <misc.h>
+#include <defs.h>
 #include <asm.h>
 
 #include <intrs.h>
@@ -85,7 +85,7 @@ inline void irq_eoi(void) {
 }
 
 void irq_handler(uint32_t irq_num) {
-    if (irq_num != 0) k_printf("#IRQ%x ", irq_num);
+    //if (irq_num != 0) k_printf("#IRQ%x ", irq_num);
     intr_handler_f callee = irq[irq_num];
     callee(0);
     irq_eoi();
@@ -176,9 +176,4 @@ void intrs_setup(void) {
 
     idt_setup();
     idt_deploy();
-
-#ifdef VERBOSE
-    k_printf("\nIDT:");
-    print_mem((char *)theIDT, 0x20);
-#endif
 }

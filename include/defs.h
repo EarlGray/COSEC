@@ -13,6 +13,7 @@ typedef unsigned int	size_t;
 typedef char bool;
 #define true 1
 #define false 0
+#define not(b) (1-(b))
 
 #define null ((void *)0)
 

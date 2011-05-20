@@ -12,7 +12,7 @@
  */
 
 #include <idt.h>
-#include <misc.h>
+#include <defs.h>
 #include <memory.h>
 #include <intr.h>
 #include <intrs.h>
@@ -71,7 +71,13 @@ void idt_setup(void) {
 
     /* 0xSYS_INT : system call entry */
     idt_set_gate(SYS_INT, GATE_CALL, syscallentry);
+
+#ifdef VERBOSE
+    k_printf("\nIDT:");
+    print_mem((char *)theIDT, 0x20);
+#endif
 }
+
 
 extern void idt_load(uint16_t limit, uint32_t addr);
 

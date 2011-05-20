@@ -1,6 +1,6 @@
 #include <console.h>
 #include <stdio.h>
-#include <misc.h>
+#include <defs.h>
 
 #define ever (;;)
 
@@ -22,14 +22,16 @@ void console_readline(char *buf, size_t size) {
            
         switch (c) {
         case '\n': 
-            cur[1] = 0;
+            cur[0] = 0;
+            k_printf("\n");
             return;
         case '\b':
-            --cur;
+            if (cur == buf) break;
             k_printf("\b \b");
+            --cur;
             break;
         default:
-            if (cur - buf < size - 1) {
+            if (cur - buf + 1 < size) {
                 *cur = c;
                 ++cur;
                 putchar(c);
@@ -39,7 +41,7 @@ void console_readline(char *buf, size_t size) {
 }
 
 static void console_setup(void) {
-    kbd_setup();
+    //
 }
 
 #define CMD_SIZE    256
