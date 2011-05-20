@@ -32,7 +32,7 @@ log_name	:= fail.log
 objdump     := $(kernel).objd
 
 run:	$(image)
-	@echo -e "\n#### Running..."
+	@echo "\n#### Running..."
 	@if [ `which NO_VBoxManage 2>/dev/null` ]; then 	\
 		if [ -z "`VBoxManage list vms | grep $(vbox_name)`" ]; then	\
 			VBoxManage createvm --name $(vbox_name) --register;	\
@@ -54,7 +54,7 @@ vboxrun:	$(image)
 	
 
 $(image):	$(kernel) 
-	### Check if there is an image
+	@echo "\n### Check if there is an image"
 	@if [ ! -e $(image) ]; then	\
         echo -en "\n#### Generating image...\t\t"; \
 		cp res/fd.img.bz2 .;	\
@@ -78,23 +78,28 @@ umount:
 VPATH	:= 	../
 
 $(kernel): $(build) $(objs)
-	$(ld) -o $(build)/$(kernel)	$(objs) $(ld_flags) && \
-	if [ `which objdump 2>/dev/null` ]; then objdump -d $(kernel) > $(objdump); fi
-	if [ `which ctags 2>/dev/null ` ]; then ctags * -R; fi
+	@echo "\n### Linking..."
+	@echo -n "LD: "
+	$(ld) -o $(build)/$(kernel)	$(objs) $(ld_flags) 
+	@if [ `which objdump 2>/dev/null` ]; then objdump -d $(kernel) > $(objdump); fi
+	@if [ `which ctags 2>/dev/null ` ]; then ctags * -R; fi
 	
 $(build):
+	@echo "\n### Compiling..."
 	mkdir -p $(build)
 	
 %.o : %.c
+	@echo -n "CC: "
 	$(cc) $< -o $(build)/$@ $(cc_flags) $(addprefix -I, $(include_dir))
 
 %.o : %.S
+	@echo -n "AS: "
 	$(as) $< -o $(build)/$@ $(as_flags) $(addprefix -I, $(include_dir))
 
 .PHONY: clean
 clean:
 	rm -rf $(build)/*.[od]
-	#rm -rf $(build)/$(kernel)
+	@#rm -rf $(build)/$(kernel)
 
 include $(wildcard $(addprefix /*.d, $(build)))
 

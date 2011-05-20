@@ -8,35 +8,12 @@
 
 #include <console.h>
 
-void print_welcome()
-{
-    set_cursor_attr(0x80);
-    clear_screen();
-
-    int i;
-    for (i = 0; i < 18; ++i) k_printf("\n");
-
-    k_printf("\t\t\t\t   O_o\n");
-    k_printf("\t\t\t<<<<< Welcome to COSEC >>>>> \n\n");
-}
-
-void print_mem(char *p, size_t count) {
-    int i;
-    for (i = 0; i < count; ++i) {
-        if (0 == (uint32_t)(p + i) % 0x10) 
-            k_printf("\n%x : ", (uint32_t)(p + i));
-        int t = (uint8_t) p[i];
-        k_printf("%x ", t);
-    }
-    k_printf("\n");
-}
-
 void kmain(uint32_t magic, uint32_t mbi_addr)
 {
     multiboot_info_t *mbi = (multiboot_info_t *) mbi_addr;
         
     if (magic != MULTIBOOT_BOOTLOADER_MAGIC) {
-        print_at(0, 10, "invalid boot");
+        k_printf("invalid boot");
         return;
     }
 

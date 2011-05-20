@@ -1,6 +1,20 @@
 #include <console.h>
 #include <stdio.h>
+#include <screen.h>
 #include <defs.h>
+
+void print_welcome()
+{
+    set_cursor_attr(0x80);
+    clear_screen();
+
+    int i;
+    for (i = 0; i < 18; ++i) k_printf("\n");
+
+    k_printf("\t\t\t\t   O_o\n");
+    k_printf("\t\t\t<<<<< Welcome to COSEC >>>>> \n\n");
+}
+
 
 #define ever (;;)
 
@@ -36,7 +50,7 @@ void console_readline(char *buf, size_t size) {
             console_write(buf);
             break;
         default:
-            if (cur - buf + 1 < size) {
+            if (cur - buf + 1 < (int)size) {
                 *cur = c;
                 ++cur;
                 putchar(c);

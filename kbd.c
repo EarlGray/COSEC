@@ -4,6 +4,8 @@
 
 #define KEY_COUNT   	128
 
+extern void k_printf(const char *fmt, ...);
+
 /*************** Keyboard buffer ****************/
 
 #define KBD_BUF_SIZE    256 
@@ -95,17 +97,18 @@ const struct kbd_layout qwerty_layout = {
 
 static bool transl_debug = false;
 
-char translate_from_scan(struct kbd_layout *layout, scancode_t scan_code) {
+char translate_from_scan(const struct kbd_layout *layout, scancode_t scan_code) {
     if (layout == null) layout = &qwerty_layout;
 
     if (transl_debug) 
         k_printf("\nqwerty: %x -> %x \n", (uint32_t)scan_code, (uint32_t)(layout->key[scan_code].normal)); 
 
+    const struct scan_key *key = (layout->key + scan_code);
     if (kbd_state_ctrl()) 
-        return layout->key[scan_code].ctrl; //*/
+        return key->ctrl; //*/
     if (kbd_state_shift())
-        return layout->key[scan_code].shift;
-    return layout->key[scan_code].normal;
+        return key->shift;
+    return key->normal;
 }
 
 /************* Keyboard driver ******************/
@@ -144,7 +147,7 @@ static void kbd_hotkeys(scancode_t scancode) {
     }
 }
 
-void keyboard_irq(void *arg) {
+void keyboard_irq() {
 	uint8_t scan_code = 0;
 	inb(0x60, scan_code);
 	if (!(scan_code & 0x80)) {

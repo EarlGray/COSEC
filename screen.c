@@ -117,7 +117,7 @@ void k_printf(const char *fmt, ...) {
 			set_cursor_x(TAB_INDENT * (1 + get_cursor_x()/TAB_INDENT));
 			break;
 		case '\b':
-            if ((get_cursor_x() == 0) && (get_cursor_y != 0))
+            if ((get_cursor_x() == 0) && (get_cursor_y() != 0))
                 move_cursor_to(SCR_WIDTH - 1, get_cursor_y()-1);
             else
 			    set_cursor_x(get_cursor_x() - 1);

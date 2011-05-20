@@ -17,4 +17,7 @@ typedef char bool;
 
 #define null ((void *)0)
 
+extern void* memset(void *s, int c, size_t n);
+extern void k_printf(const char *fmt, ...);
+
 #endif // __MISC_H

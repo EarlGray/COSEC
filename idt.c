@@ -55,6 +55,11 @@ inline void idt_set_gates(uint8_t start, uint16_t end, enum gatetype type, intr_
         idt_set_gate(i, type, intr_entry);
 }
 
+#ifdef VERBOSE
+void k_printf(const char *fmt, ...);
+void print_mem(char *, uint limit);
+#endif
+
 void idt_setup(void) {
     int i;
     /* 0x00 - 0x1F : exceptions entry points */

@@ -24,7 +24,7 @@ void timer_setup(void) {
     irq_set_handler(0, timer_irq);
 }
 
-void timer_irq(void *arg) {
+void timer_irq() {
     static uint32_t counter = 0;
     ++counter;
 

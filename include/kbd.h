@@ -24,9 +24,9 @@ scancode_t kbd_pop_scancode(void);
 /************  layouts  *************/
 struct kbd_layout;
 // if layout is null, uses default
-char translate_from_scan(struct kbd_layout *layout, scancode_t scan_code);
+char translate_from_scan(const struct kbd_layout *layout, scancode_t scan_code);
 
-void keyboard_irq(void *);
+void keyboard_irq();
 void kbd_setup(void);
 
 #endif //__KBD_H__

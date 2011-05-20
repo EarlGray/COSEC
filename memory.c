@@ -39,7 +39,18 @@ memset(void *s, int c, size_t n) {
     return s;
 }
 
-extern void gdt_load(uint16_t limit, uint32_t base);
+void print_mem(char *p, size_t count) {
+    size_t i;
+    for (i = 0; i < count; ++i) {
+        if (0 == (uint32_t)(p + i) % 0x10) 
+            k_printf("\n%x : ", (uint32_t)(p + i));
+        int t = (uint8_t) p[i];
+        k_printf("%x ", t);
+    }
+    k_printf("\n");
+}
+
+extern void gdt_load(uint16_t limit, void *base);
 
 inline void
 segdescr_init(struct segdescr *seg, enum segdesc segtype, uint32_t limit, uint32_t base, enum segdesc_type type, uint8_t dpl, uint8_t granularity) { 
@@ -70,7 +81,7 @@ struct gdt_ptr {
 } __attribute__((packed));
 
 extern void gdt_get(struct gdt_ptr *idt);
-extern void print_mem(uint32_t ptr, size_t count);
+extern void print_mem(char *, size_t);
 
 void memory_setup(void) {
     struct gdt_ptr gdt;
