@@ -12,6 +12,13 @@ Tools, languages and platform used:
 - loaded with GRUB, multiboot specification;
 
 Features:
-...oops, I've got nothing to say here
+- interrupts set, keyboard works.
+Nothing more yet.
 
-System had run in VirtualBox and qemu for now.
+How to run it.
+You need just basic tools (GNU make, gcc) for compilation. To run it, you need
+VirtualBox 3, QEMU or Bochs installed. Default action of Makefile is running kernel,
+so you just need to do
+     $ make
+Please report issues.
+

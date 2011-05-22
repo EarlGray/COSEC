@@ -6,7 +6,7 @@ cc  :=  gcc
 as  :=  gcc
 ld  :=  ld
 
-cc_flags    := -c -ffreestanding -nostdinc -Wall -Wextra -Winline -MD -O2 #-fdump-tree-gimple
+cc_flags    := -c -ffreestanding -nostdinc -nostdlib -Wall -Wextra -Winline -MD -O2 #-fdump-tree-gimple
 as_flags    := -c -Wall -MD 
 ld_flags    := -static -nostdlib -Ttext=0x110000  #-s
 
