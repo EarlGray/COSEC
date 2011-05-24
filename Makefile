@@ -1,6 +1,6 @@
 include_dir     := ./include
 src_dir         := .
-build           := .
+build           := ./build
 
 cc  :=  gcc
 as  :=  gcc
@@ -15,12 +15,12 @@ cc_flags 	+= -m32
 as_flags	+= -m32
 ld_flags	+= --oformat=elf32-i386 -melf_i386
 
-objs        := $(addsuffix /sluice.S, $(build))                                      # must come first
-objs		+= $(patsubst ../%, %, $(wildcard $(addsuffix /[^s]*.S, $(build))))		 # no s*.S files to make sliuce.S first :(
-objs		+= $(patsubst ../%, %, $(wildcard $(addsuffix /*.c, $(build))))
+objs		:= $(src_dir)/sluice.S
+objs		+= $(wildcard $(src_dir)/[^s]*.S)
+objs		+= $(wildcard $(src_dir)/*.c)
 
-objs		:= $(objs:.S=.o)
-objs		:= $(objs:.c=.o)
+objs		:= $(patsubst $(src_dir)/%.S, $(build)/%.o, $(objs))
+objs		:= $(patsubst $(src_dir)/%.c, $(build)/%.o, $(objs))
 
 kernel      := kernel
 
@@ -33,25 +33,18 @@ objdump     := $(kernel).objd
 
 run:	$(image)
 	@echo "\n#### Running..."
-	@if [ `which NO_VBoxManage 2>/dev/null` ]; then 	\
-		if [ -z "`VBoxManage list vms | grep $(vbox_name)`" ]; then	\
-			VBoxManage createvm --name $(vbox_name) --register;	\
-			VBoxManage modifyvm $(vbox_name)			\
-				--memory 32 --floppy `pwd`/$(image);	\
-		fi; 					\
-		VBoxManage startvm $(vbox_name) 2>&1 | tee $(log_name);	\
-		rm -f 2011*;	\
-	else \
-	if [ `which NO_bochs 2>/dev/null` ]; then 	\
+	@if [ `which NO_bochs 2>/dev/null` ]; then 	\
 		bochs 2>&1 | tee $(log_name);	\
 	else \
 	if [ `which qemu 2>/dev/null` ]; then	\
 		qemu -fda $(image) -boot a;	\
-	else echo "Error: qemu or VirtualBox must be installed";\
+	else \
+	if [ `which VBoxManage 2>/dev/null` ]; then 	\
+		VBoxManage startvm $(vbox_name) 2>&1 | tee $(log_name);	\
+		rm -f 2011*;	\
+	else \
+		echo "Error: qemu or VirtualBox must be installed";\
 	fi; fi; fi
-
-vboxrun:	$(image)
-	
 
 $(image):	$(kernel) 
 	@echo "\n### Check if there is an image"
@@ -64,12 +57,15 @@ $(image):	$(kernel)
 		echo -e "[ready]\n";	\
 	fi
 	@if [ ! -d $(build) ]; then mkdir $(build); fi
-	make mount && sudo cp $(build)/$(kernel) $(mnt_dir) && make umount
+	@make mount
+	@if [ -r $(build)/$(kernel) ]; then from=$(build)/$(kernel);	\
+	else if [ -r $(kernel) ]; then from=$(kernel); fi; fi;	\
+	sudo cp $$from $(mnt_dir) && echo "\n### Copied"
+	@make umount
 
 mount:  
 	@mkdir -p $(mnt_dir)
-	@sudo mount -o loop $(image) $(mnt_dir)
-	@echo "Image mounted."
+	@sudo mount -o loop $(image) $(mnt_dir) && echo "Image mounted."
 
 umount:
 	@sudo umount $(mnt_dir) || /bin/true
@@ -81,25 +77,27 @@ $(kernel): $(build) $(objs)
 	@echo "\n### Linking..."
 	@echo -n "LD: "
 	$(ld) -o $(build)/$(kernel)	$(objs) $(ld_flags) 
-	@if [ `which objdump 2>/dev/null` ]; then objdump -d $(kernel) > $(objdump); fi
+	@if [ `which objdump 2>/dev/null` ]; then objdump -d $(build)/$(kernel) > $(objdump); fi
 	@if [ `which ctags 2>/dev/null ` ]; then ctags * -R; fi
 	
 $(build):
 	@echo "\n### Compiling..."
+	@echo $(objs)
 	mkdir -p $(build)
 	
-%.o : %.c
+$(build)/%.o : $(src_dir)/%.c
 	@echo -n "CC: "
-	$(cc) $< -o $(build)/$@ $(cc_flags) $(addprefix -I, $(include_dir))
+	$(cc) $< -o $@ $(cc_flags) -MT $(build)/$@ $(addprefix -I, $(include_dir))
 
-%.o : %.S
+$(build)/%.o : $(src_dir)/%.S
 	@echo -n "AS: "
-	$(as) $< -o $(build)/$@ $(as_flags) $(addprefix -I, $(include_dir))
+	$(as) $< -o $@ -MT $(build)/$@ $(as_flags) $(addprefix -I, $(include_dir))
 
 .PHONY: clean
 clean:
 	rm -rf $(build)/*.[od]
-	@#rm -rf $(build)/$(kernel)
+	mv $(build)/$(kernel) $(kernel)
+	rmdir $(build)
 
 include $(wildcard $(addprefix /*.d, $(build)))
 
