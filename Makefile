@@ -31,6 +31,8 @@ image       := cosec.img
 log_name	:= fail.log
 objdump     := $(kernel).objd
 
+.PHONY: run mount umount clean
+
 run:	$(image)
 	@echo "\n#### Running..."
 	@if [ `which NO_bochs 2>/dev/null` ]; then 	\
@@ -71,8 +73,6 @@ umount:
 	@sudo umount $(mnt_dir) || /bin/true
 	@rmdir $(mnt_dir)
 	
-VPATH	:= 	../
-
 $(kernel): $(build) $(objs)
 	@echo "\n### Linking..."
 	@echo -n "LD: "
@@ -93,7 +93,6 @@ $(build)/%.o : $(src_dir)/%.S
 	@echo -n "AS: "
 	$(as) $< -o $@ -MT $(build)/$@ $(as_flags) $(addprefix -I, $(include_dir))
 
-.PHONY: clean
 clean:
 	rm -rf $(build)/*.[od]
 	mv $(build)/$(kernel) $(kernel)
