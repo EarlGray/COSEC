@@ -1,6 +1,7 @@
-include_dir     := ./include
-src_dir         := .
-build           := ./build
+export top_dir		:= .
+export include_dir  := $(top_dir)/include
+export src_dir      := $(top_dir)
+export build        := $(top_dir)/build
 
 cc  :=  gcc
 as  :=  gcc
@@ -8,7 +9,7 @@ ld  :=  ld
 
 cc_flags    := -c -ffreestanding -nostdinc -nostdlib -Wall -Wextra -Winline -MD -O2 #-fdump-tree-gimple
 as_flags    := -c -Wall -MD 
-ld_flags    := -static -nostdlib -Ttext=0x110000  #-s
+ld_flags    := -static -nostdlib -Ttext=0x100000  #-s
 
 # for 64bit host
 cc_flags 	+= -m32
@@ -21,6 +22,8 @@ objs		+= $(wildcard $(src_dir)/*.c)
 
 objs		:= $(patsubst $(src_dir)/%.S, $(build)/%.o, $(objs))
 objs		:= $(patsubst $(src_dir)/%.c, $(build)/%.o, $(objs))
+
+subdirs		:= dev
 
 kernel      := kernel
 
@@ -35,15 +38,15 @@ objdump     := $(kernel).objd
 
 run:	$(image)
 	@echo "\n#### Running..."
-	@if [ `which NO_bochs 2>/dev/null` ]; then 	\
+	@if [ `which bochs 2>/dev/null` ]; then 	\
 		bochs 2>&1 | tee $(log_name);	\
+	else \
+	if [ `which NO_VBoxManage 2>/dev/null` ]; then 	\
+		VBoxManage startvm $(vbox_name) 2>&1 | tee $(log_name);	\
+		rm -f 2011*;	\
 	else \
 	if [ `which qemu 2>/dev/null` ]; then	\
 		qemu -fda $(image) -boot a;	\
-	else \
-	if [ `which VBoxManage 2>/dev/null` ]; then 	\
-		VBoxManage startvm $(vbox_name) 2>&1 | tee $(log_name);	\
-		rm -f 2011*;	\
 	else \
 		echo "Error: qemu or VirtualBox must be installed";\
 	fi; fi; fi
@@ -72,8 +75,12 @@ mount:
 umount:
 	@sudo umount $(mnt_dir) || /bin/true
 	@rmdir $(mnt_dir)
+
+$(subdirs):
+	for sub in $(subdirs) ; do		\
+		cd $$sub && make; done
 	
-$(kernel): $(build) $(objs)
+$(kernel): $(build) $(objs) 
 	@echo "\n### Linking..."
 	@echo -n "LD: "
 	$(ld) -o $(build)/$(kernel)	$(objs) $(ld_flags) 
@@ -82,7 +89,6 @@ $(kernel): $(build) $(objs)
 	
 $(build):
 	@echo "\n### Compiling..."
-	@echo $(objs)
 	mkdir -p $(build)
 	
 $(build)/%.o : $(src_dir)/%.c

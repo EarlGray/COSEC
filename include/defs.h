@@ -19,5 +19,6 @@ typedef char bool;
 
 extern void* memset(void *s, int c, size_t n);
 extern void k_printf(const char *fmt, ...);
+extern void panic(const char *fatal_error);
 
 #endif // __MISC_H

@@ -1,7 +1,7 @@
 #include <asm.h>
 #include <screen.h>
 
-#include <memory.h>
+#include <gdt.h>
 
 /***
   *     Internal declarations
@@ -83,7 +83,7 @@ struct gdt_ptr {
 extern void gdt_get(struct gdt_ptr *idt);
 extern void print_mem(char *, size_t);
 
-void memory_setup(void) {
+void gdt_setup(void) {
     struct gdt_ptr gdt;
     gdt_get(&gdt);
     

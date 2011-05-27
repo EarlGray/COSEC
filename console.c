@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <screen.h>
 #include <defs.h>
+#include <kshell.h>
 
 void print_welcome()
 {
@@ -65,14 +66,16 @@ static void console_setup(void) {
 
 #define CMD_SIZE    256
 
-void console_run(void) {
+void console_run(const char *kcmdline) {
     char cmd_buf[CMD_SIZE] = { 0 };
       
     console_setup();
     
+    k_printf("kernel cmdline:\n%s\n", kcmdline);
+    
     for ever {
         console_write(prompt);
         console_readline(cmd_buf, CMD_SIZE);
-        console_writeline(cmd_buf);
+        kshell_do(cmd_buf);
     }
 }

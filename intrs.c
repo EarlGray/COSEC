@@ -9,7 +9,7 @@
 #include <asm.h>
 
 #include <intrs.h>
-#include <memory.h>
+#include <gdt.h>
 #include <idt.h>
 
 #define ICW1_ICW4       0x01
@@ -85,7 +85,6 @@ inline void irq_eoi(void) {
 }
 
 void irq_handler(uint32_t irq_num) {
-    //if (irq_num != 0) k_printf("#IRQ%x ", irq_num);
     intr_handler_f callee = irq[irq_num];
     callee(0);
     irq_eoi();
