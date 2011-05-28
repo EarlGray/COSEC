@@ -38,10 +38,10 @@ objdump     := $(kernel).objd
 
 run:	$(image)
 	@echo "\n#### Running..."
-	@if [ `which bochs 2>/dev/null` ]; then 	\
+	@if [ `which NObochs 2>/dev/null` ]; then 	\
 		bochs 2>&1 | tee $(log_name);	\
 	else \
-	if [ `which NO_VBoxManage 2>/dev/null` ]; then 	\
+	if [ `which NOVBoxManage 2>/dev/null` ]; then 	\
 		VBoxManage startvm $(vbox_name) 2>&1 | tee $(log_name);	\
 		rm -f 2011*;	\
 	else \
@@ -100,8 +100,8 @@ $(build)/%.o : $(src_dir)/%.S
 	$(as) $< -o $@ -MT $(build)/$@ $(as_flags) $(addprefix -I, $(include_dir))
 
 clean:
-	rm -rf $(build)/*.[od]
-	mv $(build)/$(kernel) $(kernel)
+	rm -rf $(build)/* #.[od]
+	#mv $(build)/$(kernel) $(kernel)
 	rmdir $(build)
 
 include $(wildcard $(addprefix /*.d, $(build)))

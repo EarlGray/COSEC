@@ -76,5 +76,6 @@ extern const struct selector SEL_USER_CS;
 extern const struct selector SEL_USER_DS;
 
 void gdt_setup(void);
+void gdt_info(void);
 
 #endif // __MEMORY_H

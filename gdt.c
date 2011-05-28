@@ -95,9 +95,9 @@ void gdt_setup(void) {
     //segdescr_init(theGDT + (DEFAULT_LDT >> 3), SYS_SEGDESC, 0xFFFFF, 0x0, SEGDESCR_TYPE_RW_DATA, PL_USER, SEGDESC_4KB_GRANULARITY);
 
 	gdt_load(N_GDT, theGDT);
-#ifdef VERBOSE
-    k_printf("\nGDT:");
-    print_mem((char *)theGDT, 0x40);
-#endif
 }
 
+void gdt_info(void) {
+    k_printf("\nGDT is at 0x%x\n", (uint)theGDT);
+    print_mem((char *)theGDT, 0x40);
+}

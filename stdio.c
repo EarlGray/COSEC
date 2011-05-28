@@ -1,5 +1,6 @@
 #include <screen.h>
 #include <kbd.h>
+#include <asm.h>
 
 volatile char c = 0;
 
@@ -10,7 +11,7 @@ static void on_key_press(uint8_t scan_code) {
 int getchar(void) {
     kbd_set_onpress(on_key_press);
     c = 0;
-    while (c == 0) asm(" hlt \n");
+    while (c == 0) cpu_halt();
     kbd_set_onpress(null);
     return c;
 }

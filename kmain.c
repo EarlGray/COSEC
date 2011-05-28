@@ -17,6 +17,7 @@ void kmain(uint32_t magic, struct multiboot_info *mbi)
         k_printf("invalid boot");
         return;
     }
+    print_welcome();
 
     mboot_info_parse(mbi);
 
@@ -32,6 +33,6 @@ void kmain(uint32_t magic, struct multiboot_info *mbi)
     intrs_enable();
 
     /* do something useful */
-    console_run((const char *)mbi->cmdline);
+    console_run();
 }
 

@@ -115,19 +115,12 @@ void int_syscall() {
 }
 
 void int_odd_exception() {
-    k_printf("+");         //"INTR: odd exception\n");
-
-    /*volatile uint32_t a;
-    asm(" movl %%esp, %0 \n" : "=r"(a) : :);
-    for (a = 0; a < 40; ++a);
-    k_printf("Stack at 0x%x\n", a); // (uint32_t)stack);
-    print_mem((uint32_t)stack, 0x10);
-    thread_hang();      */
+    k_printf("+");
 }
 
 void int_double_fault() {
     k_printf("#DF\nDouble fault...\n");
-    thread_hang();
+    panic("DOUBLE FAULT");
 }
 
 void int_division_by_zero(void ) {
@@ -144,7 +137,6 @@ void int_invalid_op(void *stack) {
                 (uint) *((uint32_t *)stack + 11), 
                 (uint) *((uint32_t *)stack + 10) );
     print_mem((char *)stack, 0x30);
-    thread_hang(); 
 }
 
 void int_page_fault(void ) {

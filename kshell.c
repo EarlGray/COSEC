@@ -5,15 +5,19 @@
 #include <multiboot.h>
 #include <asm.h>
 
+#include <gdt.h>
+
 #include <std/string.h>
 
 void panic(const char *fatal_error) {
+    intrs_disable();
+
     set_cursor_attr(0x40);
     clear_screen();
-    k_printf("\n\t\tOOPS, kernel panic");
-    k_printf("\n\t\t%s\n\n", fatal_error);
+    k_printf("\n\n\t\t\t\t   O_o\n");
+    k_printf("\n\t\t\t   Ooos, kernel panic");
+    k_printf("\n\n\t%s\n", fatal_error);
 
-    intrs_disable();
     thread_hang();
 }
 
@@ -47,8 +51,11 @@ void kshell_info(struct kshell_command *this, const char *arg) {
         uint32_t stack;
         asm(" movl %%esp, %0 \n" : "=r"(stack));
         k_printf("stack at 0x%x\n", stack);
+    } else
+    if (!strcmp(arg, "gdt")) {
+        gdt_info();
     } else {
-        k_printf("Options: -\n\n");
+        k_printf("Options: gdt\n\n");
     }
 }
 

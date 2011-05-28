@@ -6,13 +6,12 @@
 
 void print_welcome()
 {
-    set_cursor_attr(0x80);
+    //set_cursor_attr(0x80);    // may cause errors on hardware
     clear_screen();
 
     int i;
     for (i = 0; i < 18; ++i) k_printf("\n");
 
-    k_printf("\t\t\t\t   O_o\n");
     k_printf("\t\t\t<<<<< Welcome to COSEC >>>>> \n\n");
 }
 
@@ -66,12 +65,10 @@ static void console_setup(void) {
 
 #define CMD_SIZE    256
 
-void console_run(const char *kcmdline) {
+void console_run(void) {
     char cmd_buf[CMD_SIZE] = { 0 };
       
     console_setup();
-    
-    k_printf("kernel cmdline:\n%s\n", kcmdline);
     
     for ever {
         console_write(prompt);
