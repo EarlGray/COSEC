@@ -9,6 +9,10 @@
 
 #include <std/string.h>
 
+/***
+  *     Panic
+ ***/
+
 void panic(const char *fatal_error) {
     intrs_disable();
 
@@ -21,12 +25,31 @@ void panic(const char *fatal_error) {
     thread_hang();
 }
 
+/***
+  *     Temporary kernel shell
+  *    @TODO: must be moved to userspace as soon as possible
+ ***/
+
 struct kshell_command {
     const char * name;
     void (*worker)(struct kshell_command *this, const char *arg);
     const char * description;
     const char * options;
 };
+
+void kshell_help();
+void kshell_info(struct kshell_command *, const char *);
+void kshell_mboot(struct kshell_command *, const char *);
+void kshell_panic();
+
+const struct kshell_command main_commands[] = {
+    {   .name = "mboot", .worker = kshell_mboot, .description = "show boot info", .options = "mmap"  },
+    {   .name = "info", .worker = kshell_info, .description = "various info"  },
+    {   .name = "panic", .worker = kshell_panic, .description = "test The Red Screen of Death"     },
+    {   .name = "help", .worker = kshell_help, .description = "show this help"   },
+    {   .name = null, .worker = 0    }
+};
+
 
 void kshell_mboot(struct kshell_command *this, const char *arg) {
     if (!strcmp(arg, "mmap")) {
@@ -67,16 +90,6 @@ void kshell_panic() {
     panic("THIS IS JUST A TEST");
 }
 
-void kshell_help();
-
-const struct kshell_command main_commands[] = {
-    {   .name = "mboot", .worker = kshell_mboot, .description = "show boot info", .options = "mmap"  },
-    {   .name = "info", .worker = kshell_info, .description = "various info"  },
-    {   .name = "panic", .worker = kshell_panic, .description = "test The Red Screen of Death"     },
-    {   .name = "help", .worker = kshell_help, .description = "show this help"   },
-    {   .name = null, .worker = 0    }
-};
-
 void kshell_help() {
     k_printf("Available commands:\n");
     struct kshell_command *cmd = main_commands;
@@ -88,7 +101,7 @@ void kshell_help() {
 }
 
 
-void kshell_do(char *command) {
+static char* get_args(char *command) {
     // find the first gap
     char *arg = command;
     while (*arg) {
@@ -99,8 +112,12 @@ void kshell_do(char *command) {
         }
         ++arg;
     }
-    // 
+    return arg;
+}
+
+void kshell_do(char *command) {
     const struct kshell_command *cmd = main_commands;
+    char *arg = get_args(command);
     while (cmd->name) {
         if (!strcmp(cmd->name, command)) {
             cmd->worker(cmd, arg);
