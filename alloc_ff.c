@@ -1,14 +1,14 @@
-#include <mm_firstfit.h>
+#include <mm/alloc_ff.h>
 
-#include <defs.h>
+#include <globl.h>
 
-#ifndef __MISC_H
+#ifndef __LANGEXT_H__
 typedef unsigned uint, size_t;
 typedef char bool;
 #define true    1
 #define false   0
 #define null ((void *)0)
-#endif
+#endif // __LANGEXT_H__
 
 /***
  *          Memory allocator with first-fit algorithm

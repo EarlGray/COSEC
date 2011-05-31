@@ -9,8 +9,6 @@
  *   - basic selectors constants;
  */
 
-#include <defs.h>
-
 //	privilege levels
 enum privilege_level {
     PL_KERN = 0,

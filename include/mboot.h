@@ -1,8 +1,6 @@
 #ifndef __MBOOT_H__
 #define __MBOOT_H__
 
-#include <defs.h>
-
 struct multiboot_info;
 
 const char * mboot_cmdline(void); 

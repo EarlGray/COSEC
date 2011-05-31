@@ -1,11 +1,12 @@
 #include <kshell.h>
-#include <defs.h>
-#include <screen.h>
+
+#include <globl.h>
 #include <mboot.h>
 #include <multiboot.h>
 #include <asm.h>
 
-#include <gdt.h>
+#include <mm/gdt.h>
+#include <dev/screen.h>
 
 #include <std/string.h>
 

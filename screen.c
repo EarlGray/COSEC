@@ -1,4 +1,5 @@
-#include <screen.h>
+#include <dev/screen.h>
+
 #include <asm.h>
 
 static uint16_t cursorX = 0;

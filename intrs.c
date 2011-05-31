@@ -5,12 +5,12 @@
  *  TODO: separate pic.c
  */
 
-#include <defs.h>
+#include <globl.h>
 #include <asm.h>
 
-#include <intrs.h>
-#include <gdt.h>
-#include <idt.h>
+#include <mm/gdt.h>
+#include <dev/intrs.h>
+#include <dev/idt.h>
 
 #define ICW1_ICW4       0x01
 #define ICW1_SINGLE     0x02        // 0x00 - cascade

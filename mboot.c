@@ -1,6 +1,6 @@
 #include <multiboot.h>
 #include <mboot.h>
-#include <defs.h>
+#include <globl.h>
 
 struct vbe_info {
 	void *control_info;

@@ -1,3 +1,7 @@
-#include <paging.h>
+#include <mm/paging.h>
+
+struct page {
+
+};
 
 

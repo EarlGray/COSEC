@@ -1,8 +1,6 @@
 #ifndef __TIMER_H__
 #define __TIMER_H__
 
-#include <defs.h>
-
 #define N_TIMERS    20
 
 typedef void (*timer_event_f)(uint32_t);

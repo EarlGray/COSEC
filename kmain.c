@@ -1,15 +1,16 @@
 #include <multiboot.h>
+#include <mboot.h>
 #include <asm.h>
-#include <gdt.h>
-#include <physmem.h>
-#include <intrs.h>
 
-#include <kbd.h>
-#include <timer.h>
+#include <mm/gdt.h>
+#include <mm/physmem.h>
+
+#include <dev/intrs.h>
+#include <dev/kbd.h>
+#include <dev/timer.h>
 
 #include <console.h>
 
-#include <mboot.h>
 
 void kmain(uint32_t magic, struct multiboot_info *mbi)
 {

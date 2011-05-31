@@ -7,8 +7,8 @@ cc  :=  gcc
 as  :=  gcc
 ld  :=  ld
 
-cc_flags    := -c -ffreestanding -nostdinc -nostdlib -Wall -Wextra -Winline -MD -O2 #-fdump-tree-gimple
-as_flags    := -c -Wall -MD 
+cc_flags    := -c -ffreestanding -nostdinc -nostdlib -Wall -Wextra -Winline -MD -O2 -include include/globl.h $(addprefix -I, $(include_dir)) #-fdump-tree-gimple
+as_flags    := -c -Wall -MD $(addprefix -I, $(include_dir))
 ld_flags    := -static -nostdlib -Ttext=0x100000  #-s
 
 # for 64bit host
@@ -93,11 +93,11 @@ $(build):
 	
 $(build)/%.o : $(src_dir)/%.c
 	@echo -n "CC: "
-	$(cc) $< -o $@ $(cc_flags) -MT $(build)/$@ $(addprefix -I, $(include_dir))
+	$(cc) $< -o $@ $(cc_flags) -MT $(build)/$@ 
 
 $(build)/%.o : $(src_dir)/%.S
 	@echo -n "AS: "
-	$(as) $< -o $@ -MT $(build)/$@ $(as_flags) $(addprefix -I, $(include_dir))
+	$(as) $< -o $@ $(as_flags) -MT $(build)/$@
 
 clean:
 	rm -rf $(build)/* #.[od]

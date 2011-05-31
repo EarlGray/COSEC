@@ -11,11 +11,11 @@
  *  linux's system gates), intr gates (interrupt gates, linux's interrupts)
  */
 
-#include <idt.h>
-#include <defs.h>
-#include <gdt.h>
-#include <intr.h>
-#include <intrs.h>
+#include <dev/idt.h>
+
+#include <mm/gdt.h>
+#include <dev/intr.h>
+#include <dev/intrs.h>
 
 /* IDT entry structure */
 struct gatedescr {

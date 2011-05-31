@@ -17,12 +17,15 @@ typedef void (*kbd_event_f)(scancode_t);
 void kbd_set_onpress(kbd_event_f onpress);
 void kbd_set_oprelease(kbd_event_f onrelease);
 
+
 /************  buffer   **************/
 
 scancode_t kbd_pop_scancode(void);
 
+
 /************  layouts  *************/
 struct kbd_layout;
+
 // if layout is null, uses default
 char translate_from_scan(const struct kbd_layout *layout, scancode_t scan_code);
 

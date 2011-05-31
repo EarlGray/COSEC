@@ -1,6 +1,6 @@
-#include <kbd.h>
+#include <dev/kbd.h>
+#include <dev/intrs.h>
 #include <asm.h>
-#include <intrs.h>
 
 #define KEY_COUNT   	128
 

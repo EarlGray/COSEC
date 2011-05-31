@@ -48,7 +48,7 @@ extern void syscallentry(void);     // for system call interrupt
 extern void dummyentry(void);       // for all unused software interrupts
 extern void isr14to1F(void);        // reserved
 
-#include <idt.h>
+#include <dev/idt.h>
 
 typedef void (*intr_entry_f)(void);
 

@@ -1,7 +1,6 @@
 #include <console.h>
-#include <stdio.h>
-#include <screen.h>
-#include <defs.h>
+#include <std/stdio.h>
+#include <dev/screen.h>
 #include <kshell.h>
 
 void print_welcome()

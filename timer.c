@@ -1,6 +1,6 @@
-#include <timer.h>
-#include <defs.h>
-#include <intrs.h>
+#include <dev/timer.h>
+
+#include <dev/intrs.h>
 
 timer_event_f timers[N_TIMERS] = { 0 };
 

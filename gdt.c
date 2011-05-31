@@ -1,7 +1,5 @@
 #include <asm.h>
-#include <screen.h>
-
-#include <gdt.h>
+#include <mm/gdt.h>
 
 /***
   *     Internal declarations

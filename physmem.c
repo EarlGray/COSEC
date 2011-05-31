@@ -1,5 +1,5 @@
-#include <physmem.h>
-#include <defs.h>
+#include <mm/physmem.h>
+
 #include <mboot.h>
 #include <multiboot.h>
 

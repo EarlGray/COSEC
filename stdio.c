@@ -1,5 +1,5 @@
-#include <screen.h>
-#include <kbd.h>
+#include <dev/screen.h>
+#include <dev/kbd.h>
 #include <asm.h>
 
 volatile char c = 0;
