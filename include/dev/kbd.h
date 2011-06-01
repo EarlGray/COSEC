@@ -1,8 +1,6 @@
 #ifndef __KBD_H__
 #define __KBD_H__
 
-#include <defs.h>
-
 typedef uint8_t scancode_t;
 
 bool kbd_state_shift(void);
