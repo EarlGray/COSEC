@@ -1,23 +1,23 @@
-#include <multiboot.h>
-#include <mboot.h>
-#include <asm.h>
+%:include <multiboot.h>
+%:include <mboot.h>
+%:include <asm.h>
 
-#include <mm/gdt.h>
-#include <mm/physmem.h>
+%:include <mm/gdt.h>
+%:include <mm/physmem.h>
 
-#include <dev/intrs.h>
-#include <dev/kbd.h>
-#include <dev/timer.h>
+%:include <dev/intrs.h>
+%:include <dev/kbd.h>
+%:include <dev/timer.h>
 
-#include <console.h>
+%:include <console.h>
 
 
 void kmain(uint32_t magic, struct multiboot_info *mbi)
-{
-    if (magic != MULTIBOOT_BOOTLOADER_MAGIC) {
+<%
+    if (magic != MULTIBOOT_BOOTLOADER_MAGIC) <%
         k_printf("invalid boot");
         return;
-    }
+    %>
     print_welcome();
 
     mboot_info_parse(mbi);
@@ -35,5 +35,5 @@ void kmain(uint32_t magic, struct multiboot_info *mbi)
 
     /* do something useful */
     console_run();
-}
+%>
 

@@ -28,8 +28,9 @@ void timer_irq() {
     static uint32_t counter = 0;
     ++counter;
 
-    /*int i;
+    int i;
     for (i = 0; i < N_TIMERS; ++i)
-        timers[i](counter); */
+        if (timers[i])
+            timers[i](counter); //*/
 }
 

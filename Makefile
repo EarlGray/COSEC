@@ -16,8 +16,8 @@ cc_flags 	+= -m32
 as_flags	+= -m32
 ld_flags	+= --oformat=elf32-i386 -melf_i386
 
-objs		:= $(src_dir)/sluice.S
-objs		+= $(wildcard $(src_dir)/[^s]*.S)
+objs		:= $(src_dir)/boot.S
+objs		+= $(wildcard $(src_dir)/[^b]*.S)
 objs		+= $(wildcard $(src_dir)/*.c)
 
 objs		:= $(patsubst $(src_dir)/%.S, $(build)/%.o, $(objs))
@@ -38,7 +38,7 @@ objdump     := $(kernel).objd
 
 run:	$(image)
 	@echo "\n#### Running..."
-	@if [ `which NObochs 2>/dev/null` ]; then 	\
+	@if [ `which bochs 2>/dev/null` ]; then 	\
 		bochs 2>&1 | tee $(log_name);	\
 	else \
 	if [ `which NOVBoxManage 2>/dev/null` ]; then 	\
