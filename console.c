@@ -15,7 +15,6 @@ void print_welcome()
     k_printf("\t\t\t<<<<< Welcome to COSEC >>>>> \n\n");
 }
 
-
 #define ever (;;)
 
 char *prompt = ">> ";

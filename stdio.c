@@ -17,7 +17,12 @@ int getchar(void) {
 }
 
 int putchar(int c) {
-    putc_at(get_cursor_x(), get_cursor_y(), (uint8_t)c, get_cursor_attr());
-    move_cursor_next();
+    cprint((uint8_t)c);
     return c;
 }
+
+/***
+  *     I/O
+ ***/
+
+

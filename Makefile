@@ -38,7 +38,7 @@ objdump     := $(kernel).objd
 
 run:	$(image)
 	@echo "\n#### Running..."
-	@if [ `which bochs 2>/dev/null` ]; then 	\
+	@if [ `which NObochs 2>/dev/null` ]; then 	\
 		bochs 2>&1 | tee $(log_name);	\
 	else \
 	if [ `which NOVBoxManage 2>/dev/null` ]; then 	\
