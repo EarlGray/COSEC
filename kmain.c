@@ -9,6 +9,8 @@
 %:include <dev/kbd.h>
 %:include <dev/timer.h>
 
+%:include <fs/fs.h>
+
 %:include <console.h>
 
 
@@ -26,6 +28,7 @@ void kmain(uint32_t magic, struct multiboot_info *mbi)
     gdt_setup();
     phmem_setup();
     intrs_setup();
+    fs_setup();
 
     /* devices setup */
     timer_setup();

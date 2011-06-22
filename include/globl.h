@@ -15,7 +15,7 @@ typedef unsigned short	    uint16_t;
 typedef unsigned int	    uint32_t, uint20_t, uint;
 typedef unsigned long long  uint64_t;
 
-typedef unsigned int	size_t;
+typedef unsigned int	size_t, err_t, ptr_t;
 
 typedef char bool;
 #define true 1

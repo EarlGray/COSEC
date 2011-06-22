@@ -56,8 +56,10 @@ void phmem_setup(void) {
             break;
         case 2: /* Hw-reserved */
             break;
-        }       
+        }
     }
 
+#ifdef VERBOSE
     k_printf("kernel memory : 0x%x - 0x%x\n", (uint)&_start, (uint)&_end);
+#endif
 }
