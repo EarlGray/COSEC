@@ -3,7 +3,7 @@
 %:include <asm.h>
 
 %:include <mm/gdt.h>
-%:include <mm/physmem.h>
+%:include <mm/pmem.h>
 
 %:include <dev/intrs.h>
 %:include <dev/kbd.h>
@@ -26,7 +26,7 @@ void kmain(uint32_t magic, struct multiboot_info *mbi)
 
     /* general setup */
     gdt_setup();
-    phmem_setup();
+    pmem_setup();
     intrs_setup();
     fs_setup();
 

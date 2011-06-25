@@ -49,12 +49,12 @@ void mboot_info_parse(struct multiboot_info *mbi) {
 		mboot.mods_addr = mbi->mods_addr;
 	} else {
 		mboot.mods_count = 0;
-		mboot.mods_addr = (void *)null;
+		mboot.mods_addr = 0;
 	}
 	mboot.syms = (is_set(mboot.flags, 4) || is_set(mboot.flags, 5))? &(mbi->u) : null;
 	if (is_set(mboot.flags, 6)) {
 		mboot.mmap_length = mbi->mmap_length;
-		mboot.mmap_addr = (void *)mbi->mmap_addr;
+		mboot.mmap_addr = (void *)(mbi->mmap_addr);
 	} else {
 		mboot.mmap_length = 0;
 		mboot.mmap_addr = null;
@@ -69,7 +69,7 @@ void mboot_info_parse(struct multiboot_info *mbi) {
 		mboot.drives_length = 0;
 		mboot.drives_addr = null;
 	}
-	mboot.config_table = (is_set(mboot.flags, 8) ? (void *)(mbia[15]) : null);
+	mboot.config_table = (is_set(mboot.flags, 8) ? (uint)(mbia[15]) : 0);
 	mboot.bootloader_name = (is_set(mboot.flags, 9) ? (const char *)(mbia[16]) : null );
 	mboot.apm_table = (is_set(mboot.flags, 10) ? (void *)(mbia[17]) : null);
 	mboot.vbe = (is_set(mboot.flags, 11)? (void *)(mbia + 18) : null);

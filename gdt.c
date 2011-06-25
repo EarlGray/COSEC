@@ -99,3 +99,4 @@ void gdt_info(void) {
     k_printf("\nGDT is at 0x%x\n", (uint)theGDT);
     print_mem((char *)theGDT, 0x40);
 }
+

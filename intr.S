@@ -1,4 +1,6 @@
 #define ASM
+
+#define REALMODE_CODE_START 0x5000
 /* 
  *      This file contains most of assembly routines used, most of them
  *  are interrupts and exections entry points now.
@@ -23,23 +25,31 @@ dtreg:
 .extern int_odd_exception
 .extern irq_stub
 
-
 /******** Tables-related *************/
-.global gdt_load
-gdt_load:
+
+.macro DTREG_LOAD
     movw 4(%esp), %ax
     movw %ax, dtreg
     movl 8(%esp), %eax
     movl %eax, dtreg + 2
+.endm 
 
-    lgdt dtreg
-    
+.macro SHAKE_REGS
     movw $0x0010, %dx
     movw %dx, %ds
     movw %dx, %es
     movw %dx, %fs
     movw %dx, %gs
-    
+.endm
+
+
+.global gdt_load
+
+gdt_load:
+    DTREG_LOAD
+    lgdt dtreg
+
+    SHAKE_REGS  
     ljmp $0x0008, $reload_gdt
 reload_gdt:
     ret
@@ -56,12 +66,9 @@ gdt_get:
 
 .global idt_load
 idt_load:
-    movw 4(%esp), %ax
-    movw %ax, dtreg
-    movl 8(%esp), %eax
-    movl %eax, dtreg + 2
-
+    DTREG_LOAD
     lidt dtreg
+
     ret
 
 

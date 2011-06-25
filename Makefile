@@ -41,12 +41,12 @@ run:	$(image)
 	@if [ `which NObochs 2>/dev/null` ]; then 	\
 		bochs 2>&1 | tee $(log_name);	\
 	else \
-	if [ `which NOVBoxManage 2>/dev/null` ]; then 	\
+	if [ `which VBoxManage 2>/dev/null` ]; then 	\
 		VBoxManage startvm $(vbox_name) 2>&1 | tee $(log_name);	\
 		rm -f 2011*;	\
 	else \
 	if [ `which qemu 2>/dev/null` ]; then	\
-		qemu -fda $(image) -boot a;	\
+		qemu -fda $(image) -boot a -m 32;	\
 	else \
 		echo "Error: qemu or VirtualBox must be installed";\
 	fi; fi; fi

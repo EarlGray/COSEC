@@ -105,7 +105,7 @@ char translate_from_scan(const struct kbd_layout *layout, scancode_t scan_code) 
 
     const struct scan_key *key = (layout->key + scan_code);
     if (kbd_state_ctrl()) 
-        return key->ctrl; //*/
+        return key->ctrl; 
     if (kbd_state_shift())
         return key->shift;
     return key->normal;
@@ -123,7 +123,7 @@ inline bool kbd_state_shift(void) {
 }
 
 inline bool kbd_state_ctrl(void) {
-    return theKeyboard[0x1D]; //| theKeyboard[0x ]
+    return theKeyboard[0x1D];
 }
 
 inline bool kbd_state(uint8_t scan_id) {

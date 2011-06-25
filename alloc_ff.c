@@ -1,7 +1,5 @@
 #include <mm/alloc_ff.h>
 
-#include <globl.h>
-
 #ifndef __LANGEXT_H__
 typedef unsigned uint, size_t;
 typedef char bool;
