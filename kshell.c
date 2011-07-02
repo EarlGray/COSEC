@@ -7,6 +7,8 @@
 
 #include <mm/gdt.h>
 #include <mm/pmem.h>
+
+#include <dev/cpu.h>
 #include <dev/screen.h>
 
 #include <std/string.h>
@@ -15,15 +17,21 @@
   *     Panic
  ***/
 
+void print_cpu(void);
+
 void panic(const char *fatal_error) {
     intrs_disable();
 
+    char buf [100] = { 0 };
+
     set_cursor_attr(0x4E);
     clear_screen();
-    k_printf("\n\n\t\t\t\t   O_o\n");
+    print_centered("O_o");
     print_centered("Oops, kernel panic");
+    k_printf("\n");
 
-    k_printf("---->  <-----", fatal_error);
+    snprintf(buf, 100, "----> %s <-----", fatal_error);
+    print_centered(buf);
 
     thread_hang();
 }
@@ -44,17 +52,25 @@ void kshell_help();
 void kshell_info(struct kshell_command *, const char *);
 void kshell_mboot(struct kshell_command *, const char *);
 void kshell_test(struct kshell_command *, const char *);
+void kshell_mem(struct kshell_command *, const char *);
 void kshell_panic();
 
 struct kshell_command main_commands[] = {
-  //  {   .name = "mboot",    .worker = kshell_mboot, .description = "show boot info", .options = "mmap"  },
-    {   .name = "info",     .worker = kshell_info,  .description = "various info", .options = "stack gdt pmem colors" },
+    {   .name = "info",     .worker = kshell_info,  .description = "various info", .options = "stack gdt pmem colors cpu" },
     {   .name = "test",     .worker = kshell_test,  .description = "test utility", .options = "sprintf" },
+    {   .name = "mem",      .worker = kshell_mem,   .description = "mem <start_addr> <size = 0x100>" },
     {   .name = "panic",    .worker = kshell_panic, .description = "test The Red Screen of Death"     },
     {   .name = "help",     .worker = kshell_help,  .description = "show this help"   },
     {   .name = null,       .worker = 0    }
 };
 
+void print_cpu(void) {
+    char buf[100];
+    asm (" movl %0, %%eax \n" : : "r"(0xA5A5A5A5));
+    asm (" movl %0, %%ebx \n" : : "r"(0xBBBBBBBB));
+    cpu_snapshot(buf);
+    print_mem(buf, 100);    
+}
 
 void kshell_info(struct kshell_command *this, const char *arg) {
     if (!strcmp(arg, "stack")) {
@@ -81,10 +97,32 @@ void kshell_info(struct kshell_command *this, const char *arg) {
         }
         k_printf("\n");
     } else
+    if (!strcmp(arg, "cpu")) {
+        print_cpu();
+    } else
     {
         //timer_push_ontimer(on_timer);
         k_printf("Options: %s\n\n", this->options);
     }
+}
+
+void kshell_mem(struct kshell_command *this, const char *arg) {
+    uint addr, size;
+    arg = sscan_int(arg, &addr, 16);
+    if (addr == 0) {
+        k_printf("warning: reading 0x0000, default\n");
+    }
+    
+    do {
+        char *end = sscan_int(arg, &size, 16);
+        if (end != arg) break;
+    } while (*(arg++));
+
+    if (size == 0) 
+        size = 0x100;
+
+    print_mem((void *)addr, size);
+    k_printf("\n");
 }
 
 void kshell_test(struct kshell_command *this, const char *cmdline) {

@@ -1,6 +1,8 @@
 #ifndef __STDIO_H__
 #define __STDIO_H__
 
+#include <std/stdarg.h>
+
 int getchar(void);
 int putchar(int);
 

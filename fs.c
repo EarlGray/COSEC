@@ -31,6 +31,5 @@ void fs_setup(void) {
     if (err) 
         panic("Initfs can't be loaded");
 
-    
 }
 

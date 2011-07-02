@@ -132,11 +132,12 @@ void int_nonmaskable(void ) {
 }
 
 void int_invalid_op(void *stack) {
-    k_printf("\n#UD\n");
-    k_printf("Interrupted at 0x%x : 0x%x\n",    
+    char buf[80];
+    snprintf(buf, 80, "#UD at %.8x:%0.8x",    
                 (uint) *((uint32_t *)stack + 11), 
                 (uint) *((uint32_t *)stack + 10) );
-    print_mem((char *)stack, 0x30);
+    //print_mem((char *)stack, 0x30);
+    panic(buf);
 }
 
 void int_page_fault(void ) {

@@ -219,11 +219,8 @@ void k_printf(const char *fmt, ...) {
                     cprint(*(c++));
 				args = (void *)((char *)args + 4);
                 } break;
-            case '.':
-                
-                break;
 			default:
-				print_int(-42, 16);
+				cprint(*s);
 			}
 			break;
 		default:

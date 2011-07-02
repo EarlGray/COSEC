@@ -28,24 +28,35 @@ void segdescr_init(struct segdescr *seg, enum segdesc segtype, uint32_t limit, u
 
 struct segdescr theGDT[N_GDT];
 
-inline void *
-memset(void *s, int c, size_t n) {
-    char *p = (char *)s;
-    unsigned i;
-    for (i = 0; i < n; ++i)
-        p[i] = c;
-    return s;
-}
-
 void print_mem(char *p, size_t count) {
+    char buf[100] = { 0 };
+    char s = 0;
+
+    int rest = (uint)p % 0x10;
+    if (rest) {
+        int indent = 10 + 3 * rest + (rest >> 2) + (rest % 4? 1 : 0);
+        while (indent-- > 0) k_printf(" ");
+    }
+
     size_t i;
     for (i = 0; i < count; ++i) {
-        if (0 == (uint32_t)(p + i) % 0x10) 
-            k_printf("\n%x : ", (uint32_t)(p + i));
+
+        if (0 == (uint32_t)(p + i) % 0x10) {
+            /* end of line */
+            k_printf("%s\n", buf);
+
+            /* start next line */
+            s = snprintf(buf, 100, "%0.8x: ", (uint32_t)(p + i));
+        }
+    
+        if (0 == (uint)(p + i) % 0x4) {
+            s += snprintf(buf + s, 100 - s, " ");
+        }
+
         int t = (uint8_t) p[i];
-        k_printf("%x ", t);
+        s += snprintf(buf + s, 100 - s, "%0.2x ", t);
     }
-    k_printf("\n");
+    k_printf("%s\n", buf);
 }
 
 extern void gdt_load(uint16_t limit, void *base);
