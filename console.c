@@ -1,7 +1,6 @@
 #include <console.h>
 #include <std/stdio.h>
 #include <dev/screen.h>
-#include <dev/timer.h>
 #include <kshell.h>
 
 void print_welcome()
@@ -64,16 +63,10 @@ static void console_setup(void) {
 
 #define CMD_SIZE    256
 
-static void on_timer(uint counter) {
-    if (counter % 100 == 0) 
-        k_printf("tick=%d\n", counter);
-}
-
 void console_run(void) {
     char cmd_buf[CMD_SIZE] = { 0 };
       
     console_setup();
-    //timer_push_ontimer(on_timer);
     
     for ever {
         console_write(prompt);

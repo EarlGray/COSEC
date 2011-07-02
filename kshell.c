@@ -18,11 +18,12 @@
 void panic(const char *fatal_error) {
     intrs_disable();
 
-    set_cursor_attr(0x40);
+    set_cursor_attr(0x4E);
     clear_screen();
     k_printf("\n\n\t\t\t\t   O_o\n");
-    k_printf("\n\t\t\t   Ooos, kernel panic");
-    k_printf("\n\n\t%s\n", fatal_error);
+    print_centered("Oops, kernel panic");
+
+    k_printf("---->  <-----", fatal_error);
 
     thread_hang();
 }
@@ -42,11 +43,13 @@ struct kshell_command {
 void kshell_help();
 void kshell_info(struct kshell_command *, const char *);
 void kshell_mboot(struct kshell_command *, const char *);
+void kshell_test(struct kshell_command *, const char *);
 void kshell_panic();
 
 struct kshell_command main_commands[] = {
   //  {   .name = "mboot",    .worker = kshell_mboot, .description = "show boot info", .options = "mmap"  },
-    {   .name = "info",     .worker = kshell_info,  .description = "various info", .options = "stack gdt pmem" },
+    {   .name = "info",     .worker = kshell_info,  .description = "various info", .options = "stack gdt pmem colors" },
+    {   .name = "test",     .worker = kshell_test,  .description = "test utility", .options = "sprintf" },
     {   .name = "panic",    .worker = kshell_panic, .description = "test The Red Screen of Death"     },
     {   .name = "help",     .worker = kshell_help,  .description = "show this help"   },
     {   .name = null,       .worker = 0    }
@@ -65,10 +68,38 @@ void kshell_info(struct kshell_command *this, const char *arg) {
     } else
     if (!strcmp(arg, "pmem")) {
         pmem_info();
-    } else {
+    } else
+    if (!strcmp(arg, "colors")) {
+        k_printf("Colors:\n");
+        int i = 0;
+        for (i = 0; i < 16; ++i) {
+            char attr = get_cursor_attr();
+            k_printf("%x) ", i);
+            set_cursor_attr(i); k_printf("aaaa ");
+            set_cursor_attr((uint8_t)(i << 4)); k_printf("bbbb");
+            set_cursor_attr(attr); k_printf("\n");
+        }
+        k_printf("\n");
+    } else
+    {
+        //timer_push_ontimer(on_timer);
         k_printf("Options: %s\n\n", this->options);
     }
 }
+
+void kshell_test(struct kshell_command *this, const char *cmdline) {
+    if (!strncmp(cmdline, "sprintf", 4)) 
+        test_sprintf();
+    else {
+        k_printf("options are %s\n\n", this->options);
+    }
+}
+
+static void on_timer(uint counter) {
+    if (counter % 100 == 0) 
+        k_printf("tick=%d\n", counter);
+}
+
 
 void kshell_unknown_cmd() {
     k_printf("type 'help'\n\n");

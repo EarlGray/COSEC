@@ -174,7 +174,7 @@ void print_uint(uint x, uint8_t base) {
 }
 
 void k_printf(const char *fmt, ...) {
-	const char *s = fmt;
+    const char *s = fmt;
 	void *args = &fmt;
 	args = (void *)(4 + (char *)args);
 	while (*s) {
@@ -214,7 +214,6 @@ void k_printf(const char *fmt, ...) {
 				args = (void *)((char*)args + 4);
 				break;
 			case 's': {
-                //k_printf(*(char **)args);
                 char *c = *(char **)args;
                 while (*c) 
                     cprint(*(c++));
@@ -235,4 +234,11 @@ void k_printf(const char *fmt, ...) {
     update_hw_cursor();
 }
 
-
+void print_centered(const char *s) {
+    int len = strlen(s);
+    int margin = (SCR_WIDTH - strlen(s))/2;
+    k_printf("\r");
+    int i;
+    for (i = 0; i < margin; ++i) k_printf(" ");
+    k_printf("%s\n", s);
+}
