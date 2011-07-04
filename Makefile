@@ -19,11 +19,12 @@ ld_flags	+= --oformat=elf32-i386 -melf_i386
 objs		:= $(src_dir)/boot.S
 objs		+= $(wildcard $(src_dir)/[^b]*.S)
 objs		+= $(wildcard $(src_dir)/*.c)
+objs		+= $(wildcard $(src_dir)/*/*.c)
 
 objs		:= $(patsubst $(src_dir)/%.S, $(build)/%.o, $(objs))
 objs		:= $(patsubst $(src_dir)/%.c, $(build)/%.o, $(objs))
 
-subdirs		:= dev
+subdirs		:= mm
 
 kernel      := kernel
 
@@ -76,10 +77,6 @@ umount:
 	@sudo umount $(mnt_dir) || /bin/true
 	@rmdir $(mnt_dir)
 
-$(subdirs):
-	for sub in $(subdirs) ; do		\
-		cd $$sub && make; done
-	
 $(kernel): $(build) $(objs) 
 	@echo "\n### Linking..."
 	@echo -n "LD: "
@@ -90,19 +87,18 @@ $(kernel): $(build) $(objs)
 $(build):
 	@echo "\n### Compiling..."
 	mkdir -p $(build)
+	for d in * ; do [ -d $$d ] && mkdir $(build)/$$d || /bin/true; done
 	
-$(build)/%.o : $(src_dir)/%.c
+$(build)/%.o : %.c
 	@echo -n "CC: "
-	$(cc) $< -o $@ $(cc_flags) -MT $(build)/$@ 
+	$(cc) $< -o $@ $(cc_flags) -MT $(subst .d,.c,$@) 
 
 $(build)/%.o : $(src_dir)/%.S
 	@echo -n "AS: "
-	$(as) $< -o $@ $(as_flags) -MT $(build)/$@
+	$(as) $< -o $@ $(as_flags) -MT $(subst .d,.c,$@)
 
 clean:
-	rm -rf $(build)/* #.[od]
-	#mv $(build)/$(kernel) $(kernel)
-	rmdir $(build)
+	rm -rf $(build)
 
 include $(wildcard $(addprefix /*.d, $(build)))
 
