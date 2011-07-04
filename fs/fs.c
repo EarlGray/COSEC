@@ -1,4 +1,5 @@
 #include <fs/fs.h>
+#include <fs/initfs.h>
 
 struct filesystem *rootfs;
 

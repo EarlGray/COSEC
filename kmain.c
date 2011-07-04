@@ -1,6 +1,7 @@
 %:include <multiboot.h>
 %:include <mboot.h>
 %:include <asm.h>
+%:include <kshell.h>
 
 %:include <mm/gdt.h>
 %:include <mm/pmem.h>
@@ -10,9 +11,6 @@
 %:include <dev/timer.h>
 
 %:include <fs/fs.h>
-
-%:include <console.h>
-
 
 void kmain(uint32_t magic, struct multiboot_info *mbi)
 <%
@@ -37,6 +35,6 @@ void kmain(uint32_t magic, struct multiboot_info *mbi)
     intrs_enable();
 
     /* do something useful */
-    console_run();
+    kshell_run();
 %>
 

@@ -1,9 +1,9 @@
 #include <kshell.h>
 
-#include <globl.h>
 #include <mboot.h>
 #include <multiboot.h>
 #include <asm.h>
+#include <misc/test.h>
 
 #include <mm/gdt.h>
 #include <mm/pmem.h>
@@ -12,6 +12,7 @@
 #include <dev/screen.h>
 
 #include <std/string.h>
+#include <std/stdio.h>
 
 /***
   *     Panic and other print routines
@@ -75,8 +76,7 @@ void print_cpu(void) {
     print_mem(buf, 100);    
 }
 
-void print_welcome()
-{
+void print_welcome(void) {
     //set_cursor_attr(0x80);    // may cause errors on hardware
     clear_screen();
 
@@ -132,8 +132,14 @@ void console_readline(char *buf, size_t size) {
     }
 }
 
+static void on_timer(uint counter) {
+    /*if (counter % 100 == 0) 
+        k_printf("tick=%d\n", counter); */
+}
+
+
 static void console_setup(void) {
-    //
+    timer_push_ontimer(on_timer);
 }
 
 
@@ -202,13 +208,13 @@ void kshell_info(struct kshell_command *this, const char *arg) {
 
 void kshell_mem(struct kshell_command *this, const char *arg) {
     uint addr, size;
-    arg = sscan_int(arg, &addr, 16);
+    arg = sscan_int(arg, (int *)&addr, 16);
     if (addr == 0) {
-        k_printf("warning: reading 0x0000, default\n");
+        k_printf("%s warning: reading 0x0000, default\n", this->name);
     }
     
     do {
-        char *end = sscan_int(arg, &size, 16);
+        const char *end = sscan_int(arg, (int *)&size, 16);
         if (end != arg) break;
     } while (*(arg++));
 
@@ -225,11 +231,6 @@ void kshell_test(struct kshell_command *this, const char *cmdline) {
     else {
         k_printf("options are %s\n\n", this->options);
     }
-}
-
-static void on_timer(uint counter) {
-    if (counter % 100 == 0) 
-        k_printf("tick=%d\n", counter);
 }
 
 

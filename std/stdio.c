@@ -34,7 +34,7 @@ int putchar(int c) {
 #define get_digit(digit) \
     ( ((digit) < 10) ? ('0' + (digit)) : ('A' + (digit) - 10))
 
-char * snprint_uint(char *str, char *end, uint x, uint8_t base, uint flags, int precision) {
+char * snprint_uint(char *str, char *const end, uint x, uint8_t base, uint flags, int precision) {
 #define maxDigits 32	// 4 * 8 max for binary
     char a[maxDigits] = { 0 };
     uint8_t n = maxDigits;
@@ -72,7 +72,7 @@ char * snprint_uint(char *str, char *end, uint x, uint8_t base, uint flags, int 
     return str;
 }
 
-char * snprint_int(char *str, char *end, int x, uint8_t base, uint flags, int precision) {
+char * snprint_int(char *str, char *const end, int x, uint8_t base, uint flags, int precision) {
     if (end && (end <= str)) return end;
 
    	if (x < 0) { 
@@ -124,8 +124,7 @@ const char * sscan_int(const char *str, int *res, uint8_t base) {
 }
 
 int snprintf(char *str, size_t size, const char *format, ...) {
-    void *stack = &format;
-    stack = (void *)((void **)stack + 1);
+    void *stack = (void *)((void **)&format + 1);
 
     const char *fmt_c = format;
     char *out_c = str;
@@ -160,7 +159,7 @@ int snprintf(char *str, size_t size, const char *format, ...) {
 
             switch (*fmt_c) {
             case 'x': {
-                int *arg = (int *)stack;
+                uint *arg = (uint *)stack;
                 out_c = snprint_uint(out_c, end, *arg, 16, flags, precision);
                 stack = (void *)(arg + 1);
                 } break;

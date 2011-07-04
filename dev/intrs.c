@@ -12,6 +12,8 @@
 #include <dev/intrs.h>
 #include <dev/idt.h>
 
+#include <std/stdio.h>
+
 #define ICW1_ICW4       0x01
 #define ICW1_SINGLE     0x02        // 0x00 - cascade
 #define ICW1_INTERVAL   0x04        // 0x00 - 

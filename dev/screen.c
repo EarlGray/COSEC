@@ -174,9 +174,8 @@ void print_uint(uint x, uint8_t base) {
 }
 
 void k_printf(const char *fmt, ...) {
+	void *args = (void *)((char **)&fmt + 1);
     const char *s = fmt;
-	void *args = &fmt;
-	args = (void *)(4 + (char *)args);
 	while (*s) {
 		switch (*s) {
 		case '\n': 
@@ -198,17 +197,19 @@ void k_printf(const char *fmt, ...) {
 		case '%': 
 			++s;
 			switch (*s) {
-			case 'd': 
-	  			print_int(*(int *)args, 10);    
-				args = (void *)((char *)args + 4);
-				break;
+			case 'd': {
+                int arg = *(int *)args;
+	  			print_int(arg, 10);    
+				args = (void *)((int *)args + 1);
+                } break;
             case 'u':
                 print_uint(*(uint*)args, 10);
                 args = (void *)((char *)args + 4);
-			case 'x':
-				print_uint(*(uint*)args, 16);
-				args = (void *)((char *)args + 4);
-				break;
+			case 'x': {
+                uint *arg = args;
+				print_uint(*arg, 16);
+				args = (void *)(arg + 1);
+                } break;
 			case 'o':
 				print_uint(*(int*)args, 8);
 				args = (void *)((char*)args + 4);
