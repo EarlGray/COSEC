@@ -86,8 +86,10 @@ $(kernel): $(build) $(objs)
 	
 $(build):
 	@echo "\n### Compiling..."
-	mkdir -p $(build)
-	for d in * ; do [ -d $$d ] && mkdir $(build)/$$d || /bin/true; done
+	@mkdir -p $(build)
+	@for d in * ; do		\
+		[ -d $$d ] && mkdir $(build)/$$d || /bin/true;	\
+	done
 	
 $(build)/%.o : %.c
 	@echo -n "CC: "
