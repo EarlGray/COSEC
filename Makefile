@@ -24,8 +24,6 @@ objs		+= $(wildcard $(src_dir)/*/*.c)
 objs		:= $(patsubst $(src_dir)/%.S, $(build)/%.o, $(objs))
 objs		:= $(patsubst $(src_dir)/%.c, $(build)/%.o, $(objs))
 
-subdirs		:= mm
-
 kernel      := kernel
 
 mnt_dir     := mnt

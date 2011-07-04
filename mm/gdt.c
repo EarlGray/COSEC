@@ -4,6 +4,8 @@
 /***
   *     Internal declarations
  ***/
+#define N_TASKS     40
+#define N_GDT       (5 + N_TASKS * 2)
 
 const struct selector SEL_KERN_CS = { .index = GDT_KERN_CS, .local_bit = 0, .dpl = PL_KERN };
 const struct selector SEL_KERN_DS = { .index = GDT_KERN_DS, .local_bit = 0, .dpl = PL_KERN };
@@ -15,51 +17,17 @@ uint20_t segdescr_limit(struct segdescr *seg);
 
 void segdescr_init(struct segdescr *seg, enum segdesc segtype, uint32_t limit, uint32_t base, enum segdesc_type type, uint8_t dpl, uint8_t bits);
 
+extern void gdt_load(uint16_t limit, void *base);
 
 /*****************************************************************************
 		GDT
 ******************************************************************************/
 
-#define N_TASKS     40
-#define N_GDT       (5 + N_TASKS * 2)
 #if (N_GDT > 8191)
     #error "N_TASKS is too big"
 #endif
 
 struct segdescr theGDT[N_GDT];
-
-void print_mem(char *p, size_t count) {
-    char buf[100] = { 0 };
-    char s = 0;
-
-    int rest = (uint)p % 0x10;
-    if (rest) {
-        int indent = 10 + 3 * rest + (rest >> 2) + (rest % 4? 1 : 0);
-        while (indent-- > 0) k_printf(" ");
-    }
-
-    size_t i;
-    for (i = 0; i < count; ++i) {
-
-        if (0 == (uint32_t)(p + i) % 0x10) {
-            /* end of line */
-            k_printf("%s\n", buf);
-
-            /* start next line */
-            s = snprintf(buf, 100, "%0.8x: ", (uint32_t)(p + i));
-        }
-    
-        if (0 == (uint)(p + i) % 0x4) {
-            s += snprintf(buf + s, 100 - s, " ");
-        }
-
-        int t = (uint8_t) p[i];
-        s += snprintf(buf + s, 100 - s, "%0.2x ", t);
-    }
-    k_printf("%s\n", buf);
-}
-
-extern void gdt_load(uint16_t limit, void *base);
 
 inline void
 segdescr_init(struct segdescr *seg, enum segdesc segtype, uint32_t limit, uint32_t base, enum segdesc_type type, uint8_t dpl, uint8_t granularity) { 
@@ -84,19 +52,9 @@ segdescr_limit(struct segdescr *seg) {
     return (seg->limit_h << 16) | seg->limit_l;
 }
 
-struct gdt_ptr {
-    uint16_t limit;
-    uint32_t base;
-} __attribute__((packed));
-
-extern void gdt_get(struct gdt_ptr *idt);
-extern void print_mem(char *, size_t);
-
 void gdt_setup(void) {
-    struct gdt_ptr gdt;
-    gdt_get(&gdt);
-    
-    memset(theGDT, 0, N_TASKS * sizeof(struct segdescr));
+    memset(theGDT, 0, N_GDT * sizeof(struct segdescr));
+
     segdescr_init(theGDT + SEL_KERN_CS.index, CODE_SEGDESC, 0xFFFFF, 0x0, SEGDESC_TYPE_ER_CODE, PL_KERN, SEGDESC_4KB_GRANULARITY);
     segdescr_init(theGDT + SEL_KERN_DS.index, DATA_SEGDESC, 0xFFFFF, 0x0, SEGDESC_TYPE_RW_DATA, PL_KERN, SEGDESC_4KB_GRANULARITY);
     segdescr_init(theGDT + SEL_USER_CS.index, CODE_SEGDESC, 0xFFFFF, 0x0, SEGDESC_TYPE_ER_CODE, PL_USER, SEGDESC_4KB_GRANULARITY);
@@ -108,6 +66,5 @@ void gdt_setup(void) {
 
 void gdt_info(void) {
     k_printf("\nGDT is at 0x%x\n", (uint)theGDT);
-    print_mem((char *)theGDT, 0x40);
 }
 

@@ -68,6 +68,13 @@ struct selector {
     uint16_t index:13;
 };
 
+struct gdt_ptr {
+    uint16_t limit;
+    uint32_t base;
+} __attribute__((packed));
+
+extern void gdt_get(struct gdt_ptr *idt);
+
 extern const struct selector SEL_KERN_CS;
 extern const struct selector SEL_KERN_DS;
 extern const struct selector SEL_USER_CS;

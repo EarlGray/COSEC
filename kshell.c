@@ -14,7 +14,7 @@
 #include <std/string.h>
 
 /***
-  *     Panic
+  *     Panic and other print routines
  ***/
 
 void print_cpu(void);
@@ -35,6 +35,108 @@ void panic(const char *fatal_error) {
 
     thread_hang();
 }
+
+void print_mem(char *p, size_t count) {
+    char buf[100] = { 0 };
+    char s = 0;
+
+    int rest = (uint)p % 0x10;
+    if (rest) {
+        int indent = 10 + 3 * rest + (rest >> 2) + (rest % 4? 1 : 0);
+        while (indent-- > 0) k_printf(" ");
+    }
+
+    size_t i;
+    for (i = 0; i < count; ++i) {
+
+        if (0 == (uint32_t)(p + i) % 0x10) {
+            /* end of line */
+            k_printf("%s\n", buf);
+
+            /* start next line */
+            s = snprintf(buf, 100, "%0.8x: ", (uint32_t)(p + i));
+        }
+    
+        if (0 == (uint)(p + i) % 0x4) {
+            s += snprintf(buf + s, 100 - s, " ");
+        }
+
+        int t = (uint8_t) p[i];
+        s += snprintf(buf + s, 100 - s, "%0.2x ", t);
+    }
+    k_printf("%s\n", buf);
+}
+
+void print_cpu(void) {
+    char buf[100];
+    asm (" movl %0, %%eax \n" : : "r"(0xA5A5A5A5));
+    asm (" movl %0, %%ebx \n" : : "r"(0xBBBBBBBB));
+    cpu_snapshot(buf);
+    print_mem(buf, 100);    
+}
+
+void print_welcome()
+{
+    //set_cursor_attr(0x80);    // may cause errors on hardware
+    clear_screen();
+
+    int i;
+    for (i = 0; i < 18; ++i) k_printf("\n");
+
+    k_printf("\t\t\t<<<<< Welcome to COSEC >>>>> \n\n");
+}
+
+
+/***
+  *     Console routines
+ ***/
+
+char *prompt = ">> ";
+
+inline void console_write(const char *msg) {
+    k_printf("%s", msg);
+}
+
+inline void console_writeline(const char *msg) {
+    k_printf("%s\n", msg);
+}
+
+void console_readline(char *buf, size_t size) {
+    char *cur = buf;
+    while (1) {
+        char c = getchar();
+           
+        switch (c) {
+        case '\n': 
+            cur[0] = 0;
+            k_printf("\n");
+            return;
+        case '\b':
+            if (cur == buf) break;
+            k_printf("\b \b");
+            --cur;
+            break;
+        case 12:    // Ctrl-L
+            *cur = 0;
+            clear_screen();
+            console_write(prompt);
+            console_write(buf);
+            break;
+        default:
+            if (cur - buf + 1 < (int)size) {
+                *cur = c;
+                ++cur;
+                putchar(c);
+            }
+        }
+    }
+}
+
+static void console_setup(void) {
+    //
+}
+
+
 
 /***
   *     Temporary kernel shell
@@ -63,14 +165,6 @@ struct kshell_command main_commands[] = {
     {   .name = "help",     .worker = kshell_help,  .description = "show this help"   },
     {   .name = null,       .worker = 0    }
 };
-
-void print_cpu(void) {
-    char buf[100];
-    asm (" movl %0, %%eax \n" : : "r"(0xA5A5A5A5));
-    asm (" movl %0, %%ebx \n" : : "r"(0xBBBBBBBB));
-    cpu_snapshot(buf);
-    print_mem(buf, 100);    
-}
 
 void kshell_info(struct kshell_command *this, const char *arg) {
     if (!strcmp(arg, "stack")) {
@@ -186,4 +280,19 @@ void kshell_do(char *command) {
     }
 
     kshell_unknown_cmd(arg);
+}
+
+#define ever (;;)
+#define CMD_SIZE    256
+
+void kshell_run(void) {
+    char cmd_buf[CMD_SIZE] = { 0 };
+      
+    console_setup();
+    
+    for ever {
+        console_write(prompt);
+        console_readline(cmd_buf, CMD_SIZE);
+        kshell_do(cmd_buf);
+    }
 }
