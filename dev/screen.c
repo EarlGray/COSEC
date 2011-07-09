@@ -233,7 +233,6 @@ void k_printf(const char *fmt, ...) {
 }
 
 void print_centered(const char *s) {
-    int len = strlen(s);
     int margin = (SCR_WIDTH - strlen(s))/2;
     k_printf("\r");
     int i;
