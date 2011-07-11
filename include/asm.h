@@ -34,4 +34,13 @@
 #define cpu_halt() \
     asm ("\t hlt \n")
 
+#define stack_pointer(p)    \
+    asm ("\t movl %%esp, %0 \n" : "=r"(p));
+
+#define eflags(flags) {     \
+    asm ("\t pushf \n");    \
+    asm ("\t movl (%%esp), %0 \n" : "=r"(flags));   \
+    asm ("\t popf \n");     \
+}
+
 #endif // __ASM_H

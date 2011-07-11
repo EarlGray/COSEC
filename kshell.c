@@ -133,8 +133,11 @@ void console_readline(char *buf, size_t size) {
 }
 
 static void on_timer(uint counter) {
-    /*if (counter % 100 == 0) 
-        k_printf("tick=%d\n", counter); */
+    if (counter % 100 == 0) {
+        uint flags = 0;
+        eflags(flags);
+        k_printf("tick=%d, flags=0x%x\n", counter, flags);
+    }
 }
 
 

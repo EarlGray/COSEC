@@ -4,7 +4,7 @@
 */
 
 #include <multiboot.h>
-#define STACK_SIZE  0x00004000
+#define STACK_SIZE  0x00000800
 
 .globl _start
 .globl start
