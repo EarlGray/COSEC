@@ -62,12 +62,12 @@ typedef struct segdescr {
     (seg).as.ints[0] = ((base) << 16) | ((limit) & 0xFFFF);                               \
     (seg).as.ints[1] = (((base) >> 16) & 0xFF) | ((type) << 8) | ((dpl) << 13) | 0x8000;  \
     (seg).as.ints[1] |=                                                                   \
-        ( (((limit) >> 16) & 0x0F) | (((base) >> 16) & 0xFF00) | (gran) | 0x40 ) << 16;   \
+        ( (((limit) >> 16) & 0x0F) | (((base) >> 16) & 0xFF00) | (gran << 7) ) << 16;   \
 }
 
 #define segdescr_sys_init(seg, type, limit, base, dpl, gran) {  \
     segdescr_usual_init(seg, type, limit, base, dpl, gran);     \
-    (seg).as.ints[1] |= 0x0100;                                 \
+    (seg).as.ints[1] |= 0x1000;                                 \
 }
 
 typedef struct {
