@@ -37,13 +37,14 @@ objdump     := $(kernel).objd
 
 .PHONY: run mount umount clean
 
+#VBoxManage startvm $(vbox_name) 2>&1 | tee $(log_name);	
 run:	$(image)
 	@echo "\n#### Running..."
 	@if [ `which NObochs 2>/dev/null` ]; then 	\
 		bochs 2>&1 | tee $(log_name);	\
 	else \
 	if [ `which VBoxManage 2>/dev/null` ]; then 	\
-		VBoxManage startvm $(vbox_name) 2>&1 | tee $(log_name);	\
+		VBoxManage startvm $(vbox_name);	\
 		rm -f 2011*;	\
 	else \
 	if [ `which qemu 2>/dev/null` ]; then	\

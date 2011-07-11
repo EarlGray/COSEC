@@ -14,13 +14,14 @@
 #include <dev/idt.h>
 
 #include <mm/gdt.h>
+#include <dev/cpu.h>
 #include <dev/intr.h>
 #include <dev/intrs.h>
 
 /* IDT entry structure */
 struct gatedescr {
     uint16_t addr_l;
-    struct selector seg;
+    segment_selector seg;
     uint8_t rsrvdb;     // always 0
     uint8_t trap_bit:1;
     uint8_t rsrvd32:4;  // always 0x3
@@ -33,9 +34,11 @@ struct gatedescr {
 extern struct gatedescr theIDT[IDT_SIZE];
 struct gatedescr  theIDT[IDT_SIZE];
 
-inline void gatedescr_set(struct gatedescr *gated, enum gatetype type, struct selector seg, uint32_t addr, enum privilege_level dpl) {
+//#define reinterpret_cast(t, val)        *
+
+inline void gatedescr_set(struct gatedescr *gated, enum gatetype type, uint16_t segsel, uint32_t addr, privilege_level dpl) {
     gated->addr_l = (uint16_t) addr;
-    gated->seg = seg;
+    gated->seg = *(segment_selector *) &segsel;
     gated->dpl = dpl;
     gated->trap_bit = (type == GATE_TRAP ? 1 : 0);
     gated->rsrvdb = 0;
@@ -77,8 +80,7 @@ void idt_setup(void) {
     /* 0xSYS_INT : system call entry */
     idt_set_gate(SYS_INT, GATE_CALL, syscallentry);
 
-#if 0
-    //VERBOSE
+#ifdef VERBOSE
     k_printf("\nIDT:");
     print_mem((char *)theIDT, 0x20);
 #endif

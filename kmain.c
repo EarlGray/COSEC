@@ -1,6 +1,7 @@
 %:include <multiboot.h>
 %:include <mboot.h>
 %:include <asm.h>
+%:include <tasks.h>
 %:include <kshell.h>
 
 %:include <mm/gdt.h>
@@ -18,12 +19,15 @@ void kmain(uint32_t magic, struct multiboot_info *mbi)
         k_printf("invalid boot");
         return;
     %>
-    print_welcome();
+    //print_welcome();
 
     mboot_info_parse(mbi);
 
     /* general setup */
     gdt_setup();
+
+    thread_hang();
+
     pmem_setup();
     intrs_setup();
     fs_setup();
@@ -32,9 +36,11 @@ void kmain(uint32_t magic, struct multiboot_info *mbi)
     timer_setup();
     kbd_setup();
 
-    intrs_enable();
+    multitasking_setup();
 
-    /* do something useful */
-    kshell_run();
+    /* do something useful /
+    intrs_enable();
+    kshell_run();     // */
+    thread_hang();
 %>
 
