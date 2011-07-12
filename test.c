@@ -1,6 +1,13 @@
+/*
+ *      Caution: you examine this file at your peril,
+ *  it might contain really bad temporary code.
+ */
+
 #include <misc/test.h>
 #include <std/string.h>
 #include <std/stdarg.h>
+#include <dev/timer.h>
+#include <dev/cpu.h>
 
 const char * sscan_int(const char *str, int *res, uint8_t base);
 
@@ -67,4 +74,20 @@ static void test_vsprint(const char *fmt, ...) {
 
 void test_sprintf(void) {
     test_vsprint("%s: %d, %s: %+x\n", "test1", -100, "test2", 200);
+}
+
+void test_eflags(void) {
+    uint flags = 0;
+    eflags(flags);
+    k_printf("flags=0x%x\n", flags);
+}
+
+static void on_timer(uint counter) {
+    if (counter % 100 == 0) {
+        k_printf("tick=%d\n", counter);
+    }
+}
+
+void test_timer(void) {
+    timer_push_ontimer(on_timer);
 }

@@ -3,6 +3,8 @@
 #include <mboot.h>
 #include <multiboot.h>
 
+#define MEM_DEBUG   0
+
 extern uint _start;
 extern uint _end;
 
@@ -45,7 +47,9 @@ void pages_set(uint addr, uint size, bool reserved) {
     uint i = addr / PAGE_SIZE;
     if ((!reserved) && (addr % PAGE_SIZE)) ++i;
 
+#if MEM_DEBUG
     k_printf("%s pages from %x to %x\n", (reserved? "reserving" : "freeing  "),  i, end_page);
+#endif
 
     for (; i < end_page; ++i) {
         pg_init(mem_map + i, reserved);

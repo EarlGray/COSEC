@@ -24,6 +24,8 @@ typedef char bool;
 
 #define null ((void *)0)
 
+#define reinterpret_cast(t)        *(t *)&
+
 #endif // __LANGEXT_H__
 
 /**********************************************************/

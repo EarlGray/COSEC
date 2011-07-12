@@ -2,7 +2,6 @@
 
 #include <mboot.h>
 #include <multiboot.h>
-#include <asm.h>
 #include <misc/test.h>
 
 #include <mm/gdt.h>
@@ -132,17 +131,8 @@ void console_readline(char *buf, size_t size) {
     }
 }
 
-static void on_timer(uint counter) {
-    if (counter % 100 == 0) {
-        uint flags = 0;
-        eflags(flags);
-        k_printf("tick=%d, flags=0x%x\n", counter, flags);
-    }
-}
-
-
 static void console_setup(void) {
-    timer_push_ontimer(on_timer);
+    //
 }
 
 
@@ -168,7 +158,7 @@ void kshell_panic();
 
 struct kshell_command main_commands[] = {
     {   .name = "info",     .worker = kshell_info,  .description = "various info", .options = "stack gdt pmem colors cpu" },
-    {   .name = "test",     .worker = kshell_test,  .description = "test utility", .options = "sprintf" },
+    {   .name = "test",     .worker = kshell_test,  .description = "test utility", .options = "sprintf timer" },
     {   .name = "mem",      .worker = kshell_mem,   .description = "mem <start_addr> <size = 0x100>" },
     {   .name = "panic",    .worker = kshell_panic, .description = "test The Red Screen of Death"     },
     {   .name = "help",     .worker = kshell_help,  .description = "show this help"   },
@@ -204,7 +194,6 @@ void kshell_info(struct kshell_command *this, const char *arg) {
         print_cpu();
     } else
     {
-        //timer_push_ontimer(on_timer);
         k_printf("Options: %s\n\n", this->options);
     }
 }
@@ -231,6 +220,8 @@ void kshell_mem(struct kshell_command *this, const char *arg) {
 void kshell_test(struct kshell_command *this, const char *cmdline) {
     if (!strncmp(cmdline, "sprintf", 4)) 
         test_sprintf();
+    else if (!strncmp(cmdline, "timer", 5)) 
+        test_timer();
     else {
         k_printf("options are %s\n\n", this->options);
     }

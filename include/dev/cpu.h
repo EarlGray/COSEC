@@ -58,15 +58,15 @@ typedef struct segdescr {
 #define segdescr_base(seg)      ( ((seg)->base_h << 24) | ((seg)->base_m << 16) | (seg)->base_l )
 #define segdescr_limit(seg)     ( ((seg)->limit_h << 16) | (seg)->limit_l )
 
-#define segdescr_usual_init(seg, type, limit, base, dpl, gran) {   \
+#define segdescr_sys_init(seg, type, limit, base, dpl, gran) {   \
     (seg).as.ints[0] = ((base) << 16) | ((limit) & 0xFFFF);                               \
     (seg).as.ints[1] = (((base) >> 16) & 0xFF) | ((type) << 8) | ((dpl) << 13) | 0x8000;  \
     (seg).as.ints[1] |=                                                                   \
-        ( (((limit) >> 16) & 0x0F) | (((base) >> 16) & 0xFF00) | (gran << 7) ) << 16;   \
+     ( (((limit) >> 16) & 0x0F) | (((base) >> 16) & 0xFF00) | (gran << 7) | 0x40) << 16;  \
 }
 
-#define segdescr_sys_init(seg, type, limit, base, dpl, gran) {  \
-    segdescr_usual_init(seg, type, limit, base, dpl, gran);     \
+#define segdescr_usual_init(seg, type, limit, base, dpl, gran) {  \
+    segdescr_sys_init(seg, type, limit, base, dpl, gran);     \
     (seg).as.ints[1] |= 0x1000;                                 \
 }
 
@@ -95,4 +95,46 @@ typedef struct {
     asm(" movl %0, %%esp \n" : : "r"(stack));   \
 }
 
+
+#define thread_hang()   \
+    asm volatile ("1:    hlt\n\tjmp 1b\n" ::)
+        
+#define inb(port, value) \
+    asm volatile ("inb %%dx,%%al\n": "=a"(value): "d"(port))
+
+#define outb(port, value) \
+    asm volatile ("outb %%al,%%dx\n"::"a" (value),"d" (port))
+
+#define io_wait() \
+    asm ("\tjmp 1f\n1:\tjmp 1f\n1:") 
+
+#define inb_p(port, value)  \
+    do {                    \
+        inb(port, value);   \
+        io_wait();          \
+    } while (0);        
+
+#define outb_p(port, value) \
+    do {                    \
+        outb(port, value);  \
+        io_wait();          \
+    } while (0);
+
+#define intrs_enable() \
+    asm ("\t sti \n")
+
+#define intrs_disable() \
+    asm ("\t cli \n")                                                       
+
+#define cpu_halt() \
+    asm ("\t hlt \n")
+
+#define stack_pointer(p)    \
+    asm ("\t movl %%esp, %0 \n" : "=r"(p));
+
+#define eflags(flags) {     \
+    asm ("\t pushf \n");    \
+    asm ("\t movl (%%esp), %0 \n" : "=r"(flags));   \
+    asm ("\t popf \n");     \
+}
 #endif // __CPU_H__

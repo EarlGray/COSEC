@@ -1,6 +1,6 @@
 #include <dev/screen.h>
 
-#include <asm.h>
+#include <dev/cpu.h>
 
 
 /***

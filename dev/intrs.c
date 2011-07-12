@@ -9,11 +9,12 @@
  */
 
 #include <globl.h>
-#include <asm.h>
 
 #include <mm/gdt.h>
+
 #include <dev/intrs.h>
 #include <dev/idt.h>
+#include <dev/cpu.h>
 
 #include <std/stdio.h>
 

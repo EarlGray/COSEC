@@ -31,14 +31,11 @@ struct gatedescr {
 };
 
 /*****  The IDT   *****/
-extern struct gatedescr theIDT[IDT_SIZE];
 struct gatedescr  theIDT[IDT_SIZE];
-
-//#define reinterpret_cast(t, val)        *
 
 inline void gatedescr_set(struct gatedescr *gated, enum gatetype type, uint16_t segsel, uint32_t addr, privilege_level dpl) {
     gated->addr_l = (uint16_t) addr;
-    gated->seg = *(segment_selector *) &segsel;
+    gated->seg = reinterpret_cast(segment_selector) segsel;
     gated->dpl = dpl;
     gated->trap_bit = (type == GATE_TRAP ? 1 : 0);
     gated->rsrvdb = 0;
@@ -46,6 +43,8 @@ inline void gatedescr_set(struct gatedescr *gated, enum gatetype type, uint16_t 
     gated->present = 1;
     gated->addr_h = (uint16_t) (addr >> 16);
 }
+
+#define idt_entry_set(index)
 
 inline void idt_set_gate(uint8_t i, enum gatetype type, intr_entry_f intr_entry) {
     gatedescr_set(theIDT + i, type, SEL_KERN_CS, 
@@ -57,11 +56,6 @@ inline void idt_set_gates(uint8_t start, uint16_t end, enum gatetype type, intr_
     for (i = start; i < end; ++i) 
         idt_set_gate(i, type, intr_entry);
 }
-
-#ifdef VERBOSE
-void k_printf(const char *fmt, ...);
-void print_mem(char *, uint limit);
-#endif
 
 void idt_setup(void) {
     int i;
@@ -79,11 +73,6 @@ void idt_setup(void) {
 
     /* 0xSYS_INT : system call entry */
     idt_set_gate(SYS_INT, GATE_CALL, syscallentry);
-
-#ifdef VERBOSE
-    k_printf("\nIDT:");
-    print_mem((char *)theIDT, 0x20);
-#endif
 }
 
 
@@ -91,5 +80,6 @@ extern void idt_load(uint16_t limit, uint32_t addr);
 
 void idt_deploy(void) {
     idt_load(IDT_SIZE * sizeof(struct gatedescr) - 1, (uint32_t) theIDT);
+    print_mem(theIDT, 0x100);
 }
 

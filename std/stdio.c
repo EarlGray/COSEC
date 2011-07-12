@@ -1,7 +1,8 @@
 #include <dev/screen.h>
 #include <dev/kbd.h>
+#include <dev/cpu.h>
+
 #include <std/stdarg.h>
-#include <asm.h>
 
 volatile char c = 0;
 

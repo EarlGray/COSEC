@@ -14,3 +14,4 @@ AIMS
 - multiuser/multitasking
 - sustainability/possibly will be microkernel
 - language-based features and managed userspace 
+- well-documented and easy-to-learn API/ABI/internals
