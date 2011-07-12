@@ -18,38 +18,13 @@
 #include <dev/intr.h>
 #include <dev/intrs.h>
 
-/* IDT entry structure */
-struct gatedescr {
-    uint16_t addr_l;
-    segment_selector seg;
-    uint8_t rsrvdb;     // always 0
-    uint8_t trap_bit:1;
-    uint8_t rsrvd32:4;  // always 0x3
-    uint8_t dpl:2;
-    uint8_t present:1;
-    uint16_t addr_h;
-};
-
 /*****  The IDT   *****/
-struct gatedescr  theIDT[IDT_SIZE];
+segment_descriptor  theIDT[IDT_SIZE];
 
-inline void gatedescr_set(struct gatedescr *gated, enum gatetype type, uint16_t segsel, uint32_t addr, privilege_level dpl) {
-    gated->addr_l = (uint16_t) addr;
-    gated->seg = reinterpret_cast(segment_selector) segsel;
-    gated->dpl = dpl;
-    gated->trap_bit = (type == GATE_TRAP ? 1 : 0);
-    gated->rsrvdb = 0;
-    gated->rsrvd32 = 0x7;
-    gated->present = 1;
-    gated->addr_h = (uint16_t) (addr >> 16);
-}
-
-#define idt_entry_set(index)
-
-inline void idt_set_gate(uint8_t i, enum gatetype type, intr_entry_f intr_entry) {
-    gatedescr_set(theIDT + i, type, SEL_KERN_CS, 
-                  (uint32_t)intr_entry, (type == GATE_CALL)? PL_USER : PL_KERN);
-}
+#define idt_set_gate(index, type, addr)                                 \
+    segdescr_gate_init(theIDT[index], SEL_KERN_CS, (uint32_t)(addr),    \
+            ((type) == GATE_CALL ? PL_USER : PL_KERN),                  \
+            ((type) == GATE_TRAP ? 1 : 0))
 
 inline void idt_set_gates(uint8_t start, uint16_t end, enum gatetype type, intr_entry_f intr_entry) {
     int i;
@@ -79,7 +54,6 @@ void idt_setup(void) {
 extern void idt_load(uint16_t limit, uint32_t addr);
 
 void idt_deploy(void) {
-    idt_load(IDT_SIZE * sizeof(struct gatedescr) - 1, (uint32_t) theIDT);
-    print_mem(theIDT, 0x100);
+    idt_load(IDT_SIZE * sizeof(segment_descriptor) - 1, (uint32_t) theIDT);
 }
 

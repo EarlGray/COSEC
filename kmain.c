@@ -26,7 +26,7 @@ void kmain(uint32_t magic, struct multiboot_info *mbi)
     /* general setup */
     gdt_setup();
     pmem_setup();
-    intrs_setup();
+    intrs_setup();    //  thread_hang();
     fs_setup();
 
     /* devices setup */
