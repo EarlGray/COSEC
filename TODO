@@ -1,3 +1,17 @@
+CURRENT ISSUES
+
 1) vsnprintf and va_arg
 2) cpu snapshot
 3) dev/pic.h
+
+
+AIMS
+
+- general-purpose 
+- highly-configurable
+- networking/distributed
+- safety/modularuty
+- multiuser/multitasking
+- sustainability/possibly will be microkernel
+- language-based features and managed userspace 
+- well-documented and easy-to-learn API/ABI/internals

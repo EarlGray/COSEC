@@ -14,51 +14,23 @@
 #include <dev/idt.h>
 
 #include <mm/gdt.h>
+#include <dev/cpu.h>
 #include <dev/intr.h>
 #include <dev/intrs.h>
 
-/* IDT entry structure */
-struct gatedescr {
-    uint16_t addr_l;
-    struct selector seg;
-    uint8_t rsrvdb;     // always 0
-    uint8_t trap_bit:1;
-    uint8_t rsrvd32:4;  // always 0x3
-    uint8_t dpl:2;
-    uint8_t present:1;
-    uint16_t addr_h;
-};
-
 /*****  The IDT   *****/
-extern struct gatedescr theIDT[IDT_SIZE];
-struct gatedescr  theIDT[IDT_SIZE];
+segment_descriptor  theIDT[IDT_SIZE];
 
-inline void gatedescr_set(struct gatedescr *gated, enum gatetype type, struct selector seg, uint32_t addr, enum privilege_level dpl) {
-    gated->addr_l = (uint16_t) addr;
-    gated->seg = seg;
-    gated->dpl = dpl;
-    gated->trap_bit = (type == GATE_TRAP ? 1 : 0);
-    gated->rsrvdb = 0;
-    gated->rsrvd32 = 0x7;
-    gated->present = 1;
-    gated->addr_h = (uint16_t) (addr >> 16);
-}
-
-inline void idt_set_gate(uint8_t i, enum gatetype type, intr_entry_f intr_entry) {
-    gatedescr_set(theIDT + i, type, SEL_KERN_CS, 
-                  (uint32_t)intr_entry, (type == GATE_CALL)? PL_USER : PL_KERN);
-}
+#define idt_set_gate(index, type, addr)                                 \
+    segdescr_gate_init(theIDT[index], SEL_KERN_CS, (uint32_t)(addr),    \
+            ((type) == GATE_CALL ? PL_USER : PL_KERN),                  \
+            ((type) == GATE_TRAP ? 1 : 0))
 
 inline void idt_set_gates(uint8_t start, uint16_t end, enum gatetype type, intr_entry_f intr_entry) {
     int i;
     for (i = start; i < end; ++i) 
         idt_set_gate(i, type, intr_entry);
 }
-
-#ifdef VERBOSE
-void k_printf(const char *fmt, ...);
-void print_mem(char *, uint limit);
-#endif
 
 void idt_setup(void) {
     int i;
@@ -76,18 +48,12 @@ void idt_setup(void) {
 
     /* 0xSYS_INT : system call entry */
     idt_set_gate(SYS_INT, GATE_CALL, syscallentry);
-
-#if 0
-    //VERBOSE
-    k_printf("\nIDT:");
-    print_mem((char *)theIDT, 0x20);
-#endif
 }
 
 
 extern void idt_load(uint16_t limit, uint32_t addr);
 
 void idt_deploy(void) {
-    idt_load(IDT_SIZE * sizeof(struct gatedescr) - 1, (uint32_t) theIDT);
+    idt_load(IDT_SIZE * sizeof(segment_descriptor) - 1, (uint32_t) theIDT);
 }
 

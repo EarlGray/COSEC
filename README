@@ -12,13 +12,6 @@ Tools, languages and platform used:
 - loaded with GRUB, multiboot specification;
 
 Features:
-- interrupts set, keyboard works.
+- a simplest kernel shell with few built-in commands primarily for debugging
 Nothing more yet.
-
-How to run it.
-You need just basic tools (GNU make, gcc) for compilation. To run it, you need
-VirtualBox 3, QEMU or Bochs installed. Default action of Makefile is running kernel,
-so you just need to do
-     $ make
-Please report issues.
 

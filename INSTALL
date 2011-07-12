@@ -1,0 +1,16 @@
+You need just basic tools (GNU make, gcc, optionally objdump, ctags) for 
+compilation on Linux (both 32 and 64 bit), Mac OS X support is in progress.  
+To run it,  you need QEMU or Bochs, VirtualBox (for the latter create VM named 
+COSEC with cosec.img attached) installed.  Default action of Makefile is 
+running kernel, so you just need to do 
+    $ make
+(you'll need root permissions to mount floppy image)
+
+In order to just compile, do 
+    $ make kernel
+
+To make boot image manually, use res/fd.tar.bz2 with preinstalled GRUB, copy 
+res/menu.lst to ${floppy.img}/boot/grub/, put ${kernel} to ${floppy}/.
+
+Please report issues to dmytrish@gmail.com 
+
