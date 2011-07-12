@@ -37,21 +37,20 @@ objdump     := $(kernel).objd
 
 .PHONY: run mount umount clean
 
-#VBoxManage startvm $(vbox_name) 2>&1 | tee $(log_name);	
 run:	$(image)
 	@echo "\n#### Running..."
-	@if [ `which NObochs 2>/dev/null` ]; then 	\
-		bochs 2>&1 | tee $(log_name);	\
-	else \
-	if [ `which VBoxManage 2>/dev/null` ]; then 	\
-		VBoxManage startvm $(vbox_name);	\
-		rm -f 2011*;	\
-	else \
-	if [ `which qemu 2>/dev/null` ]; then	\
-		qemu -fda $(image) -boot a -m 32;	\
-	else \
-		echo "Error: qemu or VirtualBox must be installed";\
-	fi; fi; fi
+	@make vbox || make qemu || make bochs
+
+.PHONY:	 qemu vbox bochs
+
+qemu:	$(image)
+	@[ `which qemu` ] && qemu -fda $(image) -boot a -m 32
+
+vbox:	$(image)
+	@[ `which VBoxManage` ] && VBoxManage startvm $(vbox_name);
+
+bochs:	$(image)
+	@[ `which bochs` ] && bochs;
 
 $(image):	$(kernel) 
 	@echo "\n### Check if there is an image"

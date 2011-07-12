@@ -102,41 +102,34 @@ typedef struct {
 }
 
 
-#define thread_hang()   \
-    asm volatile ("1:    hlt\n\tjmp 1b\n" ::)
+#define thread_hang()   asm volatile ("1:    hlt\n\tjmp 1b\n" ::)
         
-#define inb(port, value) \
-    asm volatile ("inb %%dx,%%al\n": "=a"(value): "d"(port))
+#define io_wait()       asm ("\tjmp 1f\n1:\tjmp 1f\n1:") 
 
-#define outb(port, value) \
-    asm volatile ("outb %%al,%%dx\n"::"a" (value),"d" (port))
+#define inb(port, value)    asm volatile ("inb %%dx,%%al\n": "=a"(value): "d"(port))
+#define outb(port, value)   asm volatile ("outb %%al,%%dx\n"::"a" (value),"d" (port))
 
-#define io_wait() \
-    asm ("\tjmp 1f\n1:\tjmp 1f\n1:") 
+#define inw(port, value)    asm volatile ("inw %%dx,%%ax\n": "=a"(value): "d"(port))
+#define outw(port, value)   asm volatile ("outw %%ax,%%dx\n"::"a" (value),"d" (port))
 
-#define inb_p(port, value)  \
-    do {                    \
-        inb(port, value);   \
-        io_wait();          \
-    } while (0);        
+#define inl(port, value)    asm volatile ("inl %%dx,%%eax\n": "=a"(value): "d"(port))
+#define outl(port, value)   asm volatile ("outl %%eax,%%dx\n"::"a" (value),"d" (port))
 
-#define outb_p(port, value) \
-    do {                    \
-        outb(port, value);  \
-        io_wait();          \
-    } while (0);
 
-#define intrs_enable() \
-    asm ("\t sti \n")
+#define inb_p(port, value)  do { inb(port, value); io_wait();  } while (0)
+#define outb_p(port, value) do { outb(port, value); io_wait();  } while (0)
 
-#define intrs_disable() \
-    asm ("\t cli \n")                                                       
+#define inw_p(port, value)  do { inw(port, value); io_wait();  } while (0)
+#define outw_p(port, value) do { outw(port, value); io_wait();  } while (0)
 
-#define cpu_halt() \
-    asm ("\t hlt \n")
+#define inl_p(port, value)  do { inl(port, value); io_wait();  } while (0)
+#define outl_p(port, value) do { outl(port, value); io_wait();  } while (0)
 
-#define stack_pointer(p)    \
-    asm ("\t movl %%esp, %0 \n" : "=r"(p));
+#define intrs_enable()  asm ("\t sti \n")
+#define intrs_disable() asm ("\t cli \n")                                                       
+#define cpu_halt()      asm ("\t hlt \n")
+
+#define stack_pointer(p)    asm ("\t movl %%esp, %0 \n" : "=r"(p));
 
 #define eflags(flags) {     \
     asm ("\t pushf \n");    \
