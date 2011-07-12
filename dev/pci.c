@@ -30,10 +30,17 @@ uint pci_config_read_dword(uint bus, uint slot, uint func, uint offset) {
 void pci_setup(void) {
     int slot;
     int bus = 0;
-    for (slot = 0; slot < 0x30; ++slot) {
+
+    uint start_dev_id = 0;
+
+    for (slot = 0; ; ++slot) {
         uint id = pci_config_read_dword(bus, slot, 0, 0);
+
         if (0xFFFF == (uint16_t)id) 
             continue;
+
+        if (start_dev_id == 0) start_dev_id = id;
+        else if (start_dev_id == id) break;
 
         k_printf("[pci:%d] %x:%x", slot,
                 (uint)(id & 0xFFFF), (uint)(id >> 16));
