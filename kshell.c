@@ -90,7 +90,7 @@ void print_welcome(void) {
   *     Console routines
  ***/
 
-char *prompt = ">> ";
+char *prompt = "|< ";
 
 inline void console_write(const char *msg) {
     k_printf("%s", msg);
