@@ -29,28 +29,39 @@ objs		:= $(patsubst $(src_dir)/%.c, $(build)/%.o, $(objs))
 kernel      := kernel
 
 mnt_dir     := mnt
-vbox_name   := COSEC
 image       := cosec.img
 
 log_name	:= fail.log
 objdump     := $(kernel).objd
+pipe_file	:= com
+
+vbox_name   := COSEC
+qemu_flags	:= -fda $(image) -boot a -m 32 -net nic,model=rtl8139  -ctrl-grab
 
 .PHONY: run mount umount clean
 
-run:	$(image)
-	@echo "\n#### Running..."
-	@make vbox || make qemu || make bochs
+#VBoxManage startvm $(vbox_name) 2>&1 | tee $(log_name);	
+run:
+	
+	@echo "\n#### Running..." && \
+	if [ $$DISPLAY ] ; then	\
+		make vbox || make qemu || make bochs || \
+			echo "###Error: VirtualBox, qemu or Bochs must be installed";	\
+	else qemu $(qemu_flags) -curses;	fi
+	
+.PHONY: qemu vbox bochs
 
-.PHONY:	 qemu vbox bochs
-
-qemu:	$(image)
-	@[ `which qemu` ] && qemu -fda $(image) -boot a -m 32
+qemu:	$(image) 
+	@if [ -S $(pipe_file) ]; 							\
+	then qemu $(qemu_flags) -serial unix:$(pipe_file);	\
+	else qemu $(qemu_flags);							\
+	fi 
 
 vbox:	$(image)
-	@[ `which VBoxManage` ] && VBoxManage startvm $(vbox_name);
+	VBoxManage startvm $(vbox_name)
 
 bochs:	$(image)
-	@[ `which bochs` ] && bochs;
+	bochs
 
 $(image):	$(kernel) 
 	@echo "\n### Check if there is an image"
@@ -63,11 +74,8 @@ $(image):	$(kernel)
 		echo -e "[ready]\n";	\
 	fi
 	@if [ ! -d $(build) ]; then mkdir $(build); fi
-	@make mount
-	@if [ -r $(build)/$(kernel) ]; then from=$(build)/$(kernel);	\
-	else if [ -r $(kernel) ]; then from=$(kernel); fi; fi;	\
-	sudo cp $$from $(mnt_dir) && echo "\n### Copied"
-	@make umount
+	@make mount && [ -r $(build)/$(kernel) ] && sudo cp $(build)/$(kernel) $(mnt_dir) \
+		&& echo "\n### Copied" && make umount
 
 mount:  
 	@mkdir -p $(mnt_dir)
@@ -82,13 +90,13 @@ $(kernel): $(build) $(objs)
 	@echo -n "LD: "
 	$(ld) -o $(build)/$(kernel)	$(objs) $(ld_flags) 
 	@if [ `which objdump 2>/dev/null` ]; then objdump -d $(build)/$(kernel) > $(objdump); fi
-	@if [ `which ctags 2>/dev/null ` ]; then ctags * -R; fi
+	@if [ `which ctags 2>/dev/null ` ]; then ctags -R *; fi
 	
 $(build):
 	@echo "\n### Compiling..."
 	@mkdir -p $(build)
 	@for d in * ; do		\
-		[ -d $$d ] && mkdir $(build)/$$d || /bin/true;	\
+		[ -d $$d ] && mkdir $(build)/$$d || true;	\
 	done
 	
 $(build)/%.o : %.c
@@ -98,6 +106,9 @@ $(build)/%.o : %.c
 $(build)/%.o : $(src_dir)/%.S
 	@echo -n "AS: "
 	$(as) -c $< -o $@ $(as_flags) -MT $(subst .d,.c,$@)
+
+$(pipe_file):
+	mkfifo $(pipe_file)
 
 clean:
 	rm -rf $(build)

@@ -4,8 +4,6 @@
 
 #define KEY_COUNT   	128
 
-extern void k_printf(const char *fmt, ...);
-
 /*************** Keyboard buffer ****************/
 
 #define KBD_BUF_SIZE    256 
@@ -15,8 +13,12 @@ struct {
     scancode_t buf[KBD_BUF_SIZE];
 } theKbdBuf; 
 
-inline void kbd_buf_setup(void) {
+inline void kbd_buf_clear(void) {
     theKbdBuf.head = theKbdBuf.tail = 0;
+}
+
+inline void kbd_buf_setup(void) {
+    kbd_buf_clear();
 }
 
 scancode_t kbd_pop_scancode(void) {
@@ -98,8 +100,8 @@ const struct kbd_layout qwerty_layout = {
 static bool transl_debug = false;
 
 char translate_from_scan(const struct kbd_layout *layout, scancode_t scan_code) {
-    if (layout == null) layout = &qwerty_layout;
-
+    if (layout == null) 
+        layout = &qwerty_layout;
     if (transl_debug) 
         k_printf("\nqwerty: %x -> %x \n", (uint32_t)scan_code, (uint32_t)(layout->key[scan_code].normal)); 
 
@@ -111,12 +113,31 @@ char translate_from_scan(const struct kbd_layout *layout, scancode_t scan_code) 
     return key->normal;
 }
 
+/*************** getscan   **********************/
+volatile scancode_t sc;
+
+static void on_scan(scancode_t b) {
+    k_printf("scan-");
+    sc = b;
+}
+
+scancode_t kbd_wait_scan(void) {
+    kbd_set_onpress(on_scan);
+    sc = 0;
+
+    while (sc == 0) cpu_halt();
+
+    kbd_set_onpress(null);
+    return sc;
+}
+
+
 /************* Keyboard driver ******************/
 
 bool theKeyboard[KEY_COUNT];
 
-kbd_event_f on_press = null;
-kbd_event_f on_release = null;
+volatile kbd_event_f on_press = null;
+volatile kbd_event_f on_release = null;
 
 inline bool kbd_state_shift(void) {
 	return theKeyboard[0x2A] | theKeyboard[0x36];
@@ -135,13 +156,13 @@ void kbd_set_onpress(kbd_event_f onpress) {
 	on_press = onpress;
 }
 
-void kbd_set_oprelease(kbd_event_f onrelease) {
+void kbd_set_onrelease(kbd_event_f onrelease) {
 	on_release = onrelease;
 }
 
 static void kbd_hotkeys(scancode_t scancode) {
     switch (scancode) {
-    case 1:
+    case 0x3A:
         transl_debug = not(transl_debug);
         return;
     }
@@ -150,9 +171,10 @@ static void kbd_hotkeys(scancode_t scancode) {
 void keyboard_irq() {
 	uint8_t scan_code = 0;
 	inb(0x60, scan_code);
+    kbd_push_scancode(scan_code);
+
 	if (!(scan_code & 0x80)) {
 		/* on press event */
-        kbd_push_scancode(scan_code);
 		theKeyboard[scan_code] = true;
         
         kbd_hotkeys(scan_code);
@@ -161,7 +183,6 @@ void keyboard_irq() {
 	}	
 	else {
 		/* on release event */
-        kbd_push_scancode(scan_code);
 		scan_code &= 0x7F;
 		theKeyboard[scan_code] = false;
         if (on_release)

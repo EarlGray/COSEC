@@ -86,11 +86,35 @@ irq_remap(uint8_t master, uint8_t slave) {
     outb(PIC2_DATA_PORT, slave_mask);
 }
 
+void irq_mask(bool set, uint8_t irq_num) {
+    uint8_t mask;
+    uint16_t port = PIC1_DATA_PORT;
+    if (irq_num >= 8) {
+        port = PIC2_DATA_PORT;
+        irq_num -= 8;
+    }
+    inb(port, mask);
+    if (set) mask &= ~(1 << irq_num);
+    else mask |= (1 << irq_num);
+    outb(port, mask);
+}
+
+uint16_t irq_get_mask(void) {
+    uint16_t res = 0;
+    uint8_t mask;
+    inb(PIC1_DATA_PORT, mask);
+    res = mask;
+    inb(PIC2_DATA_PORT, mask);
+    res |= (mask << 8);
+    return res;
+}
+
 inline void irq_eoi(void) {
     outb_p(0x20, 0x20);
 }
 
 void irq_handler(uint32_t irq_num) {
+    //if (irq_num > 2) k_printf("#IRQ%d#", irq_num);
     intr_handler_f callee = irq[irq_num];
     callee(0);
     irq_eoi();
@@ -103,7 +127,6 @@ inline void irq_set_handler(uint32_t irq_num, intr_handler_f handler) {
 /****************** IRQs ***********************/
 
 void irq_stub() {
-    //
 }
 
 void irq_slave() {

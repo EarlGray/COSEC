@@ -7,6 +7,7 @@ bool kbd_state_shift(void);
 bool kbd_state_ctrl(void);
 bool kbd_state(scancode_t scan_id);
 
+scancode_t kbd_wait_scan(void);
 
 /************  events  ***************/
 
@@ -19,7 +20,7 @@ void kbd_set_oprelease(kbd_event_f onrelease);
 /************  buffer   **************/
 
 scancode_t kbd_pop_scancode(void);
-
+void kbd_buf_clear(void);
 
 /************  layouts  *************/
 struct kbd_layout;

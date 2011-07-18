@@ -90,17 +90,19 @@ typedef struct {
 #define segsel_index(ss)        ((ss) >> 3)
 #define rpl(ss)                 ((ss >> 1) & 0x3)
 
-#define cpu_snapshot(buf) {    \
-    uint32_t stack;                             \
-    asm(" movl %%esp, %0 \n" : "=r"(stack));    \
-    asm(" pusha \n");                           \
-    asm("movl %0, %%edi \n" : : "r"(buf));      \
-    asm("movl %0, %%esi \n" : : "r"(stack));    \
-    asm("movl %0, %%ecx \n" : : "r"(100));      \
-    asm("rep movsb");                           \
-    asm(" movl %0, %%esp \n" : : "r"(stack));   \
+#define arch_memcpy(dst, src, size) {       \
+    asm("movl %0, %%edi \n" : : "r"(dst));  \
+    asm("movl %0, %%esi \n" : : "r"(src));  \
+    asm("movl %0, %%ecx \n" : : "r"(size)); \
+    asm("rep movsb");                       \
 }
 
+#define arch_strncpy(dst, src, n) {         \
+    asm("movl %0, %%edi \n" : : "r"(dst));  \
+    asm("movl %0, %%esi \n" : : "r"(src));  \
+    asm("movl %0, %%ecx \n" : :"r"(n));     \
+    asm("repnz movsb");                     \
+}
 
 #define thread_hang()   asm volatile ("1:    hlt\n\tjmp 1b\n" ::)
         
@@ -129,11 +131,25 @@ typedef struct {
 #define intrs_disable() asm ("\t cli \n")                                                       
 #define cpu_halt()      asm ("\t hlt \n")
 
-#define stack_pointer(p)    asm ("\t movl %%esp, %0 \n" : "=r"(p));
+#define stack_pointer(p)    asm ("\t movl %%esp, %0 \n" : "=r"(p))
+
+
+#define cpu_snapshot(buf) {    \
+    uint32_t stack;                             \
+    asm(" movl %%esp, %0 \n" : "=r"(stack));    \
+    asm(" pusha \n");                           \
+    asm("movl %0, %%edi \n" : : "r"(buf));      \
+    asm("movl %%esp, %%esi \n" );               \
+    asm("movl %0, %%ecx \n" : : "r"(100));      \
+    asm("rep movsb");                           \
+    asm(" movl %0, %%esp \n" : : "r"(stack));   \
+}
 
 #define eflags(flags) {     \
     asm ("\t pushf \n");    \
     asm ("\t movl (%%esp), %0 \n" : "=r"(flags));   \
     asm ("\t popf \n");     \
 }
+
+
 #endif // __CPU_H__

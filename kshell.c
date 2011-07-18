@@ -9,6 +9,7 @@
 
 #include <dev/cpu.h>
 #include <dev/screen.h>
+#include <dev/pci.h>
 
 #include <std/string.h>
 #include <std/stdio.h>
@@ -71,7 +72,7 @@ void print_cpu(void) {
     char buf[100];
     asm (" movl %0, %%eax \n" : : "r"(0xA5A5A5A5));
     asm (" movl %0, %%ebx \n" : : "r"(0xBBBBBBBB));
-    cpu_snapshot(buf);
+    //cpu_snapshot(buf);
     print_mem(buf, 100);    
 }
 
@@ -90,7 +91,8 @@ void print_welcome(void) {
   *     Console routines
  ***/
 
-char *prompt = "|< ";
+#define PROMPT_BUF_SIZE     30
+char prompt[PROMPT_BUF_SIZE] = "|< ";
 
 inline void console_write(const char *msg) {
     k_printf("%s", msg);
@@ -153,13 +155,15 @@ void kshell_help();
 void kshell_info(struct kshell_command *, const char *);
 void kshell_mboot(struct kshell_command *, const char *);
 void kshell_test(struct kshell_command *, const char *);
+void kshell_set(struct kshell_command *, const char *);
 void kshell_mem(struct kshell_command *, const char *);
 void kshell_panic();
 
 struct kshell_command main_commands[] = {
-    {   .name = "info",     .worker = kshell_info,  .description = "various info", .options = "stack gdt pmem colors cpu" },
-    {   .name = "test",     .worker = kshell_test,  .description = "test utility", .options = "sprintf timer" },
+    {   .name = "info",     .worker = kshell_info,  .description = "various info", .options = "stack gdt pmem colors cpu pci" },
+    {   .name = "test",     .worker = kshell_test,  .description = "test utility", .options = "sprintf timer serial" },
     {   .name = "mem",      .worker = kshell_mem,   .description = "mem <start_addr> <size = 0x100>" },
+    {   .name = "set",      .worker = kshell_set,   .description = "manage global variables", .options = "color prompt" },
     {   .name = "panic",    .worker = kshell_panic, .description = "test The Red Screen of Death"     },
     {   .name = "help",     .worker = kshell_help,  .description = "show this help"   },
     {   .name = null,       .worker = 0    }
@@ -192,9 +196,29 @@ void kshell_info(struct kshell_command *this, const char *arg) {
     } else
     if (!strcmp(arg, "cpu")) {
         print_cpu();
+    } else 
+    if (!strcmp(arg, "pci")) {
+        pci_setup();
     } else
     {
         k_printf("Options: %s\n\n", this->options);
+    }
+}
+
+static char * get_int_opt(const char *arg, int *res, uint8_t base);
+
+void kshell_set(struct kshell_command *this, const char *arg) {
+    if (!strncmp(arg, "color", 5)) {
+        arg += 5;
+        int attr;
+        char *end = get_int_opt(arg, &attr, 16);
+        if (end != arg) 
+            set_cursor_attr(attr);
+    } else 
+    if (!strncmp(arg, "prompt", 6)) {
+        strncpy(prompt, arg + 7, PROMPT_BUF_SIZE);
+    } else {
+        k_printf("Variables: %s\n", this->options);
     }
 }
 
@@ -205,11 +229,6 @@ void kshell_mem(struct kshell_command *this, const char *arg) {
         k_printf("%s warning: reading 0x0000, default\n", this->name);
     }
     
-    do {
-        const char *end = sscan_int(arg, (int *)&size, 16);
-        if (end != arg) break;
-    } while (*(arg++));
-
     if (size == 0) 
         size = 0x100;
 
@@ -217,13 +236,21 @@ void kshell_mem(struct kshell_command *this, const char *arg) {
     k_printf("\n");
 }
 
+#include <dev/kbd.h>
+
 void kshell_test(struct kshell_command *this, const char *cmdline) {
     if (!strncmp(cmdline, "sprintf", 4)) 
         test_sprintf();
     else if (!strncmp(cmdline, "timer", 5)) 
         test_timer();
+    else if (!strncmp(cmdline, "serial", 6))
+        test_serial();
+    else if (!strncmp(cmdline, "scan", 4)) {
+        scancode_t scan = kbd_wait_scan();
+        k_printf("scancode: 0x%x\n", (uint)scan);
+    }
     else {
-        k_printf("options are %s\n\n", this->options);
+        k_printf("Options: %s\n\n", this->options);
     }
 }
 
@@ -243,7 +270,7 @@ void kshell_help() {
         k_printf("\t%s - %s\n", cmd->name, cmd->description);
         ++cmd;
     }
-    k_printf("Available shortcuts:\n\tCtrl-L - clear screen\n\tEsc - on/off keyboard debug mode\n\n");
+    k_printf("Available shortcuts:\n\tCtrl-L - clear screen\n\tCapsLock - on/off keyboard debug mode\n\n");
 }
 
 
@@ -259,6 +286,15 @@ static char* get_args(char *command) {
         ++arg;
     }
     return arg;
+}
+
+static char * get_int_opt(const char *arg, int *res, uint8_t base) {
+    char *end = arg;
+    do {
+        end = sscan_int(arg, res, base);
+        if (end != arg) return end;
+    } while (*(arg++));
+    return end;
 }
 
 void kshell_do(char *command) {

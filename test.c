@@ -6,6 +6,7 @@
 #include <misc/test.h>
 #include <std/string.h>
 #include <std/stdarg.h>
+#include <std/stdio.h>
 #include <dev/timer.h>
 #include <dev/cpu.h>
 
@@ -90,4 +91,84 @@ static void on_timer(uint counter) {
 
 void test_timer(void) {
     timer_push_ontimer(on_timer);
+}
+
+
+#include <dev/serial.h>
+#include <dev/kbd.h>
+#include <dev/screen.h>
+
+volatile bool poll_exit = false;
+
+inline static print_serial_info(uint16_t port) {
+    uint8_t iir;
+    inb(COM1_PORT + 1, iir);
+    k_printf("(IER=%x\t", (uint)iir);
+    inb(COM1_PORT + 2, iir);
+    k_printf("IIR=%x\t", (uint)iir);
+    inb(COM1_PORT + 5, iir);
+    k_printf("LSR=%x\t", (uint)iir);
+    inb(COM1_PORT + 6, iir);
+    k_printf("MSR=%x", (uint)iir);
+    k_printf("PIC=%x)", (uint)irq_get_mask());
+}
+
+void on_serial_received(uint8_t b) {
+    set_cursor_attr(0x0A);
+    cprint(b);
+    update_hw_cursor();
+}
+
+static void on_press(scancode_t scan) {
+    if (scan == 1) 
+        poll_exit = true;
+    if (scan == 0x53) 
+        print_serial_info(COM1_PORT);
+
+    char c = translate_from_scan(null, scan);
+    if (c == 0) return;
+
+    while (! serial_is_transmit_empty(COM1_PORT));
+    serial_write(COM1_PORT, c);
+    
+    set_cursor_attr(0x0C);
+    cprint(c);
+    update_hw_cursor();
+}
+
+void poll_serial() {
+    poll_exit = false;
+    kbd_set_onpress(on_press);
+
+    while (!poll_exit) {
+        if (serial_is_received(COM1_PORT)) {
+            uint8_t b = serial_read(COM1_PORT);
+
+            set_cursor_attr(0x0A);
+            cprint(b);
+            update_hw_cursor();
+        }
+    }
+    kbd_set_onpress(null);
+}
+
+void test_serial(void) {
+    irq_mask(true, 4);
+    k_printf("IRQs state = 0x%x\n", (uint)irq_get_mask());
+
+    uint8_t saved_color = get_cursor_attr();
+    k_printf("Use <Esc> to quit, <Del> for register info\n");
+    serial_setup();
+
+    //poll_serial();
+    
+    poll_exit = false;
+    serial_set_on_receive(on_serial_received);
+    kbd_set_onpress(on_press);
+
+    while (!poll_exit) cpu_halt();
+
+    kbd_set_onpress(null);
+    serial_set_on_receive(null);
+    set_cursor_attr(saved_color);
 }

@@ -6,7 +6,7 @@
 
 volatile char c = 0;
 
-static void on_key_press(uint8_t scan_code) {
+static void on_key_press(scancode_t scan_code) {
     c = translate_from_scan(null, scan_code);
 }
 
