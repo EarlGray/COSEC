@@ -15,6 +15,13 @@
 #include <std/stdio.h>
 
 /***
+  *     Internal declarations
+ ***/
+static char * get_args(char *command);
+bool kshell_autocomplete(char *buf);
+static char * get_int_opt(const char *arg, int *res, uint8_t base);
+
+/***
   *     Panic and other print routines
  ***/
 
@@ -123,6 +130,10 @@ void console_readline(char *buf, size_t size) {
             console_write(prompt);
             console_write(buf);
             break;
+        case '\t':
+            cur[1] = 0;
+            if (kshell_autocomplete(buf)) return;
+            break;
         default:
             if (cur - buf + 1 < (int)size) {
                 *cur = c;
@@ -161,13 +172,53 @@ void kshell_panic();
 
 struct kshell_command main_commands[] = {
     {   .name = "info",     .worker = kshell_info,  .description = "various info", .options = "stack gdt pmem colors cpu pci" },
-    {   .name = "test",     .worker = kshell_test,  .description = "test utility", .options = "sprintf timer serial" },
+    {   .name = "test",     .worker = kshell_test,  .description = "test utility", .options = "sprintf kbd timer serial" },
     {   .name = "mem",      .worker = kshell_mem,   .description = "mem <start_addr> <size = 0x100>" },
     {   .name = "set",      .worker = kshell_set,   .description = "manage global variables", .options = "color prompt" },
     {   .name = "panic",    .worker = kshell_panic, .description = "test The Red Screen of Death"     },
     {   .name = "help",     .worker = kshell_help,  .description = "show this help"   },
     {   .name = null,       .worker = 0    }
 };
+
+/* return number of first different symbol or endchar */
+static inline size_t strcmpsz(const char *s1, const char *s2, char endchar) {
+    size_t i;
+    for (i = 0; (s1[i] == s2[i]) && (s1[i] != endchar); ++i);
+    return i;
+}
+
+#define skip_gaps(pchar) \
+    while (' ' == *(pchar)) ++(pchar)
+
+bool kshell_autocomplete(char *buf) {
+    char *c;
+    int i;
+    struct kshell_command *cmd;
+    
+    // search for commands
+    for (cmd = main_commands; cmd->name; ++cmd) {
+        i = strcmpsz(cmd->name, buf, 0);
+        if (i == strlen(cmd->name)) {
+            // full main command 
+            char *rest = buf + i;
+            skip_gaps(rest);
+            if (0 == *rest) {
+                k_printf("\n%s\n%s%s", cmd->options, prompt, buf);
+                return false;
+            }
+            // else we need to track options of cmd
+            char *opt = cmd->options;
+            i = strcmpsz(opt, rest, ' ');
+            return false;
+        }
+        if (i == strlen(buf)) {
+            // complete main command
+            strcpy(buf + i, cmd->name + i);
+            k_printf("%s ", cmd->name + i);
+            return true;
+        }
+    }
+}
 
 void kshell_info(struct kshell_command *this, const char *arg) {
     if (!strcmp(arg, "stack")) {
@@ -205,7 +256,6 @@ void kshell_info(struct kshell_command *this, const char *arg) {
     }
 }
 
-static char * get_int_opt(const char *arg, int *res, uint8_t base);
 
 void kshell_set(struct kshell_command *this, const char *arg) {
     if (!strncmp(arg, "color", 5)) {
@@ -236,8 +286,6 @@ void kshell_mem(struct kshell_command *this, const char *arg) {
     k_printf("\n");
 }
 
-#include <dev/kbd.h>
-
 void kshell_test(struct kshell_command *this, const char *cmdline) {
     if (!strncmp(cmdline, "sprintf", 4)) 
         test_sprintf();
@@ -245,10 +293,8 @@ void kshell_test(struct kshell_command *this, const char *cmdline) {
         test_timer();
     else if (!strncmp(cmdline, "serial", 6))
         test_serial();
-    else if (!strncmp(cmdline, "scan", 4)) {
-        scancode_t scan = kbd_wait_scan();
-        k_printf("scancode: 0x%x\n", (uint)scan);
-    }
+    else if (!strncmp(cmdline, "kbd", 4)) 
+        test_scan();
     else {
         k_printf("Options: %s\n\n", this->options);
     }
@@ -270,21 +316,19 @@ void kshell_help() {
         k_printf("\t%s - %s\n", cmd->name, cmd->description);
         ++cmd;
     }
-    k_printf("Available shortcuts:\n\tCtrl-L - clear screen\n\tCapsLock - on/off keyboard debug mode\n\n");
+    k_printf("Available shortcuts:\n\tCtrl-L - clear screen\n\n");
 }
 
 
 static char* get_args(char *command) {
     // find the first gap
-    char *arg = command;
-    while (*arg) {
+    char *arg;
+    for (arg = command; *arg; ++arg)
         if (*arg == ' ') {
             while (*arg == ' ') 
                 *(arg++) = 0;
             break;
         }
-        ++arg;
-    }
     return arg;
 }
 
@@ -300,17 +344,16 @@ static char * get_int_opt(const char *arg, int *res, uint8_t base) {
 void kshell_do(char *command) {
     if (0 == *command) return;
 
-    struct kshell_command *cmd = main_commands;
     char *arg = get_args(command);
-    while (cmd->name) {
+
+    struct kshell_command *cmd; 
+    for (cmd = main_commands; cmd->name; ++cmd) 
         if (!strcmp(cmd->name, command)) {
             cmd->worker(cmd, arg);
             return;
         }
-        ++cmd;
-    }
 
-    kshell_unknown_cmd(arg);
+    kshell_unknown_cmd(command);
 }
 
 #define ever (;;)

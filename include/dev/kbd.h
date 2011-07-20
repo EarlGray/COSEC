@@ -7,7 +7,7 @@ bool kbd_state_shift(void);
 bool kbd_state_ctrl(void);
 bool kbd_state(scancode_t scan_id);
 
-scancode_t kbd_wait_scan(void);
+scancode_t kbd_wait_scan(bool release_too);
 
 /************  events  ***************/
 

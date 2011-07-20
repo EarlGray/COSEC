@@ -172,3 +172,13 @@ void test_serial(void) {
     serial_set_on_receive(null);
     set_cursor_attr(saved_color);
 }
+
+void test_scan(void) {
+    k_printf("Use <Esc> to quit\n");
+    uint8_t key = 0;
+    while (key != 1) {
+        key = kbd_wait_scan(true);
+        k_printf("%x->%x\t", (uint)key, (uint)translate_from_scan(null, key));
+    }
+    k_printf("\n");
+}

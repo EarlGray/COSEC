@@ -7,7 +7,7 @@
 /*************** Keyboard buffer ****************/
 
 #define KBD_BUF_SIZE    256 
-struct {
+volatile struct {
     uint8_t head;
     uint8_t tail;
     scancode_t buf[KBD_BUF_SIZE];
@@ -97,15 +97,13 @@ const struct kbd_layout qwerty_layout = {
     }
 };
 
-static bool transl_debug = false;
-
 char translate_from_scan(const struct kbd_layout *layout, scancode_t scan_code) {
+    if (scan_code & 0x80)
+        return 0;
     if (layout == null) 
         layout = &qwerty_layout;
-    if (transl_debug) 
-        k_printf("\nqwerty: %x -> %x \n", (uint32_t)scan_code, (uint32_t)(layout->key[scan_code].normal)); 
 
-    const struct scan_key *key = (layout->key + scan_code);
+    const struct scan_key *key = (layout->key + scan_code );
     if (kbd_state_ctrl()) 
         return key->ctrl; 
     if (kbd_state_shift())
@@ -117,24 +115,27 @@ char translate_from_scan(const struct kbd_layout *layout, scancode_t scan_code) 
 volatile scancode_t sc;
 
 static void on_scan(scancode_t b) {
-    k_printf("scan-");
     sc = b;
 }
 
-scancode_t kbd_wait_scan(void) {
+scancode_t kbd_wait_scan(bool release_too) {
     kbd_set_onpress(on_scan);
+    if (release_too) 
+        kbd_set_onrelease(on_scan);
     sc = 0;
 
     while (sc == 0) cpu_halt();
 
     kbd_set_onpress(null);
+    if (release_too)
+        kbd_set_onrelease(null);
     return sc;
 }
 
 
 /************* Keyboard driver ******************/
 
-bool theKeyboard[KEY_COUNT];
+volatile bool theKeyboard[KEY_COUNT];
 
 volatile kbd_event_f on_press = null;
 volatile kbd_event_f on_release = null;
@@ -160,14 +161,6 @@ void kbd_set_onrelease(kbd_event_f onrelease) {
 	on_release = onrelease;
 }
 
-static void kbd_hotkeys(scancode_t scancode) {
-    switch (scancode) {
-    case 0x3A:
-        transl_debug = not(transl_debug);
-        return;
-    }
-}
-
 void keyboard_irq() {
 	uint8_t scan_code = 0;
 	inb(0x60, scan_code);
@@ -177,14 +170,13 @@ void keyboard_irq() {
 		/* on press event */
 		theKeyboard[scan_code] = true;
         
-        kbd_hotkeys(scan_code);
         if (on_press)
             on_press(scan_code);
 	}	
 	else {
 		/* on release event */
-		scan_code &= 0x7F;
-		theKeyboard[scan_code] = false;
+		theKeyboard[scan_code & 0x7F] = false;
+
         if (on_release)
             on_release(scan_code);
 	}
