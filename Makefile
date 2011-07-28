@@ -13,7 +13,7 @@ ld_flags    := -static -nostdlib -Ttext=0x100000  #-s
 
 cc_includes := -include include/globl.h $(addprefix -I, $(include_dir)) 
 
-# for 64bit host
+### for 64bit host
 cc_flags 	+= -m32
 as_flags	+= -m32
 ld_flags	+= --oformat=elf32-i386 -melf_i386
@@ -31,17 +31,22 @@ kernel      := kernel
 mnt_dir     := mount_point
 image       := cosec.img
 
+fuse		:= $(shell which fuseext2)
+
 ### Use native mount/umount for a GRUB installation, fuseext2 fails at this
-# do_mount	:= sudo mount -o loop 
-# do_umount	:= sudo umount 
-# do_install	:= sudo cp 
-do_mount	:= fuseext2 -o rw+,uid=`id -u`,gid=`id -g` 
-do_umount	:= fusermount -u 
-do_install	:= cp
+ifeq ($(strip $(fuse)),)
+    do_mount	:= sudo mount -o loop 
+    do_umount	:= sudo umount 
+    do_install	:= sudo cp 
+else
+    do_mount	:= $(fuse) -o rw+,uid=`id -u`,gid=`id -g` 
+    do_umount	:= fusermount -u 
+    do_install	:= cp
+endif
 
 log_name	:= fail.log
 objdump     := $(kernel).objd
-pipe_file	:= com
+pipe_file	:= pipe
 
 vbox_name   := COSEC
 qemu_flags	:= -fda $(image) -boot a -m 32 -net nic,model=rtl8139  -ctrl-grab
@@ -49,12 +54,10 @@ qemu_flags	:= -fda $(image) -boot a -m 32 -net nic,model=rtl8139  -ctrl-grab
 .PHONY: run install mount umount clean
 .PHONY: qemu vbox bochs
 
-#VBoxManage startvm $(vbox_name) 2>&1 | tee $(log_name);	
 run:	install
-	
 	@echo "\n#### Running..." && \
 	if [ $$DISPLAY ] ; then	\
-		make vbox || make qemu || make bochs || \
+		make qemu || make vbox || make bochs || \
 			echo "@@@@ Error: VirtualBox, qemu or Bochs must be installed";	\
 	else qemu $(qemu_flags) -curses;	fi
 
@@ -134,7 +137,10 @@ help:
 	echo "	qemu | vbox | bochs - make all the things needed for run and run in the specified emulator"; \
 	echo "	install - check kernel and image and install former to latter";	\
 	echo "	kernel - compile and link kernel"; \
-	echo "	mount/umount - mount/umount image (root privileges are required unless using FUSE)"
+	echo "	mount/umount - mount/umount image (root privileges are required unless using FUSE)";	\
+	echo "  You may wish to install fuseext2 tools to work without root privileges, but it is still recommended"; \
+	echo "  to make image with native sudo. In order to do this, use"; \
+	echo "	make fuse=";	echo
 
 include $(wildcard $(addprefix /*.d, $(build)))
 

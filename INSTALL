@@ -11,8 +11,14 @@ running kernel, so you just need to do
 In order to just compile, do 
     $ make kernel
 
-To make boot image manually, use res/fd.tar.bz2 with preinstalled GRUB, copy 
-res/menu.lst to ${floppy.img}/boot/grub/, put ${kernel} to ${floppy}/.
+Root privileges: unless you have fuseext2 installed (this is checked by Makefile),
+mount/umount will be used, which requires sudo. You might wish to install fuseext2 
+to work without root privileges, but it is still recommended to generate image with 
+native sudo. In order to do use mount when fuse is installed, use
+    $ make fuse=
+
+To make boot image manually, use res/fd.tar.bz2 (floppy image with preinstalled 
+GRUB, copy res/menu.lst to ${floppy.img}/boot/grub/, put ${kernel} to ${floppy}/.
 
 Please report issues to dmytrish@gmail.com 
 
