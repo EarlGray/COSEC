@@ -1,6 +1,7 @@
 #include <dev/screen.h>
 #include <dev/kbd.h>
-#include <dev/cpu.h>
+
+#include <arch/i386.h>
 
 #include <std/stdarg.h>
 

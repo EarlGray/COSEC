@@ -10,11 +10,11 @@
 
 #include <globl.h>
 
-#include <mm/gdt.h>
+#include <arch/i386.h>
+#include <arch/gdt.h>
+#include <arch/idt.h>
 
 #include <dev/intrs.h>
-#include <dev/idt.h>
-#include <dev/cpu.h>
 
 #include <std/stdio.h>
 

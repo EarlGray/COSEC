@@ -9,8 +9,6 @@
  *   - basic selectors constants;
  */
 
-#include <dev/cpu.h>
-
 /* GDT indeces */
 #define GDT_DUMMY       0
 #define GDT_KERN_CS     1

@@ -8,7 +8,7 @@
 #include <std/stdarg.h>
 #include <std/stdio.h>
 #include <dev/timer.h>
-#include <dev/cpu.h>
+#include <arch/i386.h>
 
 const char * sscan_int(const char *str, int *res, uint8_t base);
 

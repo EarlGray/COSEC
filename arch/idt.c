@@ -11,11 +11,12 @@
  *  linux's system gates), intr gates (interrupt gates, linux's interrupts)
  */
 
-#include <dev/idt.h>
+#include <arch/idt.h>
 
-#include <mm/gdt.h>
-#include <dev/cpu.h>
-#include <dev/intr.h>
+#include <arch/i386.h>
+#include <arch/gdt.h>
+#include <arch/intr.h>
+
 #include <dev/intrs.h>
 
 /*****  The IDT   *****/

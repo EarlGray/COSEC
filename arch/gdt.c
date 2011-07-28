@@ -1,5 +1,5 @@
-#include <dev/cpu.h>
-#include <mm/gdt.h>
+#include <arch/i386.h>
+#include <arch/gdt.h>
 
 /***
   *     Internal declarations

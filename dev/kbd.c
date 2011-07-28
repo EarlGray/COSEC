@@ -1,6 +1,6 @@
 #include <dev/kbd.h>
 #include <dev/intrs.h>
-#include <dev/cpu.h>
+#include <arch/i386.h>
 
 #define KEY_COUNT   	128
 

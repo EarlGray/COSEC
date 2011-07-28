@@ -41,11 +41,11 @@ struct task {
 
 
 void do_task1(void) {
-    kprintf("B");
+    k_printf("B");
 }
 
 void do_task2(void) {
-    kprintf("A");
+    k_printf("A");
 }
 
 void task_add(task_f task) {

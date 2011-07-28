@@ -1,5 +1,5 @@
 #include <std/string.h>
-#include <dev/cpu.h>
+#include <arch/i386.h>
 
 int strcmp(const char *s1, const char *s2) {
     while (1) {

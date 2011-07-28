@@ -1,6 +1,6 @@
 #include <dev/pci.h>
 
-#include <dev/cpu.h>
+#include <arch/i386.h>
 
 #define PCI_CONFIG_ADDR     0x0CF8
 #define PCI_CONFIG_DATA     0x0CFC

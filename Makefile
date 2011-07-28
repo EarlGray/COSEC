@@ -18,8 +18,8 @@ cc_flags 	+= -m32
 as_flags	+= -m32
 ld_flags	+= --oformat=elf32-i386 -melf_i386
 
-objs		:= $(src_dir)/boot.S
-objs		+= $(wildcard $(src_dir)/[^b]*.S)
+objs		:= $(src_dir)/arch/boot.S
+objs		+= $(wildcard $(src_dir)/arch/[^b]*.S)
 objs		+= $(wildcard $(src_dir)/*.c)
 objs		+= $(wildcard $(src_dir)/*/*.c)
 
@@ -57,7 +57,7 @@ qemu_flags	:= -fda $(image) -boot a -m 32 -net nic,model=rtl8139  -ctrl-grab
 run:	install
 	@echo "\n#### Running..." && \
 	if [ $$DISPLAY ] ; then	\
-		make qemu || make vbox || make bochs || \
+		make vbox || make qemu || make bochs || \
 			echo "@@@@ Error: VirtualBox, qemu or Bochs must be installed";	\
 	else qemu $(qemu_flags) -curses;	fi
 

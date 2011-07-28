@@ -3,10 +3,11 @@
 %:include <tasks.h>
 %:include <kshell.h>
 
-%:include <mm/gdt.h>
+%:include <arch/i386.h>
+%:include <arch/gdt.h>
+
 %:include <mm/pmem.h>
 
-%:include <dev/cpu.h>
 %:include <dev/intrs.h>
 %:include <dev/kbd.h>
 %:include <dev/pci.h>
