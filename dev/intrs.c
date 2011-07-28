@@ -192,7 +192,4 @@ void intrs_setup(void) {
         irq[i] = irq_stub;
     for (i = 8; i < 16; ++i)
         irq[i] = irq_slave;
-
-    idt_setup();
-    idt_deploy();
 }

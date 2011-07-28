@@ -229,7 +229,7 @@ void kshell_info(struct kshell_command *this, const char *arg) {
         k_printf("stack at 0x%x\n", stack);
     } else
     if (!strcmp(arg, "gdt")) {
-        gdt_info();
+        k_printf("GDT is at 0x%x\n", (uint)i386_gdt());
     } else
     if (!strcmp(arg, "pmem")) {
         pmem_info();

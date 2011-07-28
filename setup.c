@@ -4,14 +4,10 @@
 %:include <kshell.h>
 
 %:include <arch/i386.h>
-%:include <arch/gdt.h>
 
 %:include <mm/pmem.h>
 
-%:include <dev/intrs.h>
 %:include <dev/kbd.h>
-%:include <dev/pci.h>
-%:include <dev/serial.h>
 %:include <dev/timer.h>
 
 %:include <fs/fs.h>
@@ -27,9 +23,8 @@ void kmain(uint32_t magic, struct multiboot_info *mbi)
     mboot_info_parse(mbi);
 
     /* general setup */
-    gdt_setup();
+    cpu_setup();
     pmem_setup();
-    intrs_setup();
     fs_setup();
 
     /* devices setup */

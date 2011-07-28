@@ -146,10 +146,19 @@ typedef struct {
     asm ("\t popf \n");     \
 }
 
+segment_descriptor * i386_gdt(void);
+segment_descriptor * i386_idt(void);
+
+enum gatetype {
+    GATE_INTR,      // Intel: interrupt gate, dpl = 0   Linux: intrgate
+    GATE_TRAP,      // Intel: trap gate,    dpl = 0     Linux: trapgate
+    GATE_CALL,      // Intel: trap gate,    dpl = 3     Linux: sysgate
+    // no hardware multitasking
+};
+
 
 /***
   *     Common-architecture interface
-  *
  ***/
 
 #define intrs_enable()         i386_intrs_enable()
@@ -174,5 +183,7 @@ typedef struct {
 
 #define arch_strncpy(dst, src, n)   i386_strncpy(dst, src, n)
 #define arch_memcpy(dst, src, size) i386_memcpy(dst, src, size) 
+
+void cpu_setup(void);
 
 #endif // __CPU_H__
