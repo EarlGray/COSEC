@@ -65,15 +65,6 @@ inline void set_serial_bitness(uint16_t port, uint8_t bit_per_char) {
     out_bits_b(port + LCR_OFFSET, 0x03, bit_per_char - 5);
 }
 
-static void serial_configure(uint16_t port, uint8_t speed_divisor) {
-    outb(port + IER_OFFSET, 0);
-    set_serial_divisor(port, speed_divisor);
-    set_serial_bitness(port, 8);     /* 8bit byte */
-    outb(port + IIFCR_OFFSET, 0x07);    
-    outb(port + MCR_OFFSET, 0x08);   /* IRQ enabled, RTS/DSR set */
-    outb(port + IER_OFFSET, 0x0F);   /* enable FIFO, clear, 14b threshold */
-}
-
 inline bool serial_is_received(uint16_t port) {
     uint8_t val;
     inb(port + LSR_OFFSET, val);
@@ -96,18 +87,18 @@ inline void serial_write(uint16_t port, uint8_t b) {
     outb(port, b);
 }
 
+static void serial_configure(uint16_t port, uint8_t speed_divisor) {
+    outb(port + IER_OFFSET, 0);
+    set_serial_divisor(port, speed_divisor);
+    set_serial_bitness(port, 8);     /* 8bit byte */
+    outb(port + IIFCR_OFFSET, 0xC7);    
+    outb(port + MCR_OFFSET, 0x0B);   /* IRQ enabled, RTS/DSR set */
+    outb(port + IER_OFFSET, 0x0F);   /* enable FIFO, clear, 14b threshold */
+}
+
 void serial_setup(void) {
     /* configure serial interface */
-    /*serial_configure(COM1_PORT, 1); */
-
-    outb(COM1_PORT + 1, 0x00);    // Disable all interrupts
-    outb(COM1_PORT + 3, 0x80);    // Enable DLAB (set baud rate divisor)
-    outb(COM1_PORT + 0, 0x03);    // Set divisor to 3 (lo byte) 38400 baud
-    outb(COM1_PORT + 1, 0x00);    //                  (hi byte)
-    outb(COM1_PORT + 3, 0x03);    // 8 bits, no parity, one stop bit
-    outb(COM1_PORT + 2, 0xC7);    // Enable FIFO, clear them, with 14-byte threshold
-    outb(COM1_PORT + 4, 0x0B);    // IRQs enabled, RTS/DSR set
-    outb(COM1_PORT + 1, 0x0F);    // Enable all interrupts
+    serial_configure(COM1_PORT, 1); 
 
     irq_set_handler(4, serial_irq);
 }

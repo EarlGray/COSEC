@@ -2,11 +2,11 @@
 # (c) Dmytro Sirenko, 2010
 
 default 0
-timeout 5
+timeout 2
 
 title COSEC
     root (fd0)
-    kernel --type=multiboot (fd0)/kernel 
+    kernel --type=multiboot /kernel 
 
 title Boot from hard drive
     rootnoverify (hd0)

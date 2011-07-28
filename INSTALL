@@ -1,3 +1,5 @@
+View 'make help' output for a brief information.
+
 You need just basic tools (GNU make, gcc, optionally objdump, ctags) for 
 compilation on Linux (both 32 and 64 bit), Mac OS X support is in progress.  
 To run it,  you need QEMU or Bochs, VirtualBox (for the latter create VM named 
