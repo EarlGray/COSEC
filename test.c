@@ -79,7 +79,7 @@ void test_sprintf(void) {
 
 void test_eflags(void) {
     uint flags = 0;
-    eflags(flags);
+    i386_eflags(flags);
     k_printf("flags=0x%x\n", flags);
 }
 

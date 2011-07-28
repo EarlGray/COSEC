@@ -90,51 +90,46 @@ typedef struct {
 #define segsel_index(ss)        ((ss) >> 3)
 #define rpl(ss)                 ((ss >> 1) & 0x3)
 
-#define arch_memcpy(dst, src, size) {       \
+#define i386_memcpy(dst, src, size) {       \
     asm("movl %0, %%edi \n" : : "r"(dst));  \
     asm("movl %0, %%esi \n" : : "r"(src));  \
     asm("movl %0, %%ecx \n" : : "r"(size)); \
     asm("rep movsb");                       \
 }
 
-#define arch_strncpy(dst, src, n) {         \
+#define i386_strncpy(dst, src, n) {         \
     asm("movl %0, %%edi \n" : : "r"(dst));  \
     asm("movl %0, %%esi \n" : : "r"(src));  \
     asm("movl %0, %%ecx \n" : :"r"(n));     \
     asm("repnz movsb");                     \
 }
 
-#define thread_hang()   asm volatile ("1:    hlt\n\tjmp 1b\n" ::)
+#define i386_hang()   asm volatile ("1:    hlt\n\tjmp 1b\n" ::)
         
 #define io_wait()       asm ("\tjmp 1f\n1:\tjmp 1f\n1:") 
 
-#define inb(port, value)    asm volatile ("inb %%dx,%%al\n": "=a"(value): "d"(port))
-#define outb(port, value)   asm volatile ("outb %%al,%%dx\n"::"a" (value),"d" (port))
+#define i386_inb(port, value)    asm volatile ("inb %%dx,%%al\n": "=a"(value): "d"(port))
+#define i386_outb(port, value)   asm volatile ("outb %%al,%%dx\n"::"a" (value),"d" (port))
+#define i386_inw(port, value)    asm volatile ("inw %%dx,%%ax\n": "=a"(value): "d"(port))
+#define i386_outw(port, value)   asm volatile ("outw %%ax,%%dx\n"::"a" (value),"d" (port))
+#define i386_inl(port, value)    asm volatile ("inl %%dx,%%eax\n": "=a"(value): "d"(port))
+#define i386_outl(port, value)   asm volatile ("outl %%eax,%%dx\n"::"a" (value),"d" (port))
 
-#define inw(port, value)    asm volatile ("inw %%dx,%%ax\n": "=a"(value): "d"(port))
-#define outw(port, value)   asm volatile ("outw %%ax,%%dx\n"::"a" (value),"d" (port))
+#define i386_inb_p(port, value)  do { inb(port, value); io_wait();  } while (0)
+#define i386_outb_p(port, value) do { outb(port, value); io_wait();  } while (0)
+#define i386_inw_p(port, value)  do { inw(port, value); io_wait();  } while (0)
+#define i386_outw_p(port, value) do { outw(port, value); io_wait();  } while (0)
+#define i386_inl_p(port, value)  do { inl(port, value); io_wait();  } while (0)
+#define i386_outl_p(port, value) do { outl(port, value); io_wait();  } while (0)
 
-#define inl(port, value)    asm volatile ("inl %%dx,%%eax\n": "=a"(value): "d"(port))
-#define outl(port, value)   asm volatile ("outl %%eax,%%dx\n"::"a" (value),"d" (port))
+#define i386_intrs_enable()  asm ("\t sti \n")
+#define i386_intrs_disable() asm ("\t cli \n")                                                       
+#define i386_halt()      asm ("\t hlt \n")
 
-
-#define inb_p(port, value)  do { inb(port, value); io_wait();  } while (0)
-#define outb_p(port, value) do { outb(port, value); io_wait();  } while (0)
-
-#define inw_p(port, value)  do { inw(port, value); io_wait();  } while (0)
-#define outw_p(port, value) do { outw(port, value); io_wait();  } while (0)
-
-#define inl_p(port, value)  do { inl(port, value); io_wait();  } while (0)
-#define outl_p(port, value) do { outl(port, value); io_wait();  } while (0)
-
-#define intrs_enable()  asm ("\t sti \n")
-#define intrs_disable() asm ("\t cli \n")                                                       
-#define cpu_halt()      asm ("\t hlt \n")
-
-#define stack_pointer(p)    asm ("\t movl %%esp, %0 \n" : "=r"(p))
+#define i386_esp(p)    asm ("\t movl %%esp, %0 \n" : "=r"(p))
 
 
-#define cpu_snapshot(buf) {    \
+#define i386_snapshot(buf) {    \
     uint32_t stack;                             \
     asm(" movl %%esp, %0 \n" : "=r"(stack));    \
     asm(" pusha \n");                           \
@@ -145,11 +140,39 @@ typedef struct {
     asm(" movl %0, %%esp \n" : : "r"(stack));   \
 }
 
-#define eflags(flags) {     \
+#define i386_eflags(flags) {     \
     asm ("\t pushf \n");    \
     asm ("\t movl (%%esp), %0 \n" : "=r"(flags));   \
     asm ("\t popf \n");     \
 }
 
+
+/***
+  *     Common-architecture interface
+  *
+ ***/
+
+#define intrs_enable()         i386_intrs_enable()
+#define intrs_disable()        i386_intrs_disable()
+#define cpu_halt()             i386_halt()
+#define thread_hang()          i386_hang()
+
+#define inb(port, value)       i386_inb(port, value)    
+#define outb(port, value)      i386_outb(port, value)   
+#define inw(port, value)       i386_inw(port, value)    
+#define outw(port, value)      i386_outw(port, value)   
+#define inl(port, value)       i386_inl(port, value)    
+#define outl(port, value)      i386_outl(port, value)   
+
+#define inb_p(port, value)     i386_inb_p(port, value) 
+#define outb_p(port, value)    i386_outb_p(port, value)
+#define inw_p(port, value)     i386_inw_p(port, value) 
+#define outw_p(port, value)    i386_outw_p(port, value)
+#define inl_p(port, value)     i386_inl_p(port, value) 
+#define outl_p(port, value)    i386_outl_p(port, value)
+
+
+#define arch_strncpy(dst, src, n)   i386_strncpy(dst, src, n)
+#define arch_memcpy(dst, src, size) i386_memcpy(dst, src, size) 
 
 #endif // __CPU_H__
