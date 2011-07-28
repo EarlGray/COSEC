@@ -1,6 +1,12 @@
 /* 
  *  This file will be a temporary task polygon
  */ 
+#define TASK_RUNNING    0
+#define TASK_READY      1
+#define TASK_STOPPED    2
+
+typedef void (*task_f)(int, ...);
+typedef int task_state_t;
 
 struct task_state_seg {
     uint prev_task_link;    // high word is reserved
@@ -24,6 +30,29 @@ struct task_state_seg {
     uint ldt;
     uint io_map_addr;
 };
+typedef  struct task_state_seg  tss_t;
+
+struct task {
+    tss_t tss;
+    uint32_t tss_index;
+    uint32_t ldt_index;
+    task_state_t state;
+};
+
+
+void do_task1(void) {
+    kprintf("B");
+}
+
+void do_task2(void) {
+    kprintf("A");
+}
+
+void task_add(task_f task) {
+    //
+}
 
 int multitasking_setup(void) {
+    task_add(do_task1);
+    task_add(do_task2);
 }
