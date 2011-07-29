@@ -11,8 +11,6 @@
 #include <globl.h>
 
 #include <arch/i386.h>
-#include <arch/gdt.h>
-#include <arch/idt.h>
 
 #include <dev/intrs.h>
 

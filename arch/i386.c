@@ -1,7 +1,4 @@
 #include <arch/i386.h>
-
-#include <arch/idt.h>
-#include <arch/gdt.h>
 #include <arch/intr.h>
 
 #include <dev/intrs.h>
@@ -14,26 +11,12 @@
 #define N_TASKS     40
 #define N_GDT       (5 + N_TASKS * 2)
 
-/* GDT indeces */
-#define GDT_DUMMY       0
-#define GDT_KERN_CS     1
-#define GDT_KERN_DS     2
-#define GDT_USER_CS     3
-#define GDT_USER_DS     4
-
 struct gdt_ptr {
     uint16_t limit;
     uint32_t base;
 } __attribute__((packed));
 
 extern void gdt_get(struct gdt_ptr *idt);
-
-#define SEL_KERN_CS     ((GDT_KERN_CS << 3) + (PL_KERN << 1))
-#define SEL_KERN_DS     ((GDT_KERN_DS << 3) + (PL_KERN << 1))
-#define SEL_USER_CS     ((GDT_USER_CS << 3) + (PL_USER << 1))
-#define SEL_USER_DS     ((GDT_USER_DS << 3) + (PL_USER << 1))
-
-
 
 #define IDT_SIZE            0x100
 
@@ -55,12 +38,23 @@ extern void gdt_load(uint16_t limit, void *base);
 void gdt_setup(void) {
     memset(theGDT, 0, N_GDT * sizeof(struct segdescr));
 
-    gdt_entry_init((SEL_KERN_CS >> 3), SD_TYPE_ER_CODE, PL_KERN);
-    gdt_entry_init((SEL_KERN_DS >> 3), SD_TYPE_RW_DATA, PL_KERN);
-    gdt_entry_init((SEL_USER_CS >> 3), SD_TYPE_ER_CODE, PL_USER);
-    gdt_entry_init((SEL_USER_DS >> 3), SD_TYPE_RW_DATA, PL_USER);
+    gdt_entry_init(GDT_KERN_CS, SD_TYPE_ER_CODE, PL_KERN);
+    gdt_entry_init(GDT_KERN_DS, SD_TYPE_RW_DATA, PL_KERN);
+    gdt_entry_init(GDT_USER_CS, SD_TYPE_ER_CODE, PL_USER);
+    gdt_entry_init(GDT_USER_DS, SD_TYPE_RW_DATA, PL_USER);
+    segdescr_usual_init(theGDT[GDT_DEFAULT_LDT], SD_TYPE_LDT, 0, 0, PL_KERN, SD_GRAN_4Kb);
 
     gdt_load(N_GDT, theGDT);
+}
+
+index_t gdt_alloc_entry(segment_descriptor entry) {
+    index_t i;
+    for (i = 1; i < N_GDT; ++i) 
+        if (0 == *(uint *)(theGDT + i)) {
+            theGDT[i] = entry;
+            return i;
+        }
+    return 0;
 }
 
 /* 
@@ -122,6 +116,12 @@ inline segment_descriptor * i386_gdt(void) {
 inline segment_descriptor * i386_idt(void) {
     return theIDT;
 }
+
+
+/***
+  *     Task-related routines
+ ***/ 
+
 
 
 void cpu_setup(void) {

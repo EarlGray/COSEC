@@ -4,7 +4,6 @@
 #include <multiboot.h>
 #include <misc/test.h>
 
-#include <arch/gdt.h>
 #include <arch/i386.h>
 
 #include <mm/pmem.h>

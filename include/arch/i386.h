@@ -6,6 +6,12 @@ typedef enum {
     PL_USER = 3
 } privilege_level;
 
+typedef enum gatetype {
+    GATE_INTR,      // Intel: interrupt gate, dpl = 0   Linux: intrgate
+    GATE_TRAP,      // Intel: trap gate,    dpl = 0     Linux: trapgate
+    GATE_CALL,      // Intel: trap gate,    dpl = 3     Linux: sysgate
+} i386_gate_t;
+
 #define SD_GRAN_4Kb     1
 #define SD_GRAN_1b      0
 
@@ -87,6 +93,7 @@ typedef struct {
     } as;
 } segment_selector;
 
+#define make_selector(index, ti, pl)  (((index & 0xFFFF) << 3) + ((ti & 1) << 2) + (pl & 3))
 #define segsel_index(ss)        ((ss) >> 3)
 #define rpl(ss)                 ((ss >> 1) & 0x3)
 
@@ -146,15 +153,54 @@ typedef struct {
     asm ("\t popf \n");     \
 }
 
+
+/* GDT indeces */
+#define GDT_DUMMY       0
+#define GDT_KERN_CS     1
+#define GDT_KERN_DS     2
+#define GDT_USER_CS     3
+#define GDT_USER_DS     4
+#define GDT_DEFAULT_LDT 5
+
+#define SEL_KERN_CS     make_selector(GDT_KERN_CS, 0, PL_KERN)
+#define SEL_KERN_DS     make_selector(GDT_KERN_DS, 0, PL_KERN)
+#define SEL_USER_CS     make_selector(GDT_USER_CS, 0, PL_USER)
+#define SEL_USER_DS     make_selector(GDT_USER_DS, 0, PL_USER)
+#define SEL_DEFAULT_LDT make_selector(GDT_DEFAULT_LDT, 0, PL_KERN)
+
 segment_descriptor * i386_gdt(void);
 segment_descriptor * i386_idt(void);
 
-enum gatetype {
-    GATE_INTR,      // Intel: interrupt gate, dpl = 0   Linux: intrgate
-    GATE_TRAP,      // Intel: trap gate,    dpl = 0     Linux: trapgate
-    GATE_CALL,      // Intel: trap gate,    dpl = 3     Linux: sysgate
-    // no hardware multitasking
+index_t gdt_alloc_entry(segment_descriptor entry);
+
+
+/***
+  *     Task-related definitions
+ ***/
+
+struct task_state_seg {
+    uint prev_task_link;    // high word is reserved
+
+    uint esp0;
+    uint ss0;           // high word is reserved
+    uint esp1;
+    uint ss1;           // high word is reserved
+    uint esp2;
+    uint ss2;           // high word is reserved
+
+    uint cr3;
+  
+    uint eip;
+    uint eflags;  
+
+    uint eax, ecx, edx, ebx;
+    uint esp, ebp, esi, edi;
+
+    uint es, cs, ss, ds, fs, gs;
+    uint ldt;
+    uint io_map_addr;
 };
+typedef  struct task_state_seg  tss_t;
 
 
 /***
