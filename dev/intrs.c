@@ -125,6 +125,7 @@ inline void irq_set_handler(uint32_t irq_num, intr_handler_f handler) {
 /****************** IRQs ***********************/
 
 void irq_stub() {
+    k_printf("#");
 }
 
 void irq_slave() {
@@ -163,7 +164,6 @@ void int_invalid_op(void *stack) {
     snprintf(buf, 80, "#UD at %.8x:%0.8x",    
                 (uint) *((uint32_t *)stack + 11), 
                 (uint) *((uint32_t *)stack + 10) );
-    //print_mem((char *)stack, 0x30);
     panic(buf);
 }
 
@@ -181,7 +181,7 @@ void int_gpf(void *stack) {
 
 
 void intrs_setup(void) {
-    //  remap interrupts   
+    // remap interrupts   
     irq_remap(I8259A_BASE, I8259A_BASE + 8);
 
     // prepare handler table

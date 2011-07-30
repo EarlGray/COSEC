@@ -88,17 +88,10 @@ char * snprint_int(char *str, char *const end, int x, uint8_t base, uint flags, 
     return snprint_uint(str, end, x, base, flags, precision);
 }
 
-const char * sscan_int(const char *str, int *res, uint8_t base) {
-    char sign = 1;
-    bool read = true;
-
-    switch (*str) {
-    case '-': sign = -1;
-    case '+': break;
-    default: read = false;
-    }
-
+const char * sscan_uint(const char *str, uint *res, const uint8_t base) {
     *res = 0;
+
+    bool read = false;
     do {
         if (read) ++str;
         read = true;
@@ -119,6 +112,21 @@ const char * sscan_int(const char *str, int *res, uint8_t base) {
             read = false;
 
     } while (read);
+
+    return str;
+}
+
+const char * sscan_int(const char *str, int *res, const uint8_t base) {
+    char sign = 1;
+
+    switch (*str) {
+    case '-': 
+        sign = -1;
+    case '+': 
+        ++str; 
+    }
+
+    str = sscan_uint(str, res, base);
 
     if (sign == -1) 
         *res = - *res;

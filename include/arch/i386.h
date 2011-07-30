@@ -136,16 +136,13 @@ typedef struct {
 #define i386_esp(p)    asm ("\t movl %%esp, %0 \n" : "=r"(p))
 
 
-#define i386_snapshot(buf) {    \
-    uint32_t stack;                             \
-    asm(" movl %%esp, %0 \n" : "=r"(stack));    \
-    asm(" pusha \n");                           \
-    asm("movl %0, %%edi \n" : : "r"(buf));      \
-    asm("movl %%esp, %%esi \n" );               \
-    asm("movl %0, %%ecx \n" : : "r"(100));      \
-    asm("rep movsb");                           \
-    asm(" movl %0, %%esp \n" : : "r"(stack));   \
-}
+extern void i386_snapshot(char *buf);
+
+struct pusha {
+    uint ss, gs, fs, es, ds;
+    uint edi, esi, ebp, esp;
+    uint ebx, edx, ecx, eax;
+};
 
 #define i386_eflags(flags) {     \
     asm ("\t pushf \n");    \
@@ -206,6 +203,8 @@ typedef  struct task_state_seg  tss_t;
 /***
   *     Common-architecture interface
  ***/
+
+ptr_t cpu_stack(void);
 
 #define intrs_enable()         i386_intrs_enable()
 #define intrs_disable()        i386_intrs_disable()

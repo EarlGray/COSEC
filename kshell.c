@@ -17,9 +17,11 @@
 /***
   *     Internal declarations
  ***/
+
 static char * get_args(char *command);
 bool kshell_autocomplete(char *buf);
 static char * get_int_opt(const char *arg, int *res, uint8_t base);
+
 
 /***
   *     Panic and other print routines
@@ -41,10 +43,12 @@ void panic(const char *fatal_error) {
     snprintf(buf, 100, "----> %s <-----", fatal_error);
     print_centered(buf);
 
+    print_mem((char *)cpu_stack(), 0x50);
+
     thread_hang();
 }
 
-void print_mem(char *p, size_t count) {
+void print_mem(const char *p, size_t count) {
     char buf[100] = { 0 };
     char s = 0;
 
@@ -76,21 +80,11 @@ void print_mem(char *p, size_t count) {
 }
 
 void print_cpu(void) {
-    char buf[100];
-    asm (" movl %0, %%eax \n" : : "r"(0xA5A5A5A5));
-    asm (" movl %0, %%ebx \n" : : "r"(0xBBBBBBBB));
-    //cpu_snapshot(buf);
+    volatile char buf[100];
+    asm (" movl $0xBBBBBBBB, %ebx \n");
+    asm (" movl $0xA5A5A5A5, %eax \n");
+    i386_snapshot(buf);
     print_mem(buf, 100);    
-}
-
-void print_welcome(void) {
-    //set_cursor_attr(0x80);    // may cause errors on hardware
-    clear_screen();
-
-    int i;
-    for (i = 0; i < 18; ++i) k_printf("\n");
-
-    k_printf("\t\t\t<<<<< Welcome to COSEC >>>>> \n\n");
 }
 
 
@@ -222,10 +216,7 @@ bool kshell_autocomplete(char *buf) {
 
 void kshell_info(struct kshell_command *this, const char *arg) {
     if (!strcmp(arg, "stack")) {
-        /* print stack addr */
-        uint32_t stack;
-        asm(" movl %%esp, %0 \n" : "=r"(stack));
-        k_printf("stack at 0x%x\n", stack);
+        k_printf("stack at 0x%x\n", (uint)cpu_stack());
     } else
     if (!strcmp(arg, "gdt")) {
         k_printf("GDT is at 0x%x\n", (uint)i386_gdt());
@@ -301,11 +292,11 @@ void kshell_test(struct kshell_command *this, const char *cmdline) {
 }
 
 
-void kshell_unknown_cmd() {
+inline void kshell_unknown_cmd() {
     k_printf("type 'help'\n\n");
 }
 
-void kshell_panic() {
+inline void kshell_panic() {
     panic("THIS IS JUST A TEST");
 }
 
@@ -342,7 +333,9 @@ static char * get_int_opt(const char *arg, int *res, uint8_t base) {
 }
 
 void kshell_do(char *command) {
-    if (0 == *command) return;
+    // empty command 
+    if (0 == *command) 
+        return;
 
     char *arg = get_args(command);
 
@@ -356,7 +349,7 @@ void kshell_do(char *command) {
     kshell_unknown_cmd(command);
 }
 
-#define ever (;;)
+#define for_ever for(;;)
 #define CMD_SIZE    256
 
 void kshell_run(void) {
@@ -364,7 +357,7 @@ void kshell_run(void) {
       
     console_setup();
     
-    for ever {
+    for_ever {
         console_write(prompt);
         console_readline(cmd_buf, CMD_SIZE);
         kshell_do(cmd_buf);
