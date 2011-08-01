@@ -31,7 +31,8 @@ kernel      := kernel
 mnt_dir     := mount_point
 image       := cosec.img
 
-fuse		:= $(shell which fuseext2)
+fuse		:=
+#$(shell which fuseext2)
 
 ### Use native mount/umount for a GRUB installation, fuseext2 fails at this
 ifeq ($(strip $(fuse)),)

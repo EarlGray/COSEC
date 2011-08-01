@@ -114,7 +114,7 @@ inline void irq_eoi(void) {
 void irq_handler(uint32_t irq_num) {
     //if (irq_num > 2) k_printf("#IRQ%d#", irq_num);
     intr_handler_f callee = irq[irq_num];
-    callee(0);
+    callee(cpu_stack());
     irq_eoi();
 }
 

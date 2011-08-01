@@ -173,7 +173,7 @@ void test_serial(void) {
     set_cursor_attr(saved_color);
 }
 
-void test_scan(void) {
+void test_kbd(void) {
     k_printf("Use <Esc> to quit\n");
     uint8_t key = 0;
     while (key != 1) {

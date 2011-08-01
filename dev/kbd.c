@@ -161,7 +161,7 @@ void kbd_set_onrelease(kbd_event_f onrelease) {
 	on_release = onrelease;
 }
 
-void keyboard_irq() {
+void keyboard_irq(void *stack) {
 	uint8_t scan_code = 0;
 	inb(0x60, scan_code);
     kbd_push_scancode(scan_code);
@@ -176,6 +176,10 @@ void keyboard_irq() {
 	else {
 		/* on release event */
 		theKeyboard[scan_code & 0x7F] = false;
+
+        if (scan_code == 0xDD) {
+            print_intr_stack(stack);
+        }
 
         if (on_release)
             on_release(scan_code);
