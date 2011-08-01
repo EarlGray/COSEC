@@ -12,6 +12,9 @@ dtreg:
 .word 0
 .long 0
 
+/* points to a stack position where last cc:eip has been saved */
+intr_ret:
+.long 0
 
 /********************** text *****************************/
 .text
@@ -71,11 +74,15 @@ idt_load:
 
     ret
 
+.global intr_stack_ret_addr
+intr_stack_ret_addr:
+    movl intr_ret, %eax
+    ret
 
 /********** ENTRY macros *************/
 
 .macro INTR_PROLOG
-    pushf
+    /* eflags already saved by CPU as (uint)(intr_ret[2]) */
     pusha
     subl $4, %esp   
 .endm
@@ -83,7 +90,6 @@ idt_load:
 .macro INTR_END
     addl $4, %esp
     popa
-    popf
 .endm
 
 .macro ENTRY_NOERR name, handler
@@ -113,6 +119,12 @@ idt_load:
 .global \name
 \name :
     INTR_PROLOG 
+
+    /* save an interrupt's point of support in the stack */
+    lea 0x24(%esp), %ebx
+    movl %ebx, intr_ret
+
+    /* call the handler */
     movl \num, (%esp)
     call irq_handler
     INTR_END

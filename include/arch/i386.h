@@ -138,12 +138,6 @@ typedef struct {
 
 extern void i386_snapshot(char *buf);
 
-struct pusha {
-    uint ss, gs, fs, es, ds;
-    uint edi, esi, ebp, esp;
-    uint ebx, edx, ecx, eax;
-};
-
 #define i386_eflags(flags) {     \
     asm ("\t pushf \n");    \
     asm ("\t movl (%%esp), %0 \n" : "=r"(flags));   \
@@ -169,6 +163,13 @@ segment_descriptor * i386_gdt(void);
 segment_descriptor * i386_idt(void);
 
 index_t gdt_alloc_entry(segment_descriptor entry);
+
+/* as laid out in memory by PUSHA */
+struct i386_general_purpose_registers {
+    uint edi, esi, ebp, esp;
+    uint ebx, edx, ecx, eax;
+};
+typedef  struct i386_general_purpose_registers  i386_gp_regs;
 
 
 /***

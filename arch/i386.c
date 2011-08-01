@@ -24,10 +24,10 @@ extern void gdt_get(struct gdt_ptr *idt);
 /*****************************************************************************
         routines
 ******************************************************************************/
-inline ptr_t cpu_stack(void) {
+ptr_t cpu_stack(void) {
     ptr_t esp;
     i386_esp(esp);
-    return esp;
+    return esp + 8;   // this function ret addr (4) + C push %ebp (4)
 }
 
 /*****************************************************************************

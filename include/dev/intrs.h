@@ -15,5 +15,7 @@ void intrs_setup(void);
 
 void irq_set_handler(uint32_t irq_num, intr_handler_f handler);
 
+void * intr_stack_ret_addr(void);
+
 #endif
 #endif // __INTRS_H
