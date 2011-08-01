@@ -198,6 +198,7 @@ const struct kshell_subcmd  test_cmds[] = {
     { .name = "timer",   .handler = test_timer,  },
     { .name = "serial",  .handler = test_serial, },
     { .name = "kbd",     .handler = test_kbd,    },
+    { .name = "tasks",   .handler = test_tasks,  },
     { .name = 0, .handler = 0    },
 };
 

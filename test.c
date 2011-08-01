@@ -155,3 +155,10 @@ void test_kbd(void) {
     }
     k_printf("\n");
 }
+
+
+#include <tasks.h>
+
+void test_tasks(void) {
+    tasks_setup();
+}
