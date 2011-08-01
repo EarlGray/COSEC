@@ -20,7 +20,7 @@
 
 bool kshell_autocomplete(char *buf);
 static char * get_args(char *command);
-static char * get_int_opt(const char *arg, int *res, uint8_t base);
+static const char * get_int_opt(const char *arg, int *res, uint8_t base);
 
 
 /***
@@ -96,7 +96,7 @@ void print_intr_stack(const uint *const stack) {
 void print_cpu(void) {
     char buf[100];
     i386_snapshot(buf);
-    print_intr_stack(buf);
+    print_intr_stack((const uint *const)buf);
 }
 
 
@@ -160,23 +160,30 @@ static void console_setup(void) {
   *     Temporary kernel shell
   *    @TODO: must be moved to userspace as soon as possible
  ***/
+typedef void (*void_f)(void);
 
 struct kshell_command {
     const char * name;
-    void (*handler)(struct kshell_command *this, const char *arg);
+    void (*handler)(const struct kshell_command *this, const char *arg);
     const char * description;
     const char * options;
 };
 
+struct kshell_subcmd {
+    const char *name;
+    void_f handler;
+};
+
+
 void kshell_help();
-void kshell_info(struct kshell_command *, const char *);
-void kshell_mboot(struct kshell_command *, const char *);
-void kshell_test(struct kshell_command *, const char *);
-void kshell_set(struct kshell_command *, const char *);
-void kshell_mem(struct kshell_command *, const char *);
+void kshell_info(const struct kshell_command *, const char *);
+void kshell_mboot(const struct kshell_command *, const char *);
+void kshell_test(const struct kshell_command *, const char *);
+void kshell_set(const struct kshell_command *, const char *);
+void kshell_mem(const struct kshell_command *, const char *);
 void kshell_panic();
 
-struct kshell_command main_commands[] = {
+const struct kshell_command main_commands[] = {
     {   .name = "info",     .handler = kshell_info,  .description = "various info", .options = "stack gdt pmem colors cpu pci" },
     {   .name = "test",     .handler = kshell_test,  .description = "test utility", .options = "sprintf kbd timer serial" },
     {   .name = "mem",      .handler = kshell_mem,   .description = "mem <start_addr> <size = 0x100>" },
@@ -185,6 +192,15 @@ struct kshell_command main_commands[] = {
     {   .name = "help",     .handler = kshell_help,  .description = "show this help"   },
     {   .name = null,       .handler = 0    }
 };
+
+const struct kshell_subcmd  test_cmds[] = {
+    { .name = "sprintf", .handler = test_sprintf },
+    { .name = "timer",   .handler = test_timer,  },
+    { .name = "serial",  .handler = test_serial, },
+    { .name = "kbd",     .handler = test_kbd,    },
+    { .name = 0, .handler = 0    },
+};
+
 
 /* return number of first different symbol or endchar */
 static inline size_t strcmpsz(const char *s1, const char *s2, char endchar) {
@@ -197,9 +213,8 @@ static inline size_t strcmpsz(const char *s1, const char *s2, char endchar) {
     while (' ' == *(pchar)) ++(pchar)
 
 bool kshell_autocomplete(char *buf) {
-    char *c;
     int i;
-    struct kshell_command *cmd;
+    const struct kshell_command *cmd;
     
     // search for commands
     for (cmd = main_commands; cmd->name; ++cmd) {
@@ -213,7 +228,7 @@ bool kshell_autocomplete(char *buf) {
                 return false;
             }
             // else we need to track options of cmd
-            char *opt = cmd->options;
+            const char *opt = cmd->options;
             i = strcmpsz(opt, rest, ' ');
             return false;
         }
@@ -224,9 +239,10 @@ bool kshell_autocomplete(char *buf) {
             return true;
         }
     }
+    return false;
 }
 
-void kshell_info(struct kshell_command *this, const char *arg) {
+void kshell_info(const struct kshell_command *this, const char *arg) {
     if (!strcmp(arg, "stack")) {
         k_printf("stack at 0x%x\n", (uint)cpu_stack());
     } else
@@ -253,18 +269,17 @@ void kshell_info(struct kshell_command *this, const char *arg) {
     } else 
     if (!strcmp(arg, "pci")) {
         pci_setup();
-    } else
-    {
+    } else {
         k_printf("Options: %s\n\n", this->options);
     }
 }
 
 
-void kshell_set(struct kshell_command *this, const char *arg) {
+void kshell_set(const struct kshell_command *this, const char *arg) {
     if (!strncmp(arg, "color", 5)) {
         arg += 5;
         int attr;
-        char *end = get_int_opt(arg, &attr, 16);
+        const char *end = get_int_opt(arg, &attr, 16);
         if (end != arg) 
             set_cursor_attr(attr);
     } else 
@@ -275,13 +290,14 @@ void kshell_set(struct kshell_command *this, const char *arg) {
     }
 }
 
-void kshell_mem(struct kshell_command *this, const char *arg) {
+void kshell_mem(const struct kshell_command *this, const char *arg) {
     uint addr, size;
-    arg = sscan_int(arg, (int *)&addr, 16);
+    arg = get_int_opt(arg, (int *)&addr, 16);
     if (addr == 0) {
         k_printf("%s warning: reading 0x0000, default\n", this->name);
     }
     
+    arg = get_int_opt(arg, (int *)&size, 16);
     if (size == 0) 
         size = 0x100;
 
@@ -289,24 +305,9 @@ void kshell_mem(struct kshell_command *this, const char *arg) {
     k_printf("\n");
 }
 
-typedef void (*void_f)(void);
-
-struct kshell_subcmd {
-    const char *name;
-    void_f handler;
-};
-
-const struct kshell_subcmd  subcmds[] = {
-    { .name = "sprintf", .handler = test_sprintf },
-    { .name = "timer",   .handler = test_timer,  },
-    { .name = "serial",  .handler = test_serial, },
-    { .name = "kbd",     .handler = test_kbd,    },
-    { .name = 0, .handler = 0    },
-};
-
-void kshell_test(struct kshell_command *this, const char *cmdline) {
-    struct kshell_subcmd *subcmd;
-    for (subcmd = subcmds; subcmd->name; ++subcmd) 
+void kshell_test(const struct kshell_command *this, const char *cmdline) {
+    const struct kshell_subcmd *subcmd;
+    for (subcmd = test_cmds; subcmd->name; ++subcmd) 
         if (!strncmp(cmdline, subcmd->name, strlen(subcmd->name))) {
             (subcmd->handler)();
             return;
@@ -316,7 +317,7 @@ void kshell_test(struct kshell_command *this, const char *cmdline) {
 }
 
 
-inline void kshell_unknown_cmd() {
+void kshell_unknown_cmd() {
     k_printf("type 'help'\n\n");
 }
 
@@ -328,7 +329,7 @@ void kshell_panic() {
 void kshell_help() {
     k_printf("Available commands:\n");
 
-    struct kshell_command *cmd;
+    const struct kshell_command *cmd;
     for (cmd = main_commands; cmd->name; ++cmd) 
         k_printf("\t%s - %s\n", cmd->name, cmd->description);
 
@@ -348,8 +349,8 @@ static char * get_args(char *command) {
     return arg;
 }
 
-static char * get_int_opt(const char *arg, int *res, uint8_t base) {
-    char *end = arg;
+static const char * get_int_opt(const char *arg, int *res, uint8_t base) {
+    const char *end = arg;
     do {
         end = sscan_int(arg, res, base);
         if (end != arg) return end;
@@ -364,7 +365,7 @@ void kshell_do(char *command) {
 
     char *arg = get_args(command);
 
-    struct kshell_command *cmd; 
+    const struct kshell_command *cmd; 
     for (cmd = main_commands; cmd->name; ++cmd) 
         if (!strcmp(cmd->name, command)) {
             cmd->handler(cmd, arg);

@@ -2,6 +2,8 @@
 
 #include <arch/i386.h>
 
+#include <std/string.h>
+
 
 /***
   *     VGA 80x25 'driver'
@@ -198,9 +200,9 @@ void k_printf(const char *fmt, ...) {
 			++s;
 			switch (*s) {
 			case 'd': {
-                int arg = *(int *)args;
-	  			print_int(arg, 10);    
-				args = (void *)((int *)args + 1);
+                int *arg = (int *)args;
+	  			print_int(*arg, 10);    
+				args = (void *)(arg + 1);
                 } break;
             case 'u':
                 print_uint(*(uint*)args, 10);

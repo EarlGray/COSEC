@@ -14,7 +14,7 @@ scancode_t kbd_wait_scan(bool release_too);
 typedef void (*kbd_event_f)(scancode_t);
 
 void kbd_set_onpress(kbd_event_f onpress);
-void kbd_set_oprelease(kbd_event_f onrelease);
+void kbd_set_onrelease(kbd_event_f onrelease);
 
 
 /************  buffer   **************/

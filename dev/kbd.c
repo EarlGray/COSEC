@@ -161,6 +161,8 @@ void kbd_set_onrelease(kbd_event_f onrelease) {
 	on_release = onrelease;
 }
 
+#include <kshell.h>
+
 void keyboard_irq(void *stack) {
 	uint8_t scan_code = 0;
 	inb(0x60, scan_code);
@@ -187,7 +189,7 @@ void keyboard_irq(void *stack) {
 }
 
 void kbd_setup(void) {
-    memset(theKeyboard, 0, sizeof(theKeyboard));
+    memset((bool *)theKeyboard, 0, sizeof(theKeyboard));
     kbd_buf_setup();
     irq_set_handler(1, keyboard_irq);
 }

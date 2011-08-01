@@ -6,8 +6,10 @@
 
 #include <dev/kbd.h>
 #include <dev/timer.h>
+#include <dev/screen.h>
 
 #include <tasks.h>
+#include <mboot.h>
 #include <fs/fs.h>
 
 static void print_welcome(void) {

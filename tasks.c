@@ -1,5 +1,5 @@
 /* 
- *  This file will is a temporary task polygon
+ *  This file will is a temporary task training ground
  */ 
 #include <arch/i386.h>
 
@@ -51,5 +51,8 @@ void do_task2(void) {
     for (;;) k_printf("A");
 }
 
-int multitasking_setup(void) {
+void sched(void) {
+}
+
+void multitasking_setup(void) {
 }

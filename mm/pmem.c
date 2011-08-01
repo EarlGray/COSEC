@@ -91,7 +91,7 @@ void pmem_setup(void) {
 }
 
 uint pg_alloc(void) {
-    
+    return 0;   
 }
 
 void pg_free(uint addr) {

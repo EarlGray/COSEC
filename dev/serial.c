@@ -17,7 +17,7 @@ inline void serial_set_on_receive(serial_on_receive_f handler) {
     on_receive = handler;
 }
 
-volatile void serial_irq() {
+void serial_irq() {
     uint8_t iir;
     inb(COM1_PORT + IIFCR_OFFSET, iir);
     //k_printf("IRQ4: IIR=%x\n", (uint)iir);
@@ -37,7 +37,7 @@ inline void out_bits_b(uint16_t port, uint8_t mask, uint8_t val) {
     outb(port, port_val);
 }
 
-inline out_bits_w(uint16_t port, uint16_t mask, uint16_t val) {
+inline void out_bits_w(uint16_t port, uint16_t mask, uint16_t val) {
     uint16_t port_val = 0;
     inw(port, port_val);
     port_val &= ~mask;
@@ -45,7 +45,7 @@ inline out_bits_w(uint16_t port, uint16_t mask, uint16_t val) {
     outw(port, port_val);
 }
 
-inline out_bits_l(uint16_t port, uint32_t mask, uint32_t val) {
+inline void out_bits_l(uint16_t port, uint32_t mask, uint32_t val) {
     uint32_t port_val = 0;
     inl(port, port_val);
     port_val &= ~mask;

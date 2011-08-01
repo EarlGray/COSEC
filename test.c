@@ -9,36 +9,8 @@
 #include <std/stdio.h>
 #include <dev/timer.h>
 #include <arch/i386.h>
+#include <kshell.h>
 
-const char * sscan_int(const char *str, int *res, uint8_t base);
-
-static void test_sscan_once(const char *num) {
-    int res;
-    sscan_int(num, &res, 10);
-    k_printf("sscan_int('%s') = %d\n", num, res);
-}
-
-static void test_sscan(void) {
-    const char *sscan[] = {
-        "12345", "1234adf2134", "-1232", "0", "+2.0", 0
-    };
-    int res;
-    const char **iter = sscan;
-    while (*iter) 
-        test_sscan_once(*(iter++));
-}
-
-static void test_sprint(void) {
-    char buf[200];
-    sprintf(buf, "%s\n", "this is a string with %% and %n\n");
-    k_printf(":\n%s\n", buf);
-
-    sprintf(buf, "0x%x %u %i %d", 0xDEADBEEF, 42, -12345678, 0);
-    k_printf(":\n%s\n", buf);
-
-    sprintf(buf, "'%0.8x'\n'%+.8x'\n'%.8x'\n", 0xA, 0xFEAF, 0xC0FEF0CE);
-    k_printf(":\n%s\n", buf);
-}
 
 static void test_vsprint(const char *fmt, ...) {
 #define buf_size    200
@@ -47,8 +19,8 @@ static void test_vsprint(const char *fmt, ...) {
     va_start(ap, fmt);
 //    vsnprintf(buf, buf_size, fmt, ap);
 
-    char *c = fmt;
-    print_mem(&fmt, 0x100);
+    const char *c = fmt;
+    print_mem((const char *)&fmt, 0x100);
     while (*c) {
         switch (*c) {
         case '%':
@@ -97,18 +69,19 @@ void test_timer(void) {
 #include <dev/serial.h>
 #include <dev/kbd.h>
 #include <dev/screen.h>
+#include <dev/intrs.h>
 
 volatile bool poll_exit = false;
 
-inline static print_serial_info(uint16_t port) {
+inline static void print_serial_info(uint16_t port) {
     uint8_t iir;
-    inb(COM1_PORT + 1, iir);
+    inb(port + 1, iir);
     k_printf("(IER=%x\t", (uint)iir);
-    inb(COM1_PORT + 2, iir);
+    inb(port + 2, iir);
     k_printf("IIR=%x\t", (uint)iir);
-    inb(COM1_PORT + 5, iir);
+    inb(port + 5, iir);
     k_printf("LSR=%x\t", (uint)iir);
-    inb(COM1_PORT + 6, iir);
+    inb(port + 6, iir);
     k_printf("MSR=%x", (uint)iir);
     k_printf("PIC=%x)", (uint)irq_get_mask());
 }
