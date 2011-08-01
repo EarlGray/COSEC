@@ -10,7 +10,6 @@
 
 #include <tasks.h>
 #include <mboot.h>
-#include <fs/fs.h>
 
 static void print_welcome(void) {
     clear_screen();
@@ -33,7 +32,6 @@ void kmain(uint32_t magic, struct multiboot_info *mbi) {
     /* general setup */
     cpu_setup();
     pmem_setup();
-    fs_setup();
     multitasking_setup();
 
     /* devices setup */
