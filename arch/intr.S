@@ -84,6 +84,7 @@ intr_stack_ret_addr:
 .macro INTR_PROLOG
     /* eflags already saved by CPU as (uint)(intr_ret[2]) */
     pusha
+    cli
     subl $4, %esp   
 .endm
 

@@ -64,8 +64,8 @@ run:	install
 
 qemu:	install 
 	@if [ -S $(pipe_file) ]; 							\
-	then qemu $(qemu_flags) -serial unix:$(pipe_file);	\
-	else qemu $(qemu_flags);							\
+	then qemu $(qemu_flags) -serial unix:$(pipe_file) &	\
+	else qemu $(qemu_flags) &							\
 	fi 
 
 vbox:	install

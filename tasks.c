@@ -35,51 +35,88 @@ void do_task1(void);
 uint8_t task0_stack[TS_KERNSTACK_SIZE];
 uint8_t task1_stack[TS_KERNSTACK_SIZE];
 
-const task_struct task0 = {
+task_struct task0 = {
     .tss = {
         .prev_task_link = 0,
-        .esp0 = (ptr_t)task0_stack,
-        .ss0 = SEL_KERN_DS,
+        .esp0 = (ptr_t)task0_stack + TS_KERNSTACK_SIZE - 0x20,
+        .esp = (ptr_t)task0_stack + TS_KERNSTACK_SIZE - 0x20,
         .eip = (ptr_t)do_task0,
-        .cs = SEL_USER_CS,
-        .ds = SEL_USER_DS,
-        .es = SEL_USER_DS,
-        .fs = SEL_USER_DS,
-        .gs = SEL_USER_DS,
-        .ss = SEL_USER_DS,
+        .cs = SEL_KERN_CS,
+        .ds = SEL_KERN_DS,
+        .es = SEL_KERN_DS,
+        .fs = SEL_KERN_DS,
+        .gs = SEL_KERN_DS,
+        .ss = SEL_KERN_DS,
+        .ss0 = SEL_KERN_DS,
         .ldt = SEL_DEFAULT_LDT,
     },
     .state = TASK_RUNNING,
 };
+
+task_struct task1 = {
+    .tss = {
+        .prev_task_link = 0,
+        .esp0 = (ptr_t)task1_stack + TS_KERNSTACK_SIZE - 0x20,
+        .esp = (ptr_t)task1_stack + TS_KERNSTACK_SIZE - 0x20,
+        .eip = (ptr_t)do_task1,
+        .cs = SEL_KERN_CS,
+        .ds = SEL_KERN_DS,
+        .es = SEL_KERN_DS,
+        .fs = SEL_KERN_DS,
+        .gs = SEL_KERN_DS,
+        .ss = SEL_KERN_DS,
+        .ss0 = SEL_KERN_DS,
+        .ldt = SEL_DEFAULT_LDT,
+    },
+    .state = TASK_RUNNING,
+};
+
+task_struct ext_task;
+
+volatile task_struct *current;
+
+
+#include <dev/kbd.h>
+
+volatile bool quit = false;
+void key_press(scancode_t scan) {
+    //if (scan == 1) 
+    k_printf("\n\nexiting...\n");
+    quit = true;
+}
 
 void do_task0(void) {
-    for (;;) k_printf("0");
+    int i = 0;
+    while (!quit) {
+        int a = 1;
+        for (a = 0; a < 1000000; ++a);
+        if (0 == (i % 75)) {
+            i = 0;
+            k_printf("\r");
+        }
+        ++i;
+        k_printf("0");
+    }
 }
-
-const task_struct task1 = {
-    .tss = {
-        .prev_task_link = 0,
-        .esp0 = (ptr_t)task1_stack,
-        .ss0 = SEL_KERN_DS,
-        .eip = (ptr_t)do_task1,
-        .cs = SEL_USER_CS,
-        .ds = SEL_USER_DS,
-        .es = SEL_USER_DS,
-        .fs = SEL_USER_DS,
-        .gs = SEL_USER_DS,
-        .ss = SEL_USER_DS,
-        .ldt = SEL_DEFAULT_LDT,
-    },
-    .state = TASK_RUNNING,
-};
-
 
 void do_task1(void) {
-    for (;;) k_printf("1");
-}
+    int i;
+    while (!quit) {
+       int a = 1;
+       for (a = 0; a < 1000000; ++a);
+       if (0 == (i % 75)) {
+           i = 0;
+           k_printf("\r");
+       }
+       ++i;
+       k_printf("1");
+    }
+ }
 
 /* this routine is normally called from within interrupt! */
 void task_save_context(task_struct *task) {
+    if (task == null) return;
+
     uint *stack = intr_stack_ret_addr();
     /* only for interrupts/exceptions without errcode on stack! */
     i386_gp_regs *regs = (i386_gp_regs *)((uint8_t*)stack - sizeof(i386_gp_regs));
@@ -88,6 +125,7 @@ void task_save_context(task_struct *task) {
     task->tss.eip = stack[0];
     task->tss.cs = stack[1];
     task->tss.eflags = stack[2];
+    k_printf("| saved: %x:%x:%x from %x |\n", stack[0], stack[1], stack[2], (uint)stack);
 
     task->tss.eax = regs->eax;      task->tss.ecx = regs->ecx;
     task->tss.edx = regs->edx;      task->tss.ebx = regs->ebx;
@@ -97,12 +135,14 @@ void task_save_context(task_struct *task) {
 
 /* this routine is normally called from within interrupt! */
 void task_push_context(task_struct *task) {
-    uint *stack = (uint*)task->tss.esp0 - 3;
+    uint *stack = (uint *)intr_stack_ret_addr();
+    uint *new_stack = (uint *)((uint8_t*)task->tss.esp0 - 3);
     i386_gp_regs *regs = (i386_gp_regs *)((uint8_t*)stack - sizeof(i386_gp_regs));
 
-    stack[0] = task->tss.eip;
-    stack[1] = task->tss.cs;
-    stack[2] = task->tss.eflags;
+    new_stack[0] = stack[0] = task->tss.eip;
+    new_stack[1] = stack[1] = task->tss.cs;
+    new_stack[2] = stack[2] = task->tss.eflags;
+    k_printf("| pushed: %x:%x:%x to %x |\n", stack[0], stack[1], stack[2], (uint)new_stack);
     
     regs->eax = task->tss.eax;      regs->ecx = task->tss.ecx;    
     regs->edx = task->tss.edx;      regs->ebx = task->tss.ebx;
@@ -110,45 +150,48 @@ void task_push_context(task_struct *task) {
     regs->edx = task->tss.esi;      regs->ebx = task->tss.edi;
 }
 
-static void copy_interrupt_data(
-        task_struct *dest_stack_task, 
-        uint *intr_stack_point_of_support) 
-{
-    uint *dst_stack = (uint *)dest_stack_task->tss.esp0 - 3;
-    dst_stack[0] = intr_stack_point_of_support[0];
-    dst_stack[1] = intr_stack_point_of_support[1];
-    dst_stack[2] = intr_stack_point_of_support[2];
+bool switch_context(uint tick) {
+    return ! (tick % 20);
 }
 
-bool switch_context() {
-    return true;
-}
-
-task_struct *current;
 
 inline task_struct *task_current(void) {
     return current;
 }
 
 task_struct *next_task(void) {
+    if (quit) return &ext_task;
     if (current == &task0) return &task1;
-    return &task0; 
+    if (current == &task1) return &task0; 
+    if (current == &ext_task) return &task0;
+    panic("Invalid task");
 }
 
 void task_timer_handler(uint tick) {
-    if (switch_context(tick)) {
-        task_struct *next = next_task();
-        task_save_context(task_current());
-        task_push_context(next);
-        copy_interrupt_data(next, intr_stack_ret_addr());
-    }
+    if (! switch_context(tick)) 
+        return;
+
+    task_struct *next = next_task();
+
+    task_save_context(task_current());
+    task_push_context(next);
+
+    current = next;
 }
 
 void tasks_setup(void) {
+    uint eflags = 0;
+    i386_eflags(eflags);
+    task0.tss.eflags = task1.tss.eflags = eflags;
+
+    current = &ext_task;
+    kbd_set_onpress(key_press); 
     timer_t task_timer = timer_push_ontimer(task_timer_handler);
 
-    current = &task0;
-    do_task0();
+    do cpu_halt(); 
+    while (!quit);
+    cpu_halt();
     
-    //timer_pop_ontimer(task_timer);
+    timer_pop_ontimer(task_timer);
+    kbd_set_onpress(null);
 }

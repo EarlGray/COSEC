@@ -111,7 +111,7 @@ typedef struct {
     asm("repnz movsb");                     \
 }
 
-#define i386_hang()   asm volatile ("1:    hlt\n\tjmp 1b\n" ::)
+#define i386_hang()   asm volatile ("cli \n1: hlt\n\tjmp 1b\n" ::)
         
 #define io_wait()       asm ("\tjmp 1f\n1:\tjmp 1f\n1:") 
 

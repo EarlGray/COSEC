@@ -143,7 +143,7 @@ void int_syscall() {
 }
 
 void int_odd_exception() {
-    k_printf("+");
+    //k_printf("+");
 }
 
 void int_double_fault() {
@@ -156,7 +156,7 @@ void int_division_by_zero(void ) {
 }
 
 void int_nonmaskable(void ) {
-    k_printf("#NM");
+    //k_printf("#NM");
 }
 
 void int_invalid_op(void *stack) {
