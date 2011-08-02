@@ -31,6 +31,6 @@ void timer_irq() {
     int i;
     for (i = 0; i < N_TIMERS; ++i)
         if (timers[i])
-            timers[i](counter); //*/
+            timers[i](counter); 
 }
 

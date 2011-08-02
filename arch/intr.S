@@ -1,6 +1,7 @@
 #define ASM
 
-#define REALMODE_CODE_START 0x5000
+#define KERN_DS     $0x0010
+#define KERN_CS     $0x0008
 /* 
  *      This file contains most of assembly routines used, most of them
  *  are interrupts and exections entry points now.
@@ -38,7 +39,7 @@ intr_ret:
 .endm 
 
 .macro SHAKE_REGS
-    movw $0x0010, %dx
+    movw KERN_DS, %dx
     movw %dx, %ds
     movw %dx, %es
     movw %dx, %fs
@@ -53,7 +54,7 @@ gdt_load:
     lgdt dtreg
 
     SHAKE_REGS  
-    ljmp $0x0008, $reload_gdt
+    ljmp KERN_CS, $reload_gdt
 reload_gdt:
     ret
 
@@ -83,13 +84,15 @@ intr_stack_ret_addr:
 
 .macro INTR_PROLOG
     /* eflags already saved by CPU as (uint)(intr_ret[2]) */
-    pusha
     cli
+    pusha
     subl $4, %esp   
 .endm
 
 .macro INTR_END
     addl $4, %esp
+    movl 8(%esp), %edi
+    movl %edi, intr_ret
     popa
 .endm
 
@@ -129,6 +132,7 @@ intr_stack_ret_addr:
     movl \num, (%esp)
     call irq_handler
     INTR_END
+    movl -0x14(%esp), %esp
     iret
 .endm
 

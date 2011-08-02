@@ -176,7 +176,7 @@ void int_gpf(void *stack) {
     k_printf("Interrupted at 0x%x : 0x%x\n", 
                 *((uint32_t *)stack + 11), 
                 *((uint32_t *)stack + 10) );
-    thread_hang();
+    cpu_hang();
 }
 
 

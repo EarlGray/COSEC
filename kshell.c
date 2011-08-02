@@ -46,7 +46,7 @@ void panic(const char *fatal_error) {
     k_printf("\n\nKernel stack: \n");
     print_mem((char *)cpu_stack(), 0x50);
 
-    thread_hang();
+    cpu_hang();
 }
 
 void print_mem(const char *p, size_t count) {

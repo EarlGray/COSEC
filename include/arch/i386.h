@@ -169,6 +169,11 @@ struct i386_general_purpose_registers {
     uint edi, esi, ebp, esp;
     uint ebx, edx, ecx, eax;
 };
+/*/
+struct i386_general_purpose_registers {
+    uint eax, ecx, edx, ebx;
+    uint esp, ebp, esi, edi;
+};// */
 typedef  struct i386_general_purpose_registers  i386_gp_regs;
 
 
@@ -210,7 +215,7 @@ ptr_t cpu_stack(void);
 #define intrs_enable()         i386_intrs_enable()
 #define intrs_disable()        i386_intrs_disable()
 #define cpu_halt()             i386_halt()
-#define thread_hang()          i386_hang()
+#define cpu_hang()             i386_hang()
 
 #define inb(port, value)       i386_inb(port, value)    
 #define outb(port, value)      i386_outb(port, value)   
