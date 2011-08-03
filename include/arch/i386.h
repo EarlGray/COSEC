@@ -97,19 +97,22 @@ typedef struct {
 #define segsel_index(ss)        ((ss) >> 3)
 #define rpl(ss)                 ((ss >> 1) & 0x3)
 
-#define i386_memcpy(dst, src, size) {       \
-    asm("movl %0, %%edi \n" : : "r"(dst));  \
-    asm("movl %0, %%esi \n" : : "r"(src));  \
-    asm("movl %0, %%ecx \n" : : "r"(size)); \
-    asm("rep movsb");                       \
-}
+#define i386_memcpy(dst, src, size) \
+    asm(                    \
+    "movl %0, %%edi     \n" \
+    "movl %1, %%esi     \n" \
+    "movl %2, %%ecx     \n" \
+    "rep movsb          \n" \
+    : : "r"(dst),"r"(src),"r"(size) )
 
-#define i386_strncpy(dst, src, n) {         \
-    asm("movl %0, %%edi \n" : : "r"(dst));  \
-    asm("movl %0, %%esi \n" : : "r"(src));  \
-    asm("movl %0, %%ecx \n" : :"r"(n));     \
-    asm("repnz movsb");                     \
-}
+
+#define i386_strncpy(dst, src, n)  \
+    asm(                    \
+    "movl %0, %%edi     \n" \
+    "movl %1, %%esi     \n" \
+    "movl %2, %%ecx     \n" \
+    "repnz movsb        \n" \
+    : : "r"(dst), "r"(src), "r"(n) )
 
 #define i386_hang()   asm volatile ("cli \n1: hlt\n\tjmp 1b\n" ::)
         
@@ -138,11 +141,11 @@ typedef struct {
 
 extern void i386_snapshot(char *buf);
 
-#define i386_eflags(flags) {     \
-    asm ("\t pushf \n");    \
-    asm ("\t movl (%%esp), %0 \n" : "=r"(flags));   \
-    asm ("\t popf \n");     \
-}
+#define i386_eflags(flags)          \
+    asm("pushf              \n\t"   \
+        "movl (%%esp), %0   \n\t"   \
+        "popf               \n\t"   \
+        : "=r"(flags)); 
 
 
 /* GDT indeces */
@@ -169,11 +172,6 @@ struct i386_general_purpose_registers {
     uint edi, esi, ebp, esp;
     uint ebx, edx, ecx, eax;
 };
-/*/
-struct i386_general_purpose_registers {
-    uint eax, ecx, edx, ebx;
-    uint esp, ebp, esi, edi;
-};// */
 typedef  struct i386_general_purpose_registers  i386_gp_regs;
 
 

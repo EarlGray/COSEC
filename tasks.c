@@ -13,6 +13,8 @@
 #include <dev/intrs.h>
 #include <dev/timer.h>
 
+#define TASK_VERBOSE_DEBUG  (0)
+
 #define TASK_RUNNING    0
 #define TASK_READY      1
 #define TASK_STOPPED    2
@@ -96,7 +98,7 @@ void do_task0(void) {
         }
         if (i > 75) {
             k_printf("\nA: assert i <= 75 failed, i=0x%x\n", i);
-            while (1) cpu_hang();
+            while (1) cpu_halt();
         }
         ++i;
         k_printf("0");
@@ -114,7 +116,7 @@ void do_task1(void) {
        }
        if (i > 75) {
            k_printf("\nB: assert i <= 75 failed, i=0x%x\n", i);
-           while (1) cpu_hang();
+           while (1) cpu_halt();
        }
        ++i;
        k_printf("1");
@@ -133,11 +135,13 @@ void task_save_context(task_struct *task) {
     /* only for interrupts/exceptions without errcode on stack! */
     i386_gp_regs *regs = (i386_gp_regs *)((uint8_t*)stack - sizeof(i386_gp_regs));
 
-    task->tss.esp0 = (ptr_t)(stack + 3);
+    task->tss.esp0 = (ptr_t)stack;
     task->tss.eip = stack[0];
     task->tss.cs = stack[1];
     task->tss.eflags = stack[2];
+#if TASK_VERBOSE_DEBUG
     k_printf("\n|<%x>save %x:%x:%x<-%x |", (uint)task, stack[0], stack[1], stack[2], (uint)stack);
+#endif
 
     task->tss.eax = regs->eax;      task->tss.ecx = regs->ecx;
     task->tss.edx = regs->edx;      task->tss.ebx = regs->ebx;
@@ -152,15 +156,16 @@ void task_push_context(task_struct *task) {
         k_printf("task_push_context: intr_ret is cleared!");
         return;
     }
-    uint *new_stack = (uint *)((uint8_t*)task->tss.esp0 - 3);
+    uint *new_stack = (uint *)task->tss.esp0;
     i386_gp_regs *regs = (i386_gp_regs *)((uint8_t*)stack - sizeof(i386_gp_regs));
 
     new_stack[0] = stack[0] = task->tss.eip;
     new_stack[1] = stack[1] = task->tss.cs;
     new_stack[2] = stack[2] = task->tss.eflags;
+#if TASK_VERBOSE_DEBUG
     k_printf("|<%x>push %x:%x:%x->%x |\n", 
                 (uint)task, stack[0], stack[1], stack[2], (uint)new_stack);
-    
+#endif    
     regs->eax = task->tss.eax;      regs->ecx = task->tss.ecx;    
     regs->edx = task->tss.edx;      regs->ebx = task->tss.ebx;
     regs->esp = task->tss.esp;      regs->ebp = task->tss.ebp;
@@ -168,7 +173,7 @@ void task_push_context(task_struct *task) {
 }
 
 bool switch_context(uint tick) {
-    return !(tick % 20);
+    return true; //!(tick % 20);
 }
 
 
@@ -185,15 +190,14 @@ task_struct *next_task(void) {
 }
 
 void task_timer_handler(uint tick) {
-    if (! switch_context(tick)) 
-        return;
+    if (switch_context(tick))  {
+        task_struct *next = next_task();
 
-    task_struct *next = next_task();
+        task_save_context(current);
+        task_push_context(next);
 
-    task_save_context(current);
-    task_push_context(next);
-
-    current = next;
+        current = next;
+    }
 }
 
 extern void kern_stack;
@@ -205,11 +209,12 @@ void tasks_setup(void) {
     i386_eflags(eflags);
     task0.tss.eflags = task1.tss.eflags = eflags;
 
+#if TASK_VERBOSE_DEBUG
     k_printf("kernstack=%x[800], stack0=%x..%x, stack1=%x..%x\n", 
                 (uint)&kern_stack, (uint)task0_stack, (uint)task0_stack + TS_KERNSTACK_SIZE -1, 
                 (uint)task1_stack, (uint)task1_stack + TS_KERNSTACK_SIZE - 1);
     k_printf("ext_task=%x, task0=%x, task1=%x\n", (uint)&ext_task, (uint)&task0, (uint)&task1);
-
+#endif
 
     current = &ext_task;
     kbd_set_onpress(key_press); 
