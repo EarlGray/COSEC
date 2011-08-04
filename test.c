@@ -62,6 +62,7 @@ static void on_timer(uint counter) {
 }
 
 void test_timer(void) {
+    timer_set_frequency(0x1000);
     timer_push_ontimer(on_timer);
 }
 
@@ -126,7 +127,6 @@ void poll_serial() {
 }
 
 void test_serial(void) {
-    irq_mask(true, 4);
     k_printf("IRQs state = 0x%x\n", (uint)irq_get_mask());
 
     uint8_t saved_color = get_cursor_attr();

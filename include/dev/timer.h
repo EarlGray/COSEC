@@ -1,7 +1,8 @@
 #ifndef __TIMER_H__
 #define __TIMER_H__
 
-#define N_TIMERS    20
+#define N_TIMERS        20
+#define PIT_MAX_FREQ    1193180
 
 typedef void (*timer_event_f)(uint);
 typedef uint timer_t;

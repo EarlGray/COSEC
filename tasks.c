@@ -34,89 +34,11 @@ volatile struct task {
 };
 typedef  struct task  task_struct;
 
-void do_task0(void);
-void do_task1(void);
-uint8_t task0_stack[TS_KERNSTACK_SIZE];
-uint8_t task1_stack[TS_KERNSTACK_SIZE];
-
-volatile task_struct task0 = {
-    .tss = {
-        .prev_task_link = 0,
-        .esp0 = (ptr_t)task0_stack + TS_KERNSTACK_SIZE - 0x20,
-        .esp = (ptr_t)task0_stack + TS_KERNSTACK_SIZE - 0x20,
-        .eip = (ptr_t)do_task0,
-        .cs = SEL_KERN_CS,
-        .ds = SEL_KERN_DS,
-        .es = SEL_KERN_DS,
-        .fs = SEL_KERN_DS,
-        .gs = SEL_KERN_DS,
-        .ss = SEL_KERN_DS,
-        .ss0 = SEL_KERN_DS,
-        .ldt = SEL_DEFAULT_LDT,
-    },
-    .state = TASK_RUNNING,
-};
-
-volatile task_struct task1 = {
-    .tss = {
-        .prev_task_link = 0,
-        .esp0 = (ptr_t)task1_stack + TS_KERNSTACK_SIZE - 0x20,
-        .esp = (ptr_t)task1_stack + TS_KERNSTACK_SIZE - 0x20,
-        .eip = (ptr_t)do_task1,
-        .cs = SEL_KERN_CS,
-        .ds = SEL_KERN_DS,
-        .es = SEL_KERN_DS,
-        .fs = SEL_KERN_DS,
-        .gs = SEL_KERN_DS,
-        .ss = SEL_KERN_DS,
-        .ss0 = SEL_KERN_DS,
-        .ldt = SEL_DEFAULT_LDT,
-    },
-    .state = TASK_RUNNING,
-};
-
-volatile task_struct ext_task;
-
 volatile task_struct *current;
 
-
-#include <dev/kbd.h>
-
-void do_task0(void) {
-    int i = 0;
-    while (1) {
-        int a = 1;
-        for (a = 0; a < 1000000; ++a);
-        if (0 == (i % 75)) {
-            i = 0;
-            k_printf("\r");
-        }
-        if (i > 75) {
-            k_printf("\nA: assert i <= 75 failed, i=0x%x\n", i);
-            while (1) cpu_halt();
-        }
-        ++i;
-        k_printf("0");
-    }
-}
-
-void do_task1(void) {
-    int i;
-    while (1) {
-       int a = 1;
-       for (a = 0; a < 1000000; ++a);
-       if (0 == (i % 75)) {
-           i = 0;
-           k_printf("\r");
-       }
-       if (i > 75) {
-           k_printf("\nB: assert i <= 75 failed, i=0x%x\n", i);
-           while (1) cpu_halt();
-       }
-       ++i;
-       k_printf("1");
-    }
- }
+/***
+  *     Task switching 
+ ***/
 
 /* this routine is normally called from within interrupt! */
 void task_save_context(task_struct *task) {
@@ -167,13 +89,97 @@ void task_push_context(task_struct *task) {
     regs->esi = task->tss.esi;      regs->edi = task->tss.edi;
 }
 
-bool switch_context(uint tick) {
-    return true; 
+inline task_struct *task_current(void) {
+    return current;
 }
 
 
-inline task_struct *task_current(void) {
-    return current;
+/***
+  *     Example tasks
+ ***/
+void do_task0(void);
+void do_task1(void);
+uint8_t task0_stack[TS_KERNSTACK_SIZE];
+uint8_t task1_stack[TS_KERNSTACK_SIZE];
+
+volatile task_struct task0 = {
+    .tss = {
+        .prev_task_link = 0,
+        .esp0 = (ptr_t)task0_stack + TS_KERNSTACK_SIZE - 0x20,
+        .esp = (ptr_t)task0_stack + TS_KERNSTACK_SIZE - 0x20,
+        .eip = (ptr_t)do_task0,
+        .cs = SEL_KERN_CS,
+        .ds = SEL_KERN_DS,
+        .es = SEL_KERN_DS,
+        .fs = SEL_KERN_DS,
+        .gs = SEL_KERN_DS,
+        .ss = SEL_KERN_DS,
+        .ss0 = SEL_KERN_DS,
+        .ldt = SEL_DEFAULT_LDT,
+    },
+    .state = TASK_RUNNING,
+};
+
+volatile task_struct task1 = {
+    .tss = {
+        .prev_task_link = 0,
+        .esp0 = (ptr_t)task1_stack + TS_KERNSTACK_SIZE - 0x20,
+        .esp = (ptr_t)task1_stack + TS_KERNSTACK_SIZE - 0x20,
+        .eip = (ptr_t)do_task1,
+        .cs = SEL_KERN_CS,
+        .ds = SEL_KERN_DS,
+        .es = SEL_KERN_DS,
+        .fs = SEL_KERN_DS,
+        .gs = SEL_KERN_DS,
+        .ss = SEL_KERN_DS,
+        .ss0 = SEL_KERN_DS,
+        .ldt = SEL_DEFAULT_LDT,
+    },
+    .state = TASK_RUNNING,
+};
+
+volatile task_struct ext_task;
+
+
+void do_task0(void) {
+    int i = 0;
+    while (1) {
+        int a = 1;
+        for (a = 0; a < 1000000; ++a);
+        if (0 == (i % 75)) {
+            i = 0;
+            k_printf("\r");
+        }
+        if (i > 75) {
+            k_printf("\nA: assert i <= 75 failed, i=0x%x\n", i);
+            while (1) cpu_halt();
+        }
+        ++i;
+        k_printf("0");
+    }
+}
+
+void do_task1(void) {
+    int i;
+    while (1) {
+       int a = 1;
+       for (a = 0; a < 1000000; ++a);
+       if (0 == (i % 75)) {
+           i = 0;
+           k_printf("\r");
+       }
+       if (i > 75) {
+           k_printf("\nB: assert i <= 75 failed, i=0x%x\n", i);
+           while (1) cpu_halt();
+       }
+       ++i;
+       k_printf("1");
+    }
+}
+
+
+bool switch_context(uint tick) {
+    return true; 
 }
 
 
@@ -199,6 +205,8 @@ void task_timer_handler(uint tick) {
     }
 }
 
+#include <dev/kbd.h>
+
 void key_press(scancode_t scan) {
     k_printf("\n\nexiting...\n");
     quit = true;
@@ -206,7 +214,6 @@ void key_press(scancode_t scan) {
 
 void tasks_setup(void) {
     quit = false;
-
     task0.tss.eflags = task1.tss.eflags = x86_eflags();
 
 #if TASK_VERBOSE_DEBUG
@@ -218,6 +225,7 @@ void tasks_setup(void) {
 
     current = &ext_task;
     kbd_set_onpress(key_press); 
+    timer_set_frequency(0x1000);
     timer_t task_timer = timer_push_ontimer(task_timer_handler);
 
     /* wait for first timer tick, when execution will be transferred to do_task0 */
