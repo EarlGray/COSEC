@@ -145,8 +145,9 @@ extern void i386_snapshot(char *buf);
     asm("pushf              \n\t"   \
         "movl (%%esp), %0   \n\t"   \
         "popf               \n\t"   \
-        : "=r"(flags)); 
+        : "=r"(flags))
 
+uint x86_eflags(void);
 
 /* GDT indeces */
 #define GDT_DUMMY       0

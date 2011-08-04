@@ -75,9 +75,10 @@ bochs:	install
 	bochs
 
 
-install:	mount  $(kernel) 
-	@$(do_install) $(build)/$(kernel) $(mnt_dir) \
-	&& echo "\n## Kernel installed" && make umount
+install:  $(kernel) 
+	@make mount \
+	&& $(do_install) $(build)/$(kernel) $(mnt_dir) \
+	&& echo "\n## Kernel installed"; make umount
 
 $(mnt_dir):	
 	@mkdir $(mnt_dir) 

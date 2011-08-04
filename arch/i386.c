@@ -30,6 +30,12 @@ ptr_t cpu_stack(void) {
     return esp + 8;   // this function ret addr (4) + C push %ebp (4)
 }
 
+inline uint x86_eflags(void) {
+    uint efl;
+    i386_eflags(efl);
+    return efl;
+}
+
 /*****************************************************************************
         GDT
 ******************************************************************************/

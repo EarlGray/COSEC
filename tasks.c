@@ -21,6 +21,8 @@
 
 #define TS_KERNSTACK_SIZE   0x800
 
+extern void kern_stack;
+
 typedef void (*task_f)(int, ...);
 typedef int task_state_t;
 
@@ -79,13 +81,6 @@ volatile task_struct *current;
 
 
 #include <dev/kbd.h>
-
-volatile bool quit;
-void key_press(scancode_t scan) {
-    //if (scan == 1) 
-    k_printf("\n\nexiting...\n");
-    quit = true;
-}
 
 void do_task0(void) {
     int i = 0;
@@ -173,7 +168,7 @@ void task_push_context(task_struct *task) {
 }
 
 bool switch_context(uint tick) {
-    return true; //!(tick % 20);
+    return true; 
 }
 
 
@@ -181,10 +176,14 @@ inline task_struct *task_current(void) {
     return current;
 }
 
+
+
+volatile bool quit;
+
 task_struct *next_task(void) {
     if (quit) return &ext_task;
     if (current == &task0) return &task1;
-    if (current == &task1) return &task0; 
+    if (current == &task1) return &task0;
     if (current == &ext_task) return &task0;
     panic("Invalid task");
 }
@@ -200,14 +199,15 @@ void task_timer_handler(uint tick) {
     }
 }
 
-extern void kern_stack;
+void key_press(scancode_t scan) {
+    k_printf("\n\nexiting...\n");
+    quit = true;
+}
 
 void tasks_setup(void) {
     quit = false;
 
-    uint eflags = 0;
-    i386_eflags(eflags);
-    task0.tss.eflags = task1.tss.eflags = eflags;
+    task0.tss.eflags = task1.tss.eflags = x86_eflags();
 
 #if TASK_VERBOSE_DEBUG
     k_printf("kernstack=%x[800], stack0=%x..%x, stack1=%x..%x\n", 
@@ -220,11 +220,8 @@ void tasks_setup(void) {
     kbd_set_onpress(key_press); 
     timer_t task_timer = timer_push_ontimer(task_timer_handler);
 
-    do cpu_halt(); 
-    while (!quit);
-
-    cpu_halt();
-    cpu_halt();
+    /* wait for first timer tick, when execution will be transferred to do_task0 */
+    cpu_halt(); 
 
     k_printf("\nBye, %x\n", intr_stack_ret_addr());
     
