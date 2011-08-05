@@ -126,7 +126,7 @@ const char * sscan_int(const char *str, int *res, const uint8_t base) {
         ++str; 
     }
 
-    str = sscan_uint(str, res, base);
+    str = sscan_uint(str, (uint *)res, base);
 
     if (sign == -1) 
         *res = - *res;

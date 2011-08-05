@@ -26,7 +26,7 @@ extern void kern_stack;
 typedef void (*task_f)(int, ...);
 typedef int task_state_t;
 
-volatile struct task {
+struct task {
     tss_t tss;
     uint32_t tss_index;
     uint32_t ldt_index;
@@ -89,7 +89,7 @@ void task_push_context(task_struct *task) {
     regs->esi = task->tss.esi;      regs->edi = task->tss.edi;
 }
 
-inline task_struct *task_current(void) {
+inline volatile task_struct *task_current(void) {
     return current;
 }
 
@@ -160,7 +160,7 @@ void do_task0(void) {
 }
 
 void do_task1(void) {
-    int i;
+    int i = 0;
     while (1) {
        int a = 1;
        for (a = 0; a < 1000000; ++a);
@@ -178,7 +178,7 @@ void do_task1(void) {
 }
 
 
-bool switch_context(uint tick) {
+bool switch_context() {
     return true; 
 }
 
@@ -187,27 +187,29 @@ bool switch_context(uint tick) {
 volatile bool quit;
 
 task_struct *next_task(void) {
-    if (quit) return &ext_task;
-    if (current == &task0) return &task1;
-    if (current == &task1) return &task0;
-    if (current == &ext_task) return &task0;
+    if (quit) return (task_struct *)&ext_task;
+    if (current == &task0) return (task_struct *)&task1;
+    if (current == &task1) return (task_struct *)&task0;
+    if (current == &ext_task) return (task_struct *)&task0;
     panic("Invalid task");
+    return null;
 }
 
 void task_timer_handler(uint tick) {
     if (switch_context(tick))  {
         task_struct *next = next_task();
 
-        task_save_context(current);
-        task_push_context(next);
+        task_save_context((task_struct *)current);
+        task_push_context((task_struct *)next);
 
         current = next;
     }
 }
 
 #include <dev/kbd.h>
+#include <dev/timer.h>
 
-void key_press(scancode_t scan) {
+void key_press(/*scancode_t scan*/) {
     k_printf("\n\nexiting...\n");
     quit = true;
 }
@@ -224,7 +226,7 @@ void tasks_setup(void) {
 #endif
 
     current = &ext_task;
-    kbd_set_onpress(key_press); 
+    kbd_set_onpress((kbd_event_f)key_press); 
     timer_set_frequency(0x1000);
     timer_t task_timer = timer_push_ontimer(task_timer_handler);
 
