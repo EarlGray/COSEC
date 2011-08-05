@@ -36,6 +36,38 @@ int putchar(int c) {
 #define get_digit(digit) \
     ( ((digit) < 10) ? ('0' + (digit)) : ('A' + (digit) - 10))
 
+/*
+struct generic_ostream {
+    bool (*print)(struct generic_stream *, char);
+    void *data;
+};
+
+struct generic_istream {
+    char (*read)(struct generic_stream *);
+    void *data;
+};
+
+struct generic_iostream {
+    bool (*print)(struct generic_stream *, char);
+    char (*read)(struct generic_stream *);
+    void *data;
+}
+typedef  struct generic_istream  istream;
+typedef  struct generic_ostream  ostream;
+typedef  struct generic_iostream iostream;
+
+const ostream cin = {
+    .
+};
+
+void vioprintf(ostream *out, const char *fmt, va_list args) {
+       
+}
+
+void ioprintf(ostream *out, const char *fmt, ...) {
+    
+} */
+
 char * snprint_uint(char *str, char *const end, uint x, uint8_t base, uint flags, int precision) {
 #define maxDigits 32	// 4 * 8 max for binary
     char a[maxDigits] = { 0 };
