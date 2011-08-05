@@ -3,7 +3,7 @@
 #define __ELF__  
 */
 
-#include <multiboot.h>
+#include <arch/multiboot.h>
 #define STACK_SIZE  0x00000800
 
 .globl _start

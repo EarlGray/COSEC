@@ -1,7 +1,7 @@
-#include <mm/pmem.h>
+#include <pmem.h>
 
-#include <mboot.h>
-#include <multiboot.h>
+#include <arch/mboot.h>
+#include <arch/multiboot.h>
 
 #define MEM_DEBUG   0
 
