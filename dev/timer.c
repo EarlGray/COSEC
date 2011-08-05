@@ -8,6 +8,8 @@
 #define PIT_CH3_PORT    0x42
 #define PIT_CMD_PORT    0x43
 
+volatile uint timer_freq_divisor = 0x10000;
+
 timer_event_f timers[N_TIMERS] = { 0 };
 
 timer_t timer_push_ontimer(timer_event_f ontimer) {
