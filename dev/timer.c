@@ -36,8 +36,10 @@ void timer_set_frequency(uint hz) {
 void timer_setup(void) {
     memset(timers, 0, N_TIMERS * sizeof(timer_event_f));
 
-    irq_mask(true, 0);
+    timer_set_frequency(timer_freq_divisor);
+
     irq_set_handler(0, timer_irq);
+    irq_mask(true, 0);
 }
 
 void timer_irq() {

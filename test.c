@@ -11,6 +11,7 @@
 #include <arch/i386.h>
 #include <kshell.h>
 
+volatile bool poll_exit = false;
 
 static void test_vsprint(const char *fmt, ...) {
 #define buf_size    200
@@ -89,9 +90,20 @@ static void on_timer(uint counter) {
     }
 }
 
+static void tt_keypress() {
+    poll_exit = true;
+}
+
 void test_timer(void) {
-    timer_set_frequency(0x1000);
-    timer_push_ontimer(on_timer);
+    poll_exit = false;
+
+    kbd_set_onpress(tt_keypress);
+    timer_t timer_id = timer_push_ontimer(on_timer);
+
+    while (!poll_exit) cpu_halt();
+
+    timer_pop_ontimer(timer_id);
+    kbd_set_onpress(null);
 }
 
 
@@ -100,7 +112,6 @@ void test_timer(void) {
 #include <dev/screen.h>
 #include <dev/intrs.h>
 
-volatile bool poll_exit = false;
 
 inline static void print_serial_info(uint16_t port) {
     uint8_t iir;
