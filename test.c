@@ -185,8 +185,86 @@ void test_kbd(void) {
 }
 
 
+/***
+  *     Example tasks
+ ***/
 #include <tasks.h>
 
-void test_tasks(void) {
-    tasks_setup();
+uint8_t task0_stack[TASK_KERNSTACK_SIZE];
+uint8_t task1_stack[TASK_KERNSTACK_SIZE];
+
+task_struct task0;
+task_struct task1; 
+task_struct *volatile def_task;
+
+
+void do_task0(void) {
+    int i = 0;
+    while (1) {
+        ++i;
+        if (0 == (i % 75)) {    i = 0;   k_printf("\r");    }
+        if (i > 75) {
+            k_printf("\nA: assert i <= 75 failed, i=0x%x\n", i);
+            while (1) cpu_halt();
+        }
+        k_printf("0");
+    }
 }
+
+void do_task1(void) {
+    int i = 0;
+    while (1) {
+        ++i;
+       if (0 == (i % 75)) {   i = 0;   k_printf("\r");   }
+       if (i > 75) {
+           k_printf("\nB: assert i <= 75 failed, i=0x%x\n", i);
+           while (1) cpu_halt();
+       }
+       k_printf("1");
+    }
+}
+
+volatile bool quit;
+
+void key_press(/*scancode_t scan*/) {
+    k_printf("\n\nexiting...\n");
+    quit = true;
+}
+
+
+bool switch_context() {
+    return true; 
+}
+
+task_struct *next_task(void) {
+    task_struct *current = task_current();
+    if (quit) return def_task;
+    if (current == &task0) return &task1;
+    if (current == &task1) return &task0;
+    if (current == def_task) return &task0;
+    panic("Invalid task");
+    return null;
+}
+
+
+void test_tasks(void) {
+    def_task = task_current();
+
+    task_init(&task0, (void *)do_task0, 
+            (void *)((ptr_t)task0_stack + TASK_KERNSTACK_SIZE - 0x20));
+    task_init(&task1, (void *)do_task1, 
+            (void *)((ptr_t)task1_stack + TASK_KERNSTACK_SIZE - 0x20));
+
+    quit = false;
+    kbd_set_onpress((kbd_event_f)key_press); 
+    task_set_scheduler(switch_context, next_task);
+
+    /* wait for first timer tick, when execution will be transferred to do_task0 */
+    cpu_halt(); 
+    
+    kbd_set_onpress(null);
+    task_set_scheduler(null, null);
+
+    k_printf("\nBye.\n");
+}
+

@@ -1,18 +1,17 @@
-#include <kshell.h>
-
-#include <mboot.h>
-#include <multiboot.h>
-#include <misc/test.h>
-
 #include <arch/i386.h>
-
-#include <mm/pmem.h>
+#include <arch/mboot.h>
+#include <arch/multiboot.h>
 
 #include <dev/screen.h>
 #include <dev/pci.h>
 
 #include <std/string.h>
 #include <std/stdio.h>
+
+#include <kshell.h>
+#include <pmem.h>
+#include <misc/test.h>
+
 
 /***
   *     Internal declarations

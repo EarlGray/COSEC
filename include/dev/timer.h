@@ -19,6 +19,7 @@ timer_t timer_push_ontimer(timer_event_f ontimer);
  ***/
 void timer_pop_ontimer(timer_t id);
 
+void timer_set_frequency(uint hz);
 void timer_setup(void);
 void timer_irq();
 

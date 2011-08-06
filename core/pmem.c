@@ -1,7 +1,7 @@
-#include <mm/pmem.h>
+#include <pmem.h>
 
-#include <mboot.h>
-#include <multiboot.h>
+#include <arch/mboot.h>
+#include <arch/multiboot.h>
 
 #define MEM_DEBUG   0
 
@@ -63,11 +63,11 @@ void pages_set(uint addr, uint size, bool reserved) {
 }
 
 void pmem_setup(void) {
-    mem_map = (struct page *)aligned(&_end);
+    mem_map = (struct page *)aligned((uint)&_end);
 
     struct memory_map *mapping = (struct memory_map *)mboot_mmap_addr();
 
-    int i;
+    uint i;
     for (i = 0; i < mboot_mmap_length(); ++i) {
         if (mapping[i].length_low == 0) continue;
         
