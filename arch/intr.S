@@ -1,5 +1,7 @@
 #define ASM
 
+#include <globl.h>
+
 #define KERN_DS     $0x0010
 #define KERN_CS     $0x0008
 /* 
@@ -119,6 +121,42 @@ intr_stack_ret_addr:
     iret
 .endm
 
+
+#if INTR_PROFILING
+start_tick: 
+.long   0
+.long   0
+
+.globl intr_start_rdtsc
+intr_start_rdtsc:
+    movl 4(%esp), %ebx
+    movl start_tick, %eax
+    movl %eax, (%ebx)
+    movl start_tick + 4, %eax
+    movl %eax, 4(%ebx)
+    ret
+
+.extern intr_profile
+
+.macro INTR_PROFILING_START
+    rdtsc
+    movl %eax, start_tick
+    movl %edx, start_tick + 4
+.endm
+
+.macro INTR_PROFILING_END
+    subl $8, %esp
+    rdtsc
+    movl %edx, 4(%esp)
+    movl %eax, (%esp)
+    call intr_profile
+    addl $8, %esp
+.endm
+#else
+#   define INTR_PROFILING_START
+#   define INTR_PROFILING_END
+#endif
+
 .macro ENTRY_IRQ name, num
 .global \name
 \name :
@@ -128,9 +166,14 @@ intr_stack_ret_addr:
     lea 0x24(%esp), %ebx
     movl %ebx, intr_ret
 
+    INTR_PROFILING_START
+
     /* call the handler */
     movl \num, (%esp)
     call irq_handler
+
+    INTR_PROFILING_END  
+
     INTR_END
     movl -0x14(%esp), %esp
     iret

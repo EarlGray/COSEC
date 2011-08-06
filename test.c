@@ -55,9 +55,37 @@ void test_eflags(void) {
     k_printf("flags=0x%x\n", flags);
 }
 
+
+#if INTR_PROFILING    
+volatile union {
+    uint32_t u32[2];
+    uint64_t u64;
+} intr_ticks = { .u32 = { 0 } };
+
+volatile uint intr_count = 0;
+
+extern uint intr_start_rdtsc(uint64_t *);
+
+void intr_profile(uint64_t ts) {
+    uint64_t start_ts;
+    intr_start_rdtsc(&start_ts);
+    int64_t diff = ts - start_ts;
+    if (diff > 0) 
+        intr_ticks.u64 += diff;
+    ++intr_count;
+}
+#endif
+
+
 static void on_timer(uint counter) {
-    if (counter % 100 == 0) {
-        k_printf("tick=%d\n", counter);
+    if (counter % 1000 == 0) {
+        uint ts[2] = { 0 };
+        i386_rdtsc(ts);
+        k_printf("%d: rdtsc=%x %x ", counter, ts[1], ts[0]);
+#if INTR_PROFILING
+        k_printf(" itick=%x %x, icnt = %x", intr_ticks.u32[1], intr_ticks.u32[0], intr_count);
+#endif
+        k_printf("\n");
     }
 }
 

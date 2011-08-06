@@ -138,7 +138,7 @@ typedef struct {
 
 #define i386_esp(p)    asm ("\t movl %%esp, %0 \n" : "=r"(p))
 
-
+extern uint i386_rdtsc(uint64_t *timestamp);
 extern void i386_snapshot(char *buf);
 
 #define i386_eflags(flags)          \

@@ -1,3 +1,7 @@
+#define ASM
+
+#include <globl.h>
+
 .text
 
 .global i386_snapshot
@@ -10,3 +14,10 @@ i386_snapshot:
     popa
     ret
 
+.global i386_rdtsc
+i386_rdtsc:
+    movl 4(%esp), %edi
+    rdtsc
+    movl %eax, (%edi)
+    movl %edx, 4(%edi)
+    ret
