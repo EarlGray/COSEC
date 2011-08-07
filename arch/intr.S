@@ -19,6 +19,10 @@ dtreg:
 intr_ret:
 .long 0
 
+/* last exception error code */
+intr_error:
+.long 0
+
 /********************** text *****************************/
 .text
 .align 4
@@ -74,45 +78,12 @@ intr_stack_ret_addr:
     movl intr_ret, %eax
     ret
 
+.global intr_err_code
+intr_err_code:
+    movl intr_error, %eax
+    ret
+
 /********** ENTRY macros *************/
-
-.macro INTR_PROLOG
-    /* eflags already saved by CPU as (uint)(intr_ret[2]) */
-    cli
-    pusha
-    subl $4, %esp   
-.endm
-
-.macro INTR_END
-    addl $4, %esp
-    movl 8(%esp), %edi
-    movl %edi, intr_ret
-    popa
-.endm
-
-.macro ENTRY_NOERR name, handler
-.extern \handler
-.global \name
-\name :
-    INTR_PROLOG
-    movl %esp, (%esp)
-    call \handler    
-    INTR_END
-    iret
-.endm
-
-.macro ENTRY_ERR name, handler
-.extern \handler
-.global \name
-\name :
-    INTR_PROLOG
-    movl %esp, (%esp)
-    call \handler
-    INTR_END
-    addl $4, %esp    /* pop errcode */
-    iret
-.endm
-
 
 #if INTR_PROFILING
 start_tick: 
@@ -148,6 +119,49 @@ intr_start_rdtsc:
 #   define INTR_PROFILING_START
 #   define INTR_PROFILING_END
 #endif
+
+
+.macro INTR_PROLOG
+    /* eflags already saved by CPU as (uint)(intr_ret[2]) */
+    cli
+    pusha
+    subl $4, %esp   
+.endm
+
+.macro INTR_END
+    addl $4, %esp
+    popa
+.endm
+
+.macro ENTRY_NOERR name, handler
+.extern \handler
+.global \name
+\name :
+    INTR_PROLOG
+
+    movl %esp, (%esp)
+    call \handler    
+
+    INTR_END
+    iret
+.endm
+
+.macro ENTRY_ERR name, handler
+.extern \handler
+.global \name
+\name :
+    INTR_PROLOG
+    
+    movl 0x24(%esp), %ebx
+    movl %ebx, intr_error
+
+    movl %esp, (%esp)
+    call \handler
+
+    INTR_END
+    addl $4, %esp    /* pop errcode */
+    iret
+.endm
 
 .macro ENTRY_IRQ name, num
 .global \name

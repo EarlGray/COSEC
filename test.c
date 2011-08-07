@@ -281,19 +281,48 @@ void test_tasks(void) {
 
 /***********************************************************/
 
-#define USER_STACK_SIZE     0x1000
-uint8_t user_stack[USER_STACK_SIZE];
+#define R3_STACK_SIZE       0x1000
+#define R0_STACK_SIZE       0x400
+uint8_t task_stack3[R3_STACK_SIZE];
+uint8_t task_stack0[R0_STACK_SIZE];
 
 void run_userspace(void) {
     k_printf("Hello, userspace");
-    while (1) cpu_halt();
+    while (1);
 }
 
-extern void start_userspace(uint ss3, uint esp3, uint eflags, uint cs3, uint eip3);
+extern void start_userspace(uint eip3, uint cs3, uint eflags, uint esp3, uint ss3);
+
+task_struct task3;
 
 void test_userspace(void) {
+    /* init task */
+    task3.tss.eflags = x86_eflags() | eflags_iopl(PL_USER);
+    task3.tss.cs = SEL_USER_CS;
+    task3.tss.ds = task3.tss.es = task3.tss.fs = task3.tss.gs = SEL_USER_DS;
+    task3.tss.ss = SEL_USER_DS;
+    task3.tss.eip = (uint)run_userspace;
+    task3.tss.ss0 = SEL_KERN_DS;
+    task3.tss.esp0 = (uint)task_stack0 + R0_STACK_SIZE - 0x20;
+
+    /* make a GDT task descriptor */
+    segment_descriptor taskdescr;
+    segdescr_taskstate_init(taskdescr, (uint)&task3, PL_USER);
+
+    index_t taskdescr_index = gdt_alloc_entry(taskdescr);
+
+    segment_selector tss_sel;
+    tss_sel.as.word = make_selector(taskdescr_index, 0, PL_USER);
+
+    k_printf("GDT[%x]\n", taskdescr_index);
+
+    /* load TR and LDT */
+    asm ("ltrw %%ax     \n\t"::"a"( tss_sel ));
+    asm ("lldt %%ax     \n\t"::"a"( SEL_DEFAULT_LDT ));
+    
+    /* go userspace */
     start_userspace(
-        SEL_USER_DS, (uint)user_stack, 
-        x86_eflags(), 
-        SEL_USER_CS, (uint)run_userspace);
+        (uint)run_userspace, SEL_USER_CS,
+        x86_eflags() | eflags_iopl(PL_USER),
+        (uint)task_stack3 + R3_STACK_SIZE - 0x20, SEL_USER_DS);
 }

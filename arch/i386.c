@@ -48,6 +48,11 @@ segment_descriptor theGDT[N_GDT];
 
 #define gdt_entry_init(index, type, pl)     segdescr_usual_init(theGDT[index], type, 0xFFFFF, 0, pl, SD_GRAN_4Kb)
 
+const segment_descriptor defLDT[] = {
+    {   .as.ll = 0x00CFFA000000FFFFull  },
+    {   .as.ll = 0x00CFF2000000FFFFull  },
+};
+
 extern void gdt_load(uint16_t limit, void *base);
 
 void gdt_setup(void) {
@@ -57,7 +62,9 @@ void gdt_setup(void) {
     gdt_entry_init(GDT_KERN_DS, SD_TYPE_RW_DATA, PL_KERN);
     gdt_entry_init(GDT_USER_CS, SD_TYPE_ER_CODE, PL_USER);
     gdt_entry_init(GDT_USER_DS, SD_TYPE_RW_DATA, PL_USER);
-    segdescr_usual_init(theGDT[GDT_DEFAULT_LDT], SD_TYPE_LDT, 0, 0, PL_KERN, SD_GRAN_4Kb);
+    segdescr_usual_init(theGDT[GDT_DEFAULT_LDT], SD_TYPE_LDT, 
+            8 * 2/*sizeof(defLDT)/sizeof(segment_descriptor)*/, (uint)defLDT, 
+            PL_USER, SD_GRAN_4Kb);
 
     gdt_load(N_GDT, theGDT);
 }

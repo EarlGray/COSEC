@@ -43,6 +43,7 @@ typedef enum gatetype {
 typedef struct segdescr {
     union {
         uint32_t ints[2];
+        uint64_t ll;
         struct {
             uint16_t	limit_l;	// lower part
             uint16_t	base_l;	// base lower 
@@ -71,15 +72,26 @@ typedef struct segdescr {
      ( (((limit) >> 16) & 0x0F) | (((base) >> 16) & 0xFF00) | (gran << 7) | 0x40) << 16;  \
 }
 
-#define segdescr_gate_init(seg, slctr, addr, dpl, trap) {   \
-    (seg).as.ints[0] = ((uint16_t)(slctr) << 16) | (addr & 0x0000FFFF);                  \
-    (seg).as.ints[1] = (addr & 0xFFFF0000) | 0x8E00 | ((dpl) << 13);                     \
-    if (trap) (seg).as.ints[1] |= 0x0100;                                                 \
+#define segdescr_gate_init(seg, slctr, addr, dpl, trap) {               \
+    (seg).as.ints[0] = ((uint16_t)(slctr) << 16) | (addr & 0x0000FFFF); \
+    (seg).as.ints[1] = (addr & 0xFFFF0000) | 0x8E00 | ((dpl) << 13);    \
+    if (trap) (seg).as.ints[1] |= 0x0100;                               \
 }
 
-#define segdescr_taskgate_init(seg, tasksel, dpl) {                                       \
-    (seg).as.ints[0] = ((uint16_t)(tasksel)) << 16;                                       \
-    (seg).as.ints[1] = 0x8500 | ((dpl) << 13);                                            \
+#define segdescr_taskgate_init(seg, tasksel, dpl) {     \
+    (seg).as.ints[0] = ((uint16_t)(tasksel)) << 16;     \
+    (seg).as.ints[1] = 0x8500 | ((dpl) << 13);          \
+}
+
+#define segdescr_taskstate_init(seg, addr, dpl) {                    \
+    (seg).as.ints[0] = (0x67 /*limit*/ | ((addr & 0xFFFF) << 16));   \
+    (seg).as.ints[1] = ((addr & 0xFF000000) | ((addr >> 16) & 0xFF)  \
+            | 0x00808900 | ((dpl & 0x3) << 13));                     \
+}
+
+#define segdescr_taskstate_busy(seg, busy_flag) {       \
+    if (busy_flag) (seg).as.ints[1] |= (1 << 9);        \
+    else (seg).as.ints[1] &= ~(1u << 9);                \
 }
 
 typedef struct {
@@ -147,6 +159,8 @@ extern void i386_snapshot(char *buf);
         "popf               \n\t"   \
         : "=r"(flags))
 
+#define eflags_iopl(pl)     ((pl & 3) << 12)
+
 uint x86_eflags(void);
 
 /* GDT indeces */
@@ -161,7 +175,7 @@ uint x86_eflags(void);
 #define SEL_KERN_DS     make_selector(GDT_KERN_DS, 0, PL_KERN)
 #define SEL_USER_CS     make_selector(GDT_USER_CS, 0, PL_USER)
 #define SEL_USER_DS     make_selector(GDT_USER_DS, 0, PL_USER)
-#define SEL_DEFAULT_LDT make_selector(GDT_DEFAULT_LDT, 0, PL_KERN)
+#define SEL_DEFAULT_LDT make_selector(GDT_DEFAULT_LDT, 0, PL_USER)
 
 segment_descriptor * i386_gdt(void);
 segment_descriptor * i386_idt(void);
@@ -175,6 +189,7 @@ struct i386_general_purpose_registers {
 };
 typedef  struct i386_general_purpose_registers  i386_gp_regs;
 
+extern uint intr_err_code(void);
 
 /***
   *     Task-related definitions

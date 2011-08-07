@@ -8,8 +8,6 @@
  *  IRQs are handled by irq_hander(), which calls a handler registered in irq[]
  */
 
-#include <globl.h>
-
 #include <arch/i386.h>
 
 #include <dev/intrs.h>
@@ -199,8 +197,9 @@ void int_invalid_tss(void ) {
 }
 
 void int_gpf(void *stack) {
-    k_printf("#GP\nGeneral protection fault\n");
-    k_printf("Interrupted at 0x%x : 0x%x\n", 
+    k_printf("#GP\nGeneral protection fault, error code %x\n", 
+            intr_err_code());
+    k_printf("Interrupted at %x:%x\n", 
                 *((uint32_t *)stack + 11), 
                 *((uint32_t *)stack + 10) );
     cpu_hang();
