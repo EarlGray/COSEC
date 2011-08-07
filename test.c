@@ -316,9 +316,11 @@ void test_userspace(void) {
 
     k_printf("GDT[%x]\n", taskdescr_index);
 
+    kbd_set_onpress(key_press);
+
     /* load TR and LDT */
     asm ("ltrw %%ax     \n\t"::"a"( tss_sel ));
-    asm ("lldt %%ax     \n\t"::"a"( SEL_DEFAULT_LDT ));
+    //asm ("lldt %%ax     \n\t"::"a"( SEL_DEFAULT_LDT ));
     
     /* go userspace */
     start_userspace(
