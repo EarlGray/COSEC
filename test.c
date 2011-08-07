@@ -279,3 +279,21 @@ void test_tasks(void) {
     k_printf("\nBye.\n");
 }
 
+/***********************************************************/
+
+#define USER_STACK_SIZE     0x1000
+uint8_t user_stack[USER_STACK_SIZE];
+
+void run_userspace(void) {
+    k_printf("Hello, userspace");
+    while (1) cpu_halt();
+}
+
+extern void start_userspace(uint ss3, uint esp3, uint eflags, uint cs3, uint eip3);
+
+void test_userspace(void) {
+    start_userspace(
+        SEL_USER_DS, (uint)user_stack, 
+        x86_eflags(), 
+        SEL_USER_CS, (uint)run_userspace);
+}

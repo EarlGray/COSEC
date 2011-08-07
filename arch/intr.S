@@ -23,14 +23,6 @@ intr_ret:
 .text
 .align 4
 
-/************ Handlers ***************/
-.extern int_handlers_table
-
-.extern int_syscall
-.extern int_dummy
-.extern int_odd_exception
-.extern irq_stub
-
 /******** Tables-related *************/
 
 .macro DTREG_LOAD
@@ -179,26 +171,35 @@ intr_start_rdtsc:
     iret
 .endm
 
+
+/************ Handlers ***************/
+.extern int_handlers_table
+
+.extern int_syscall
+.extern int_dummy
+.extern int_odd_exception
+.extern irq_stub
+
 /******** multiple entries ***********/
 
-ENTRY_NOERR dummyentry, int_dummy           /* unrecognized software interrupt   */
-ENTRY_NOERR syscallentry, int_syscall       /* sys int                           */
-ENTRY_NOERR isr14to1F, int_odd_exception    /* unused exceptions                 */
+ENTRY_NOERR dummyentry,     int_dummy           /* unrecognized software interrupt   */
+ENTRY_NOERR syscallentry,   int_syscall         /* sys int                           */
+ENTRY_NOERR isr14to1F,      int_odd_exception   /* unused exceptions                 */
 
 /************* exceptions ************/
 ENTRY_NOERR isr00, int_division_by_zero
 ENTRY_NOERR isr01, int_odd_exception
 ENTRY_NOERR isr02, int_nonmaskable
-ENTRY_NOERR isr03, int_odd_exception
-ENTRY_NOERR isr04, int_odd_exception
-ENTRY_NOERR isr05, int_odd_exception
+ENTRY_NOERR isr03, int_breakpoint
+ENTRY_NOERR isr04, int_overflow
+ENTRY_NOERR isr05, int_out_of_bounds
 ENTRY_NOERR isr06, int_invalid_op
 ENTRY_NOERR isr07, int_odd_exception
 ENTRY_ERR   isr08, int_double_fault
 ENTRY_NOERR isr09, int_odd_exception
-ENTRY_ERR   isr0A, int_odd_exception
-ENTRY_ERR   isr0B, int_odd_exception
-ENTRY_ERR   isr0C, int_odd_exception
+ENTRY_ERR   isr0A, int_invalid_tss
+ENTRY_ERR   isr0B, int_segment_not_present
+ENTRY_ERR   isr0C, int_stack_segment
 ENTRY_ERR   isr0D, int_gpf
 ENTRY_ERR   isr0E, int_page_fault
 ENTRY_NOERR isr0F, int_odd_exception

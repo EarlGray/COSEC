@@ -6,5 +6,6 @@ void test_timer(void);
 void test_serial(void);
 void test_kbd(void);
 void test_tasks(void);
+void test_userspace(void);
 
 #endif //__TEST_H__

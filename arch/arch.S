@@ -21,3 +21,8 @@ i386_rdtsc:
     movl %eax, (%edi)
     movl %edx, 4(%edi)
     ret
+
+.global start_userspace
+start_userspace:
+    addl $4, %esp
+    iret

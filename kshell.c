@@ -184,7 +184,7 @@ void kshell_panic();
 
 const struct kshell_command main_commands[] = {
     {   .name = "info",     .handler = kshell_info,  .description = "various info", .options = "stack gdt pmem colors cpu pci" },
-    {   .name = "test",     .handler = kshell_test,  .description = "test utility", .options = "sprintf kbd timer serial tasks" },
+    {   .name = "do",     .handler = kshell_test,  .description = "test utility", .options = "sprintf kbd timer serial tasks ring3" },
     {   .name = "mem",      .handler = kshell_mem,   .description = "mem <start_addr> <size = 0x100>" },
     {   .name = "set",      .handler = kshell_set,   .description = "manage global variables", .options = "color prompt" },
     {   .name = "panic",    .handler = kshell_panic, .description = "test The Red Screen of Death"     },
@@ -198,6 +198,7 @@ const struct kshell_subcmd  test_cmds[] = {
     { .name = "serial",  .handler = test_serial, },
     { .name = "kbd",     .handler = test_kbd,    },
     { .name = "tasks",   .handler = test_tasks,  },
+    { .name = "ring3",   .handler = test_userspace,  },
     { .name = 0, .handler = 0    },
 };
 

@@ -171,6 +171,33 @@ void int_page_fault(void ) {
     k_printf("#PF");
 }
 
+void int_segment_not_present(void) {
+    k_printf("#NP");
+}
+
+void int_overflow(void ) {
+    k_printf("#OF");
+}
+
+void int_breakpoint(void) {
+    k_printf("#BP");
+}
+
+
+void int_out_of_bounds(void ) {
+    k_printf("#BR");
+}
+
+void int_stack_segment(void ) {
+    k_printf("#SS");
+}
+
+void int_invalid_tss(void ) {
+    k_printf("#TS");
+    k_printf("Invalid TSS exception\n");
+    cpu_hang();
+}
+
 void int_gpf(void *stack) {
     k_printf("#GP\nGeneral protection fault\n");
     k_printf("Interrupted at 0x%x : 0x%x\n", 
