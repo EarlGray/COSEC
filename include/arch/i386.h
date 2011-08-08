@@ -62,8 +62,8 @@ typedef struct segdescr {
     } as;
 } segment_descriptor;
 
-#define segdescr_base(seg)      ( ((seg)->base_h << 24) | ((seg)->base_m << 16) | (seg)->base_l )
-#define segdescr_limit(seg)     ( ((seg)->limit_h << 16) | (seg)->limit_l )
+#define segdescr_base(seg)      ( ((seg).base_h << 24) | ((seg).base_m << 16) | (seg).base_l )
+#define segdescr_limit(seg)     ( ((seg).limit_h << 16) | (seg).limit_l )
 
 #define segdescr_usual_init(seg, type, limit, base, dpl, gran) {   \
     (seg).as.ints[0] = ((base) << 16) | ((limit) & 0xFFFF);                               \

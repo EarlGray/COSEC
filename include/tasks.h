@@ -32,8 +32,10 @@ task_struct *task_current(void);
 
 void task_set_scheduler(task_need_switch_f need_switch, task_next_f next);
 
-void task_init(task_struct *task, void *entry, void *stack_end);
-    
+void task_kthread_init(task_struct *ktask, void *entry, void *k_esp);
+void task_init(task_struct *task, void *entry, 
+        void *esp0, void *esp3, segment_selector cs, segment_selector ds);
+
 void tasks_setup(void);
 
 #endif // __TASKS_H__

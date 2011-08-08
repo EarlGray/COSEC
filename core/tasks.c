@@ -14,7 +14,7 @@
 #include <dev/intrs.h>
 #include <dev/timer.h>
 
-#define TASK_VERBOSE_DEBUG  (0)
+#define TASK_VERBOSE_DEBUG  (1)
 
 task_struct default_task;
 task_struct *current = &default_task;
@@ -26,53 +26,74 @@ task_next_f         task_next           = null;
   *     Task switching 
  ***/
 
+#define return_if_not(assertion, msg)   \
+    if (!(assertion)) { k_printf(msg); return; }
+
 /* this routine is normally called from within interrupt! */
 static void task_save_context(task_struct *task) {
     if (task == null) return;
 
     uint *stack = intr_stack_ret_addr();
-    if (!stack) {
-        k_printf("task_save_context: intr_ret is cleared!");
-        return;
-    }
+    return_if_not (stack, "task_save_context: intr_ret is cleared!");
+
     /* only for interrupts/exceptions without errcode on stack! */
     i386_gp_regs *regs = (i386_gp_regs *)((uint8_t*)stack - sizeof(i386_gp_regs));
+
+    task->tss.eax = regs->eax;      task->tss.ecx = regs->ecx;
+    task->tss.edx = regs->edx;      task->tss.ebx = regs->ebx;
+    /*task->tss.esp = regs->esp0;*/ task->tss.ebp = regs->ebp;
+    task->tss.esi = regs->esi;      task->tss.edi = regs->edi;
 
     task->tss.esp0 = (ptr_t)stack;
     task->tss.eip = stack[0];
     task->tss.cs = stack[1];
     task->tss.eflags = stack[2];
-#if TASK_VERBOSE_DEBUG
-    k_printf("\n|<%x>save %x:%x:%x<-%x |", (uint)task, stack[0], stack[1], stack[2], (uint)stack);
+    if (task->tss.cs != SEL_KERN_CS) {
+#ifdef TASK_VERBOSE_DEBUG
+        k_printf("|s%x:%x|", stack[4], stack[3]);
 #endif
+        task->tss.esp = stack[3];
+        task->tss.ss = stack[4];
+    }
 
-    task->tss.eax = regs->eax;      task->tss.ecx = regs->ecx;
-    task->tss.edx = regs->edx;      task->tss.ebx = regs->ebx;
-    task->tss.esp = regs->esp;      task->tss.ebp = regs->ebp;
-    task->tss.esi = regs->esi;      task->tss.edi = regs->edi;
+#if TASK_VERBOSE_DEBUG
+    k_printf("\n|<%x>%x:%x:%x<-%x|", (uint)task, stack[0], stack[1], stack[2], (uint)stack);
+#endif
 }
 
 /* this routine is normally called from within interrupt! */
 static void task_push_context(task_struct *task) {
     uint *stack = (uint *)intr_stack_ret_addr();
-    if (!stack) {
-        k_printf("task_push_context: intr_ret is cleared!");
-        return;
-    }
+    return_if_not (stack, "task_save_context: intr_ret is cleared!");
+
     uint *new_stack = (uint *)task->tss.esp0;
     i386_gp_regs *regs = (i386_gp_regs *)((uint8_t*)stack - sizeof(i386_gp_regs));
 
-    new_stack[0] = stack[0] = task->tss.eip;
-    new_stack[1] = stack[1] = task->tss.cs;
-    new_stack[2] = stack[2] = task->tss.eflags;
-#if TASK_VERBOSE_DEBUG
-    k_printf("|<%x>push %x:%x:%x->%x |\n", 
-                (uint)task, stack[0], stack[1], stack[2], (uint)new_stack);
-#endif    
+    new_stack[0] = task->tss.eip;   
+    new_stack[1] = task->tss.cs;    
+    new_stack[2] = task->tss.eflags;
+    if (task->tss.cs != SEL_KERN_CS) {
+        new_stack[3] = task->tss.esp;
+        new_stack[4] = task->tss.ss;
+#ifdef TASK_VERBOSE_DEBUG
+        k_printf("|p%x:%x|", new_stack[4], new_stack[3]);
+#endif
+    }
+
     regs->eax = task->tss.eax;      regs->ecx = task->tss.ecx;    
     regs->edx = task->tss.edx;      regs->ebx = task->tss.ebx;
-    regs->esp = task->tss.esp;      regs->ebp = task->tss.ebp;
+    regs->esp = task->tss.esp0;     regs->ebp = task->tss.ebp;
     regs->esi = task->tss.esi;      regs->edi = task->tss.edi;
+
+#if TASK_VERBOSE_DEBUG
+    k_printf("|<%x>%x:%x:%x->%x|\n", 
+                (uint)task, stack[0], stack[1], stack[2], (uint)new_stack);
+#endif    
+}
+
+static inline void task_cpu_load(task_struct *task) {
+    segment_selector tss_sel = { .as.word = make_selector(task->tss_index, 0, PL_USER) };
+    asm ("ltrw %%ax     \n\t"::"a"( tss_sel ));
 }
 
 static void task_timer_handler(uint tick) {
@@ -82,8 +103,11 @@ static void task_timer_handler(uint tick) {
         task_save_context(current);
         task_push_context(next);
 
-        current = next;
+        task_cpu_load(next);
+#if TASK_VERBOSE_DEBUG
         k_printf(">");
+#endif
+        current = next;
     }
 }
 
@@ -96,18 +120,53 @@ inline void task_set_scheduler(task_need_switch_f need_switch, task_next_f next)
     task_next = next;
 }
 
-void task_init(task_struct *task, void *entry, void *stack_end) {
+void task_init(task_struct *task, void *entry, 
+        void *esp0, void *esp3, segment_selector cs, segment_selector ds) {
     tss_t *tss = &(task->tss);
-    tss->eflags = x86_eflags();
-    tss->esp0 = tss->esp = (ptr_t)stack_end;
-    tss->eip = (uint)entry;
-    tss->cs = SEL_KERN_CS;
-    tss->ds = tss->es = tss->fs = tss->gs = SEL_KERN_DS;
-    tss->ss0 = tss->ss = SEL_KERN_DS;
-    tss->ldt = SEL_DEFAULT_LDT;
 
+    /* initial state */
+    tss->esp0 = (ptr_t)esp0;
+    tss->ss0 = SEL_KERN_DS;
+    tss->esp = (ptr_t)esp3;
+    tss->ss = ds.as.word;
+
+    tss->cs = cs.as.word;
+    tss->ds = tss->es = tss->fs = tss->gs = ds.as.word;
+
+    tss->ldt = SEL_DEFAULT_LDT;
+    tss->eflags = x86_eflags();
+    tss->eip = (uint)entry;
+
+    /* initialize stack as if the task was interrupted */
+    uint *stack = (uint *)tss->esp0;
+    stack[0] = tss->eip;
+    stack[1] = tss->cs;
+    stack[2] = tss->eflags;
+    if (tss->cs != SEL_KERN_CS) {
+        stack[3] = tss->esp;
+        stack[4] = tss->ss;
+    }
+
+    /* register task TSS in GDT */
+    segment_descriptor taskdescr;
+    segdescr_taskstate_init(taskdescr, (uint)tss, PL_USER);
+
+    task->tss_index = gdt_alloc_entry(taskdescr);
+    return_if_not( task->tss_index, "Error: can't allocate GDT entry for TSSD\n");
+#if TASK_VERBOSE_DEBUG
+    k_printf("new TSS <- GDT[%x]\n", task->tss_index);
+#endif
+
+    /* init is done */
     task->state = TS_READY;
 }
+
+inline void task_kthread_init(task_struct *ktask, void *entry, void *k_esp) {
+    const segment_selector kcs = { .as.word = SEL_KERN_CS };
+    const segment_selector kds = { .as.word = SEL_KERN_DS };
+    task_init(ktask, entry, k_esp, k_esp, kcs, kds);
+}
+
 
 void tasks_setup(void) {
     timer_set_frequency(TASK_DEFAULT_QUANT);
