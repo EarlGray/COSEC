@@ -11,6 +11,7 @@
  */
 #include <tasks.h>
 
+#include <arch/i386.h>
 #include <dev/intrs.h>
 #include <dev/timer.h>
 
@@ -92,6 +93,11 @@ static void task_push_context(task_struct *task) {
 }
 
 static inline void task_cpu_load(task_struct *task) {
+    /* unmark current task as busy */
+    segment_descriptor *tssd = i386_gdt() + task->tss_index;
+    segdescr_taskstate_busy(*tssd, 0);
+
+    /* load next task */
     segment_selector tss_sel = { .as.word = make_selector(task->tss_index, 0, PL_USER) };
     asm ("ltrw %%ax     \n\t"::"a"( tss_sel ));
 }
