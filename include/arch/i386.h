@@ -190,6 +190,7 @@ struct i386_general_purpose_registers {
 typedef  struct i386_general_purpose_registers  i386_gp_regs;
 
 extern uint intr_err_code(void);
+extern i386_gp_regs *intr_regs_addr(void);
 
 /***
   *     Task-related definitions

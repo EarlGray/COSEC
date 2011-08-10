@@ -2,8 +2,8 @@
 
 #include <globl.h>
 
-#define KERN_DS     $0x0010
-#define KERN_CS     $0x0008
+#define KERN_DS     0x0010
+#define KERN_CS     0x0008
 /* 
  *      This file contains most of assembly routines used, most of them
  *  are interrupts and exections entry points now.
@@ -23,6 +23,13 @@ intr_ret:
 intr_error:
 .long 0
 
+#if INTR_PROFILING
+start_tick: 
+.long   0
+.long   0
+#endif
+
+
 /********************** text *****************************/
 .text
 .align 4
@@ -37,7 +44,7 @@ intr_error:
 .endm 
 
 .macro SHAKE_REGS
-    movw KERN_DS, %dx
+    movw $KERN_DS, %dx
     movw %dx, %ds
     movw %dx, %es
     movw %dx, %fs
@@ -52,7 +59,7 @@ gdt_load:
     lgdt dtreg
 
     SHAKE_REGS  
-    ljmp KERN_CS, $reload_gdt
+    ljmp $KERN_CS, $reload_gdt
 reload_gdt:
     ret
 
@@ -83,20 +90,16 @@ intr_err_code:
     movl intr_error, %eax
     ret
 
-/********** ENTRY macros *************/
 
 #if INTR_PROFILING
-start_tick: 
-.long   0
-.long   0
 
-.globl intr_start_rdtsc
+.global intr_start_rdtsc
 intr_start_rdtsc:
     movl 4(%esp), %ebx
-    movl start_tick, %eax
-    movl %eax, (%ebx)
     movl start_tick + 4, %eax
     movl %eax, 4(%ebx)
+    movl start_tick, %eax
+    movl %eax, (%ebx)
     ret
 
 .extern intr_profile
@@ -108,12 +111,10 @@ intr_start_rdtsc:
 .endm
 
 .macro INTR_PROFILING_END
-    subl $8, %esp
     rdtsc
     movl %edx, 4(%esp)
     movl %eax, (%esp)
     call intr_profile
-    addl $8, %esp
 .endm
 #else
 #   define INTR_PROFILING_START
@@ -121,15 +122,26 @@ intr_start_rdtsc:
 #endif
 
 
+/********** ENTRY macros *************/
+
 .macro INTR_PROLOG
     /* eflags already saved by CPU as (uint)(intr_ret[2]) */
     cli
     pusha
-    subl $4, %esp   
+    pushl %ds
+    pushl %es
+
+    movw $KERN_DS, %ax
+    movw %ax, %ds
+    movw %ax, %es
+
+    subl $8, %esp   
 .endm
 
 .macro INTR_END
-    addl $4, %esp
+    addl $8, %esp
+    popl %ds
+    popl %es
     popa
 .endm
 
@@ -152,7 +164,7 @@ intr_start_rdtsc:
 \name :
     INTR_PROLOG
     
-    movl 0x24(%esp), %ebx
+    movl 0x30(%esp), %ebx
     movl %ebx, intr_error
 
     movl %esp, (%esp)
@@ -167,19 +179,17 @@ intr_start_rdtsc:
 .global \name
 \name :
     INTR_PROLOG 
+    INTR_PROFILING_START
 
     /* save an interrupt's point of support in the stack */
-    lea 0x24(%esp), %ebx
+    leal 0x30(%esp), %ebx
     movl %ebx, intr_ret
-
-    INTR_PROFILING_START
 
     /* call the handler */
     movl \num, (%esp)
     call irq_handler
 
     INTR_PROFILING_END  
-
     INTR_END
     movl -0x14(%esp), %esp
     iret

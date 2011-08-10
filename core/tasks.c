@@ -38,7 +38,7 @@ static void task_save_context(task_struct *task) {
     return_if_not (stack, "task_save_context: intr_ret is cleared!");
 
     /* only for interrupts/exceptions without errcode on stack! */
-    i386_gp_regs *regs = (i386_gp_regs *)((uint8_t*)stack - sizeof(i386_gp_regs));
+    i386_gp_regs *regs = (i386_gp_regs*)((uint8_t*)stack - sizeof(i386_gp_regs));
 
     task->tss.eax = regs->eax;      task->tss.ecx = regs->ecx;
     task->tss.edx = regs->edx;      task->tss.ebx = regs->ebx;
@@ -50,15 +50,17 @@ static void task_save_context(task_struct *task) {
     task->tss.cs = stack[1];
     task->tss.eflags = stack[2];
     if (task->tss.cs != SEL_KERN_CS) {
-#ifdef TASK_VERBOSE_DEBUG
-        k_printf("|s%x:%x|", stack[4], stack[3]);
-#endif
+        /* %esp becomes a userspace pointer immediately after iret, 
+           so a little hack for kernel stack is needed */
+        task->tss.esp0 += 5 * sizeof(uint);   
+
         task->tss.esp = stack[3];
         task->tss.ss = stack[4];
     }
 
 #if TASK_VERBOSE_DEBUG
-    k_printf("\n|<%x>%x:%x:%x<-%x|", (uint)task, stack[0], stack[1], stack[2], (uint)stack);
+    k_printf("\n|<%x>%x:%x:%x<-%x|", task->tss_index, stack[0], stack[1], stack[2], (uint)stack);
+    k_printf("|s%x:%x|", stack[4], stack[3]);
 #endif
 }
 
@@ -68,7 +70,7 @@ static void task_push_context(task_struct *task) {
     return_if_not (stack, "task_save_context: intr_ret is cleared!");
 
     uint *new_stack = (uint *)task->tss.esp0;
-    i386_gp_regs *regs = (i386_gp_regs *)((uint8_t*)stack - sizeof(i386_gp_regs));
+    i386_gp_regs *regs = (i386_gp_regs *)((uint8_t *)stack - sizeof(i386_gp_regs));
 
     new_stack[0] = task->tss.eip;   
     new_stack[1] = task->tss.cs;    
@@ -76,19 +78,18 @@ static void task_push_context(task_struct *task) {
     if (task->tss.cs != SEL_KERN_CS) {
         new_stack[3] = task->tss.esp;
         new_stack[4] = task->tss.ss;
-#ifdef TASK_VERBOSE_DEBUG
-        k_printf("|p%x:%x|", new_stack[4], new_stack[3]);
-#endif
     }
 
     regs->eax = task->tss.eax;      regs->ecx = task->tss.ecx;    
     regs->edx = task->tss.edx;      regs->ebx = task->tss.ebx;
-    regs->esp = task->tss.esp0;     regs->ebp = task->tss.ebp;
+    regs->esp = (uint)new_stack;    regs->ebp = task->tss.ebp;
     regs->esi = task->tss.esi;      regs->edi = task->tss.edi;
 
 #if TASK_VERBOSE_DEBUG
     k_printf("|<%x>%x:%x:%x->%x|\n", 
-                (uint)task, stack[0], stack[1], stack[2], (uint)new_stack);
+                task->tss_index, new_stack[0], new_stack[1], 
+                new_stack[2], (uint)new_stack);
+    k_printf("|p%x:%x|", new_stack[4], new_stack[3]);
 #endif    
 }
 
