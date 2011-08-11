@@ -3,7 +3,7 @@
 #define __CONF_H__
 
 #define VERBOSE
-#define INTR_PROFILING  (1)
+#define INTR_PROFILING  (0)
 
 #endif // __CONF_H__
 

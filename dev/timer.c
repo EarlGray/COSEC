@@ -39,7 +39,7 @@ void timer_setup(void) {
     timer_set_frequency(timer_freq_divisor);
 
     irq_set_handler(0, timer_irq);
-    irq_mask(true, 0);
+    irq_mask(0, true);
 }
 
 void timer_irq() {

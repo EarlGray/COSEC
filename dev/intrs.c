@@ -82,7 +82,7 @@ irq_remap(uint8_t master, uint8_t slave) {
     outb(PIC2_DATA_PORT, slave_mask);
 }
 
-void irq_mask(bool set, uint8_t irq_num) {
+void irq_mask(uint8_t irq_num, bool set) {
     uint8_t mask;
     uint16_t port = PIC1_DATA_PORT;
     if (irq_num >= 8) {
@@ -123,7 +123,7 @@ inline void irq_set_handler(uint32_t irq_num, intr_handler_f handler) {
 /****************** IRQs ***********************/
 
 void irq_stub() {
-    k_printf("#");
+    //k_printf("#");
 }
 
 void irq_slave() {
@@ -212,8 +212,12 @@ void intrs_setup(void) {
 
     // prepare handler table
     int i;
-    for (i = 0; i < 8; ++i)
+    for (i = 0; i < 8; ++i) {
+        irq_mask(i, false);
         irq[i] = irq_stub;
-    for (i = 8; i < 16; ++i)
+    }
+    for (i = 8; i < 16; ++i) {
+        irq_mask(i, false);
         irq[i] = irq_slave;
+    }
 }

@@ -101,6 +101,6 @@ void serial_setup(void) {
     /* configure serial interface */
     serial_configure(COM1_PORT, 1); 
 
-    irq_mask(true, 4);
+    irq_mask(4, true);
     irq_set_handler(4, serial_irq);
 }

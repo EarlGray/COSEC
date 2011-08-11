@@ -9,7 +9,7 @@
 typedef void (*intr_handler_f) (void *);
 
 uint16_t irq_get_mask(void);
-void irq_mask(bool set, uint8_t irq_num);
+void irq_mask(uint8_t irq_num, bool set);
 
 void intrs_setup(void);
 
