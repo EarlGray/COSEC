@@ -115,8 +115,10 @@ void task_init(task_struct *task, void *entry,
     }
 
     uint *context = (uint *)((uint8_t *)stack - CONTEXT_SIZE);
-    context[0] = tss->es;
-    context[1] = tss->ds;
+    context[0] = tss->gs;
+    context[1] = tss->fs;
+    context[2] = tss->es;
+    context[3] = tss->ds;
 
     /* register task TSS in GDT */
     segment_descriptor taskdescr;
