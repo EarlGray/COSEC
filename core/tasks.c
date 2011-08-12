@@ -15,12 +15,12 @@
 #include <dev/intrs.h>
 #include <dev/timer.h>
 
-#define TASK_VERBOSE_DEBUG  (1)
+#define TASK_VERBOSE_DEBUG  (0)
+#define CONTEXT_SIZE        0x30
 
 task_struct default_task;
 task_struct *current = &default_task;
 
-task_need_switch_f  task_need_switch    = null;
 task_next_f         task_next           = null;
 
 /***
@@ -34,63 +34,25 @@ task_next_f         task_next           = null;
 static void task_save_context(task_struct *task) {
     if (task == null) return;
 
-    uint *stack = intr_stack_ret_addr();
-    return_if_not (stack, "task_save_context: intr_ret is cleared!");
+    /* ss3:esp3, efl, cs:eip, general-purpose registers, DS and ES are saved */
+    uint *context = intr_context_esp();
+    return_if_not (context, "task_save_context: intr_ret is cleared!");
 
-    /* only for interrupts/exceptions without errcode on stack! */
-    i386_gp_regs *regs = (i386_gp_regs*)((uint8_t*)stack - sizeof(i386_gp_regs));
-
-    task->tss.eax = regs->eax;      task->tss.ecx = regs->ecx;
-    task->tss.edx = regs->edx;      task->tss.ebx = regs->ebx;
-    /*task->tss.esp = regs->esp0;*/ task->tss.ebp = regs->ebp;
-    task->tss.esi = regs->esi;      task->tss.edi = regs->edi;
-
-    task->tss.esp0 = (ptr_t)stack;
-    task->tss.eip = stack[0];
-    task->tss.cs = stack[1];
-    task->tss.eflags = stack[2];
-    if (task->tss.cs != SEL_KERN_CS) {
-        /* %esp becomes a userspace pointer immediately after iret, 
-           so a little hack for kernel stack is needed */
-        task->tss.esp0 += 5 * sizeof(uint);   
-
-        task->tss.esp = stack[3];
-        task->tss.ss = stack[4];
-    }
+    task->tss.esp0 = (uint)context + CONTEXT_SIZE + 5*sizeof(uint);
 
 #if TASK_VERBOSE_DEBUG
-    k_printf("\n|<%x>%x:%x:%x<-%x|", task->tss_index, stack[0], stack[1], stack[2], (uint)stack);
-    k_printf("|s%x:%x|", stack[4], stack[3]);
+    k_printf("\n| save cntxt=%x |", (uint)context);
 #endif
 }
 
 /* this routine is normally called from within interrupt! */
 static void task_push_context(task_struct *task) {
-    uint *stack = (uint *)intr_stack_ret_addr();
-    return_if_not (stack, "task_save_context: intr_ret is cleared!");
-
-    uint *new_stack = (uint *)task->tss.esp0;
-    i386_gp_regs *regs = (i386_gp_regs *)((uint8_t *)stack - sizeof(i386_gp_regs));
-
-    new_stack[0] = task->tss.eip;   
-    new_stack[1] = task->tss.cs;    
-    new_stack[2] = task->tss.eflags;
-    if (task->tss.cs != SEL_KERN_CS) {
-        new_stack[3] = task->tss.esp;
-        new_stack[4] = task->tss.ss;
-    }
-
-    regs->eax = task->tss.eax;      regs->ecx = task->tss.ecx;    
-    regs->edx = task->tss.edx;      regs->ebx = task->tss.ebx;
-    regs->esp = (uint)new_stack;    regs->ebp = task->tss.ebp;
-    regs->esi = task->tss.esi;      regs->edi = task->tss.edi;
+    uint context = task->tss.esp0 - CONTEXT_SIZE - 5*sizeof(uint);
+    intr_set_context_esp(context);
 
 #if TASK_VERBOSE_DEBUG
-    k_printf("|<%x>%x:%x:%x->%x|\n", 
-                task->tss_index, new_stack[0], new_stack[1], 
-                new_stack[2], (uint)new_stack);
-    k_printf("|p%x:%x|", new_stack[4], new_stack[3]);
-#endif    
+    k_printf(" push cntxt=%x |\n", context);
+#endif
 }
 
 static inline void task_cpu_load(task_struct *task) {
@@ -104,31 +66,29 @@ static inline void task_cpu_load(task_struct *task) {
 }
 
 static void task_timer_handler(uint tick) {
-    if (task_need_switch && task_need_switch(tick)) {
-        task_struct *next = task_next();
+    task_struct *next = 0;
+    if (task_next) 
+        if (next = task_next(tick)) {
+            task_save_context(current);
+            task_push_context(next);
 
-        task_save_context(current);
-        task_push_context(next);
-
-        task_cpu_load(next);
-#if TASK_VERBOSE_DEBUG
-        k_printf(">");
-#endif
-        current = next;
-    }
+            task_cpu_load(next);
+            current = next;
+        }
 }
 
 inline task_struct *task_current(void) {
     return current;
 }
 
-inline void task_set_scheduler(task_need_switch_f need_switch, task_next_f next) {
-    task_need_switch = need_switch;
+inline void task_set_scheduler(task_next_f next) {
     task_next = next;
 }
 
 void task_init(task_struct *task, void *entry, 
-        void *esp0, void *esp3, segment_selector cs, segment_selector ds) {
+        void *esp0, void *esp3, 
+        segment_selector cs, segment_selector ds) 
+{
     tss_t *tss = &(task->tss);
 
     /* initial state */
@@ -145,7 +105,7 @@ void task_init(task_struct *task, void *entry,
     tss->eip = (uint)entry;
 
     /* initialize stack as if the task was interrupted */
-    uint *stack = (uint *)tss->esp0;
+    uint *stack = (uint *)(tss->esp0 - 5*sizeof(uint));
     stack[0] = tss->eip;
     stack[1] = tss->cs;
     stack[2] = tss->eflags;
@@ -153,6 +113,10 @@ void task_init(task_struct *task, void *entry,
         stack[3] = tss->esp;
         stack[4] = tss->ss;
     }
+
+    uint *context = (uint *)((uint8_t)stack - CONTEXT_SIZE);
+    context[0] = tss->es;
+    context[1] = tss->ds;
 
     /* register task TSS in GDT */
     segment_descriptor taskdescr;

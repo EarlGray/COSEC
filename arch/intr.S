@@ -15,8 +15,8 @@ dtreg:
 .word 0
 .long 0
 
-/* points to a stack position where last cc:eip has been saved */
-intr_ret:
+/* points to a stack position before context data */
+context_esp:
 .long 0
 
 /* last exception error code */
@@ -77,12 +77,17 @@ gdt_get:
 idt_load:
     DTREG_LOAD
     lidt dtreg
-
     ret
 
-.global intr_stack_ret_addr
-intr_stack_ret_addr:
-    movl intr_ret, %eax
+.global intr_context_esp
+intr_context_esp:
+    movl context_esp, %eax
+    ret
+
+.global intr_set_context_esp
+intr_set_context_esp:
+    movl 4(%esp), %eax
+    movl %eax, context_esp
     ret
 
 .global intr_err_code
@@ -125,23 +130,30 @@ intr_start_rdtsc:
 /********** ENTRY macros *************/
 
 .macro INTR_PROLOG
-    /* eflags already saved by CPU as (uint)(intr_ret[2]) */
+    /* eflags already saved by CPU as (uint)(context_esp[2]) */
     cli
     pusha
     pushl %ds
     pushl %es
+    pushl %gs
+    pushl %fs
 
-    movw $KERN_DS, %ax
-    movw %ax, %ds
-    movw %ax, %es
+    SHAKE_REGS
 
+    /* save an interrupt's stack context pointer:
+        here is the point of return to a task */
+    movl %esp, context_esp
+
+    /* for arguments */
     subl $8, %esp   
 .endm
 
 .macro INTR_END
-    addl $8, %esp
-    popl %ds
+    movl context_esp, %esp
+    popl %fs
+    popl %gs
     popl %es
+    popl %ds
     popa
 .endm
 
@@ -152,10 +164,8 @@ intr_start_rdtsc:
     INTR_PROLOG
 
     movl %esp, (%esp)
-    call \handler    
-
-    INTR_END
-    iret
+    call \handler 
+    jmp noerr_return
 .endm
 
 .macro ENTRY_ERR name, handler
@@ -164,15 +174,12 @@ intr_start_rdtsc:
 \name :
     INTR_PROLOG
     
-    movl 0x30(%esp), %ebx
+    movl 0x38(%esp), %ebx
     movl %ebx, intr_error
 
     movl %esp, (%esp)
     call \handler
-
-    INTR_END
-    addl $4, %esp    /* pop errcode */
-    iret
+    jmp err_return
 .endm
 
 .macro ENTRY_IRQ name, num
@@ -181,20 +188,26 @@ intr_start_rdtsc:
     INTR_PROLOG 
     INTR_PROFILING_START
 
-    /* save an interrupt's point of support in the stack */
-    leal 0x30(%esp), %ebx
-    movl %ebx, intr_ret
-
     /* call the handler */
     movl \num, (%esp)
-    call irq_handler
-
-    INTR_PROFILING_END  
-    INTR_END
-    movl -0x14(%esp), %esp
-    iret
+    jmp irq_return
 .endm
 
+noerr_return:
+    INTR_END
+    iret
+
+err_return:
+    INTR_END
+    addl $4, %esp
+    iret
+
+irq_return:
+    call irq_handler
+
+    INTR_PROFILING_END
+    INTR_END
+    iret
 
 /************ Handlers ***************/
 .extern int_handlers_table
@@ -206,9 +219,9 @@ intr_start_rdtsc:
 
 /******** multiple entries ***********/
 
-ENTRY_NOERR dummyentry,     int_dummy           /* unrecognized software interrupt   */
-ENTRY_NOERR syscallentry,   int_syscall         /* sys int                           */
-ENTRY_NOERR isr14to1F,      int_odd_exception   /* unused exceptions                 */
+ENTRY_NOERR dummyentry,     int_dummy           /* unrecognized interrupt */
+ENTRY_NOERR syscallentry,   int_syscall         /* sys int            */
+ENTRY_NOERR isr14to1F,      int_odd_exception   /* unused exceptions  */
 
 /************* exceptions ************/
 ENTRY_NOERR isr00, int_division_by_zero

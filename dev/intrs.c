@@ -199,9 +199,8 @@ void int_invalid_tss(void ) {
 void int_gpf(void *stack) {
     k_printf("#GP\nGeneral protection fault, error code %x\n", 
             intr_err_code());
-    k_printf("Interrupted at %x:%x\n", 
-                *((uint32_t *)stack + 11), 
-                *((uint32_t *)stack + 10) );
+    uint *ret_eip = (uint *)(intr_context_esp() + 0x2c);
+    k_printf("Interrupted at %x:%x\n", ret_eip[1], ret_eip[0]);
     cpu_hang();
 }
 

@@ -84,7 +84,7 @@ static void on_timer(uint counter) {
         i386_rdtsc(ts);
         k_printf("%d: rdtsc=%x %x ", counter, ts[1], ts[0]);
 #if INTR_PROFILING
-        k_printf(" itick=%x %x, icnt = %x", intr_ticks.u32[1], intr_ticks.u32[0], intr_count);
+        k_printf(" tick=%x %x, icnt = %x", intr_ticks.u32[1], intr_ticks.u32[0], intr_count);
 #endif
         k_printf("\n");
     }
@@ -248,11 +248,7 @@ void key_press(/*scancode_t scan*/) {
 }
 
 
-bool switch_context() {
-    return true; 
-}
-
-task_struct *next_task(void) {
+task_struct *next_task(uint tick) {
     task_struct *current = task_current();
     if (quit) return def_task;
     if (current == &task0) return &task1;
@@ -261,7 +257,6 @@ task_struct *next_task(void) {
     panic("Invalid task");
     return null;
 }
-
 
 void test_tasks(void) {
     def_task = task_current();
@@ -289,13 +284,13 @@ void test_tasks(void) {
 
     quit = false;
     kbd_set_onpress((kbd_event_f)key_press); 
-    task_set_scheduler(switch_context, next_task);
+    task_set_scheduler(next_task);
 
     /* wait for first timer tick, when execution will be transferred to do_task0 */
     cpu_halt(); 
     
     kbd_set_onpress(null);
-    task_set_scheduler(null, null);
+    task_set_scheduler(null);
 
     k_printf("\nBye.\n");
 }
@@ -303,6 +298,8 @@ void test_tasks(void) {
 /***********************************************************/
 void run_userspace(void) {
     k_printf("Hello, userspace");
+    asm ("int $0x80  \t\n");
+    k_printf("... and we're back");
     while (1);
 }
 

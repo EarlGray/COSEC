@@ -25,8 +25,8 @@ i440fxsupport: enabled=0
 vga_update_interval: 50000
 vga: extension=vbe
 cpu: count=1, ips=4000000, reset_on_triple_fault=1, ignore_bad_msrs=1
-cpuid: cpuid_limit_winnt=0, mmx=1, apic=xapic, sse=sse2, sep=1, aes=0, xsave=0, xsaveopt=0, movbe=0
-cpuid: family=6, model=03, stepping=3, vendor_string="GenuineIntel", brand_string="              Intel(R) Pentium(R) 4 CPU        "
+cpuid: cpuid_limit_winnt=0, mmx=1, sse=sse2, xapic=1, sep=1, aes=0, xsave=0, movbe=0
+cpuid: stepping=3, vendor_string="GenuineIntel", brand_string="              Intel(R) Pentium(R) 4 CPU        "
 print_timestamps: enabled=0
 port_e9_hack: enabled=0
 text_snapshot_check: enabled=0
@@ -36,7 +36,6 @@ clock: sync=none, time0=local
 ne2k: enabled=0
 pnic: enabled=0
 sb16: enabled=0
-es1370: enabled=0
 # no loader
 log: -
 logprefix: %t%e%d
