@@ -49,7 +49,7 @@ void irq_slave();
 void int_division_by_zero(void );
 void int_nonmaskable(void );
 void int_invalid_op(void *);
-void int_gpf(void *);
+void int_gpf(void );
 void int_page_fault(void );
 
 /* 
@@ -196,7 +196,7 @@ void int_invalid_tss(void ) {
     cpu_hang();
 }
 
-void int_gpf(void *stack) {
+void int_gpf(void) {
     k_printf("#GP\nGeneral protection fault, error code %x\n", 
             intr_err_code());
     uint *ret_eip = (uint *)(intr_context_esp() + 0x2c);

@@ -8,6 +8,7 @@
 #include <std/stdarg.h>
 #include <std/stdio.h>
 #include <dev/timer.h>
+#include <dev/kbd.h>
 #include <arch/i386.h>
 #include <kshell.h>
 
@@ -81,7 +82,7 @@ void intr_profile(uint64_t ts) {
 static void on_timer(uint counter) {
     if (counter % 1000 == 0) {
         uint ts[2] = { 0 };
-        i386_rdtsc(ts);
+        i386_rdtsc((uint64_t *)ts);
         k_printf("%d: rdtsc=%x %x ", counter, ts[1], ts[0]);
 #if INTR_PROFILING
         k_printf(" tick=%x %x, icnt = %x", intr_ticks.u32[1], intr_ticks.u32[0], intr_count);
@@ -97,7 +98,7 @@ static void tt_keypress() {
 void test_timer(void) {
     poll_exit = false;
 
-    kbd_set_onpress(tt_keypress);
+    kbd_set_onpress((kbd_event_f)tt_keypress);
     timer_t timer_id = timer_push_ontimer(on_timer);
 
     while (!poll_exit) cpu_halt();
@@ -108,7 +109,6 @@ void test_timer(void) {
 
 
 #include <dev/serial.h>
-#include <dev/kbd.h>
 #include <dev/screen.h>
 #include <dev/intrs.h>
 
@@ -151,7 +151,7 @@ static void on_press(scancode_t scan) {
 
 void poll_serial() {
     poll_exit = false;
-    kbd_set_onpress(on_press);
+    kbd_set_onpress((kbd_event_f)on_press);
 
     while (!poll_exit) {
         if (serial_is_received(COM1_PORT)) {
@@ -248,7 +248,7 @@ void key_press(/*scancode_t scan*/) {
 }
 
 
-task_struct *next_task(uint tick) {
+task_struct *next_task() {
     task_struct *current = task_current();
     if (quit) return def_task;
     if (current == &task0) return &task1;
@@ -328,7 +328,7 @@ void test_userspace(void) {
 
     k_printf("GDT[%x]\n", taskdescr_index);
 
-    kbd_set_onpress(key_press);
+    kbd_set_onpress((kbd_event_f)key_press);
 
     /* load TR and LDT */
     asm ("ltrw %%ax     \n\t"::"a"( tss_sel ));

@@ -35,7 +35,7 @@ static void task_save_context(task_struct *task) {
     if (task == null) return;
 
     /* ss3:esp3, efl, cs:eip, general-purpose registers, DS and ES are saved */
-    uint *context = intr_context_esp();
+    uint *context = (uint *)intr_context_esp();
     return_if_not (context, "task_save_context: intr_ret is cleared!");
 
     task->tss.esp0 = (uint)context + CONTEXT_SIZE + 5*sizeof(uint);
@@ -68,7 +68,7 @@ static inline void task_cpu_load(task_struct *task) {
 static void task_timer_handler(uint tick) {
     task_struct *next = 0;
     if (task_next) 
-        if (next = task_next(tick)) {
+        if ((next = task_next(tick))) {
             task_save_context(current);
             task_push_context(next);
 
@@ -114,7 +114,7 @@ void task_init(task_struct *task, void *entry,
         stack[4] = tss->ss;
     }
 
-    uint *context = (uint *)((uint8_t)stack - CONTEXT_SIZE);
+    uint *context = (uint *)((uint8_t *)stack - CONTEXT_SIZE);
     context[0] = tss->es;
     context[1] = tss->ds;
 
