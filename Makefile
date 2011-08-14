@@ -50,7 +50,7 @@ objdump     := $(build)/$(kernel).objd
 pipe_file	:= pipe
 
 vbox_name   := COSEC
-qemu_flags	:= -fda $(image) -boot a -m 32 -net nic,model=rtl8139 
+qemu_flags	:= -fda $(image) -boot a -m 64 -net nic,model=rtl8139 
 
 .PHONY: run install mount umount clean
 .PHONY: qemu vbox bochs
