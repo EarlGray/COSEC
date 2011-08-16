@@ -5,8 +5,7 @@
 
 #define MEM_DEBUG   (1)
 
-extern uint _start;
-extern uint _end;
+extern _start, _end;
 
 #define PAGE_SHIFT  12
 #define PAGE_SIZE   (1 << PAGE_SHIFT)
@@ -39,7 +38,6 @@ typedef struct {
 void pg_init(page_frame *pf, bool reserved) {
     if (reserved) 
         pf->flags |= PG_RESERVED;
-    
 }
 
 

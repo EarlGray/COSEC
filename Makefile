@@ -9,7 +9,7 @@ ld  :=  ld
 
 cc_flags    := -ffreestanding -nostdinc -nostdlib -Wall -Wextra -Winline -O2 -MD 
 as_flags    := -Wall -MD $(addprefix -I, $(include_dir))
-ld_flags    := -static -nostdlib -Ttext=0x100000  #-s
+ld_flags    := -static -nostdlib -Tlink.ld
 
 cc_includes := -include include/globl.h $(addprefix -I, $(include_dir)) 
 

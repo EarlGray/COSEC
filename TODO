@@ -1,6 +1,15 @@
-CURRENT ISSUES
+CURRENT TASKS
 
-1) vsnprintf and va_arg
+- page frames allocation
+- kernel heap
+- paging?
+- VFS:
+    devfs: /dev/mem, /dev/serial/, /dev/vcs, /dev/stdin, /dev/ps2/kbd
+- tasks:
+    kernfs: /sys/<pid>, /sys/
+- syscalls (open/read/close, fork/exec, ...), usr directory, userspace headers
+- vsnprintf and va_arg
+
 
 AIMS
 
