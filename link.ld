@@ -20,7 +20,7 @@ SECTIONS
 
     PROVIDE (_data =   .);
     .data :
-    AT(ADDR(.data) - 0xc0000000)
+    AT(ADDR(.data) - VIRT_SHIFT)
     ALIGN(0x10)
     {
         *(.data .data.* ) 
