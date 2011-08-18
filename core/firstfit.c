@@ -1,4 +1,4 @@
-#include <mm/alloc_ff.h>
+#include <mm/firstfit.h>
 
 #ifndef __LANGEXT_H__
 typedef unsigned uint, size_t;
@@ -7,6 +7,22 @@ typedef char bool;
 #define false   0
 #define null ((void *)0)
 #endif // __LANGEXT_H__
+
+#if MEM_DEBUG
+#   define return_if(assertion, msg)  \
+        if (assertion) {   k_printf(msg);  return; }
+#   define return_if_not(assertion, msg)  \
+        return_if(!(assertion), (msg))
+#   define log(msg) \
+        k_printf(msg)
+#else 
+#   define return_if(assertion, msg)  \
+        if (assertion)  return
+#   define return_if_not(assertion, msg)  \
+        return_if(!(assertion), (msg))
+#   define log(msg)
+#endif
+
 
 /***
  *          Memory allocator with first-fit algorithm
@@ -182,6 +198,7 @@ void * firstfit_malloc(struct firstfit_allocator *this, uint size) {
 
         chunk = next(chunk);
         if (! check_sum(chunk)) {
+            log("Heap corruption");
             try_to_repair(chunk);
             return null;
         }
@@ -193,7 +210,7 @@ void * firstfit_malloc(struct firstfit_allocator *this, uint size) {
 }
 
 void firstfit_free(struct firstfit_allocator *this, void *p) {
-    if (p == null) return;
+    return_if( p == null, "firstfit warning: trying to deallocate ");
 
     chunk_t *chunk = (chunk_t *)((uint)p - CHUNK_SIZE);
     if (! check_sum(chunk)) {
@@ -226,7 +243,7 @@ void heap_info(struct firstfit_allocator *this) {
             (uint)this->startmem, (uint)this->endmem, (uint)this->current);
     chunk_t *cur = this->current;
     do {
-        k_printf("    chunk at 0x%.8x:\t(0x%.8x : 0x%.8x) [0x%.8x] ; used = %d\n",
+        k_printf("    chunk at 0x%x:\t(0x%x : 0x%x) [0x%x] ; used = %d\n",
               (uint)cur, CHUNK_SIZE + (uint)cur, (uint)next(cur), get_size(cur), (uint)is_used(cur));
         cur = next(cur);
         if (! check_sum(cur)) {

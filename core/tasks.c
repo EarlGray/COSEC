@@ -15,7 +15,6 @@
 #include <dev/intrs.h>
 #include <dev/timer.h>
 
-#define TASK_VERBOSE_DEBUG  (0)
 #define CONTEXT_SIZE        0x30
 
 task_struct default_task;
@@ -40,7 +39,7 @@ static void task_save_context(task_struct *task) {
 
     task->tss.esp0 = (uint)context + CONTEXT_SIZE + 5*sizeof(uint);
 
-#if TASK_VERBOSE_DEBUG
+#if TASK_DEBUG
     k_printf("\n| save cntxt=%x |", (uint)context);
 #endif
 }
@@ -50,7 +49,7 @@ static void task_push_context(task_struct *task) {
     uint context = task->tss.esp0 - CONTEXT_SIZE - 5*sizeof(uint);
     intr_set_context_esp(context);
 
-#if TASK_VERBOSE_DEBUG
+#if TASK_DEBUG
     k_printf(" push cntxt=%x |\n", context);
 #endif
 }
@@ -126,7 +125,7 @@ void task_init(task_struct *task, void *entry,
 
     task->tss_index = gdt_alloc_entry(taskdescr);
     return_if_not( task->tss_index, "Error: can't allocate GDT entry for TSSD\n");
-#if TASK_VERBOSE_DEBUG
+#if TASK_DEBUG
     k_printf("new TSS <- GDT[%x]\n", task->tss_index);
 #endif
 

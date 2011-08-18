@@ -189,6 +189,16 @@ struct i386_general_purpose_registers {
 };
 typedef  struct i386_general_purpose_registers  i386_gp_regs;
 
+/***
+  *     Paging
+ ***/
+#define PAGE_SHIFT  12
+#define PAGE_SIZE   (1 << PAGE_SHIFT)
+
+/***
+  *     Interrupts
+ ***/
+
 extern uint  intr_err_code(void);
 extern ptr_t intr_context_esp(void);
 extern void  intr_set_context_esp(ptr_t esp);

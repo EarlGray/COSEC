@@ -3,7 +3,11 @@
 #define __CONF_H__
 
 #define VERBOSE
+#define VIRTUAL_OFFSET  (0xc0000000)
+
 #define INTR_PROFILING  (0)
+#define MEM_DEBUG       (1)
+#define TASK_DEBUG      (0)
 
 #endif // __CONF_H__
 

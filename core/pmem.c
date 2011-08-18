@@ -1,14 +1,35 @@
 #include <pmem.h>
 
+#include <arch/i386.h>
 #include <arch/mboot.h>
 #include <arch/multiboot.h>
 
-#define MEM_DEBUG   (1)
+#include <mm/kheap.h>
 
-extern _start, _end;
+/***
+  *     Internal declarations
+ ***/
 
-#define PAGE_SHIFT  12
-#define PAGE_SIZE   (1 << PAGE_SHIFT)
+/* page_frame.flags */
+#define PG_RESERVED     1
+
+typedef struct {
+    uint used;      // reference count, 0 for a free pageframe
+    uint flags;        
+} page_frame;
+
+
+size_t n_pages = 0;
+size_t available_memory = 0;
+page_frame *mem_map = null;    // will be initialized in pmem_setup()
+index_t last_initialized_page = 0;
+
+extern void _start, _end;
+
+
+/***
+  *     Alignment
+ ***/
 
 inline uint aligned_back(uint addr) {
     return (addr & ~(PAGE_SIZE - 1));
@@ -28,26 +49,16 @@ inline uint aligned(uint addr) {
   *     Page 'class'
  ***/
 
-#define PG_RESERVED     1
-
-typedef struct {
-    uint used;      // reference count, 0 for a free pageframe
-    uint flags;        
-} page_frame;
-
 void pg_init(page_frame *pf, bool reserved) {
     if (reserved) 
         pf->flags |= PG_RESERVED;
+    last_initialized_page = (index_t)(pf - mem_map);
 }
 
 
 /***
   *     Global pages catalog
  ***/
-
-uint n_pages = 0;
-uint available_memory = 0;
-page_frame *mem_map = null;    // will be initialized in pmem_setup()
 
 void pages_set(uint addr, uint size, bool reserved) {
     uint end_page = aligned(addr + size - 1) / PAGE_SIZE;
@@ -75,8 +86,31 @@ void pages_set(uint addr, uint size, bool reserved) {
     k_printf("\n");
 }
 
+uint pmem_alloc(size_t pages_count) {
+    if (pages_count < 1) return 0;
+#warning "Temporary code: no releasing, a more elaborate algorithm required"
+    index_t i = last_initialized_page + 1;
+    index_t res = i;
+    for (; i < n_pages; ++i) {
+        if (mem_map[i].used > 0) {
+            res = i;
+        }
+        if ((res - i) >= pages_count) {
+            int j;
+#if MEM_DEBUG
+            k_printf("Allocating %x pages at [%x]\n", pages_count, res);
+#endif
+            for (j = 0; j < pages_count; ++j) 
+                ++ mem_map[res + j].used;
+            last_initialized_page = res + j;
+            return res;
+        }
+    }
+    return 0;
+}
+
 void pmem_setup(void) {
-    mem_map = (struct page *)aligned((uint)&_end);
+    mem_map = (page_frame *)aligned((uint)&_end);
 
     struct memory_map *mapping = (struct memory_map *)mboot_mmap_addr();
 
@@ -105,10 +139,12 @@ void pmem_setup(void) {
 
     /* reserve kernel and mem_map itself */
     pages_set((uint)&_start, n_pages * sizeof(page_frame), true);
+
+    kheap_setup();
 }
 
 uint pg_alloc(void) {
-    
+        
     return 0;   
 }
 
@@ -131,5 +167,17 @@ void pmem_info() {
     }
 
     k_printf("\nKernel memory: 0x%x-0x%x\nAvailable: %d\n", (uint)&_start, (uint)&_end, available_memory);
+
+    uint free_pages = 0, occupied_pages = 0, reserved_pages = 0;
+    for (i = 0; i < n_pages; ++i) {
+        if (mem_map[i].flags & PG_RESERVED) 
+            ++reserved_pages;
+        else 
+            if (mem_map[i].used > 0) ++occupied_pages;
+            else ++free_pages;
+    }
     k_printf("Page size: %d\nMem map[%d] at 0x%x\n", PAGE_SIZE, n_pages, (uint)mem_map);
+    k_printf("Pages count: %x; free: %x, occupied: %x, reserved: %x\n", 
+            n_pages, free_pages, occupied_pages, reserved_pages);
+    k_printf("last initialized page is %x\n", last_initialized_page);
 }

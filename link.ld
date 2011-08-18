@@ -1,24 +1,23 @@
 OUTPUT_FORMAT("elf32-i386", "elf32-i386", "elf32-i386")
 OUTPUT_ARCH(i386)
+/*STARTUP(./build/arch/boot.o)*/
 SECTIONS
 {
     VIRT_SHIFT = 0x00000000;
     LOAD_ADDR = 0x100000;
     . = LOAD_ADDR + VIRT_SHIFT;
-    PROVIDE (_entry = .);
+    _entry = .;
 
-    PROVIDE (_text =  .);
-    PROVIDE (text =   .);
+    _text = .;     text = .;
     .text : 
     AT(ADDR(.text) - VIRT_SHIFT) 
     {
         *(.text .stub .text.*)
         *(.rodata .rodata.* )  
     }
-    PROVIDE (_etext =  .);
-    PROVIDE (etext =   .);
+    _etext =  .;   etext =   .;
 
-    PROVIDE (_data =   .);
+    _data = .;
     .data :
     AT(ADDR(.data) - VIRT_SHIFT)
     ALIGN(0x10)
@@ -32,6 +31,5 @@ SECTIONS
         *(.bss .bss.* ) 
         *(COMMON) 
     }
-    PROVIDE (_end = .);
-    PROVIDE (end =  .);
+    _end = .;   end =  .;
 }

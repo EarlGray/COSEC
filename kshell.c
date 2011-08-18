@@ -10,6 +10,7 @@
 
 #include <kshell.h>
 #include <pmem.h>
+#include <mm/kheap.h>
 #include <misc/test.h>
 
 
@@ -178,6 +179,7 @@ void kshell_help();
 void kshell_info(const struct kshell_command *, const char *);
 void kshell_mboot(const struct kshell_command *, const char *);
 void kshell_test(const struct kshell_command *, const char *);
+void kshell_heap(const struct kshell_command *, const char *);
 void kshell_set(const struct kshell_command *, const char *);
 void kshell_mem(const struct kshell_command *, const char *);
 void kshell_panic();
@@ -186,6 +188,7 @@ const struct kshell_command main_commands[] = {
     {   .name = "info",     .handler = kshell_info,  .description = "various info", .options = "stack gdt pmem colors cpu pci" },
     {   .name = "do",     .handler = kshell_test,  .description = "test utility", .options = "sprintf kbd timer serial tasks ring3" },
     {   .name = "mem",      .handler = kshell_mem,   .description = "mem <start_addr> <size = 0x100>" },
+    {   .name = "heap",     .handler = kshell_heap,  .description = "heap utility", .options = "info alloc free" },
     {   .name = "set",      .handler = kshell_set,   .description = "manage global variables", .options = "color prompt" },
     {   .name = "panic",    .handler = kshell_panic, .description = "test The Red Screen of Death"     },
     {   .name = "help",     .handler = kshell_help,  .description = "show this help"   },
@@ -241,6 +244,30 @@ bool kshell_autocomplete(char *buf) {
         }
     }
     return false;
+}
+
+void kshell_heap(const struct kshell_command *this, const char *arg) {
+    if (!strncmp(arg, "info", 4)) 
+        kheap_info();
+    else
+    if (!strncmp(arg, "alloc", 5)) {
+        size_t size = 0;
+        const char *end = get_int_opt(arg, &size, 16);
+        if (end == arg) return;
+        
+        void *p = kmalloc(size);
+        k_printf("kmalloc(%x) = *%x\n", (uint)size, (uint)p);
+    } else 
+    if (!strncmp(arg, "free", 4)) {
+        ptr_t p = 0;
+        const char *end = get_int_opt(arg, &p, 16);
+        if (end == arg) return ;
+        
+        kfree((void *)p);
+        k_printf("kfree(*%x)\n", (uint)p);
+    } else {
+        k_printf("Options: %s\n\n", this->options);
+    }
 }
 
 void kshell_info(const struct kshell_command *this, const char *arg) {
