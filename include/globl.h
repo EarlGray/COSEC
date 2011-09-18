@@ -14,8 +14,8 @@
 #ifndef ASM
 
 /**********************************************************/
-#ifndef __LANGEXT_H__
-#define __LANGEXT_H__
+#ifndef __LANGEXTS__
+#define __LANGEXTS__
 
 typedef unsigned char	    uint8_t;
 typedef unsigned short	    uint16_t;
@@ -37,7 +37,7 @@ typedef char bool;
 
 #define reinterpret_cast(t)        *(t *)&
 
-#endif // __LANGEXT_H__
+#endif // __LANGEXTS__
 
 /**********************************************************/
 #ifndef __GLOB_SYMS_H__

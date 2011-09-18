@@ -19,9 +19,9 @@ as_flags	+= -m32
 ld_flags	+= --oformat=elf32-i386 -melf_i386
 
 objs		:= $(src_dir)/arch/boot.S
-objs		+= $(wildcard $(src_dir)/arch/[^b]*.S)
-objs		+= $(wildcard $(src_dir)/*.c)
-objs		+= $(wildcard $(src_dir)/*/*.c)
+objs		+= $(wildcard $(src_dir)/arch/[^b]*.S)	# exclude boot.S
+objs		+= $(wildcard $(src_dir)/[^u]*/*.c)		# exclude usr/ folder
+objs		+= $(wildcard $(src_dir)/*.c)			
 
 objs		:= $(patsubst $(src_dir)/%.S, $(build)/%.o, $(objs))
 objs		:= $(patsubst $(src_dir)/%.c, $(build)/%.o, $(objs))
@@ -105,7 +105,7 @@ $(image):
 		echo -e "## ...generated\n";	\
 	fi
 
-$(kernel): $(build) $(objs) 
+$(kernel): $(build) $(objs) usr
 	@echo "\n#### Linking..."
 	@echo -n "LD: "
 	$(ld) -o $(build)/$(kernel)	$(objs) $(ld_flags) && echo "## ...linked"
@@ -127,6 +127,10 @@ $(build)/%.o : %.c
 $(build)/%.o : $(src_dir)/%.S
 	@echo -n "AS: "
 	$(as) -c $< -o $@ $(as_flags) -MT $(subst .d,.c,$@)
+
+.PHONY: usr
+usr:
+	@cd usr && make
 
 $(pipe_file):
 	mkfifo $(pipe_file)

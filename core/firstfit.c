@@ -1,12 +1,12 @@
 #include <mm/firstfit.h>
 
-#ifndef __LANGEXT_H__
+#ifndef __LANGEXTS__
 typedef unsigned uint, size_t;
 typedef char bool;
 #define true    1
 #define false   0
 #define null ((void *)0)
-#endif // __LANGEXT_H__
+#endif // __LANGEXTS__
 
 #if MEM_DEBUG
 #   define return_if(assertion, msg)  \
@@ -68,13 +68,13 @@ typedef char bool;
 #define USED ((uint)0x80000000)
 
 struct ff_chunk_info {
-    /* double-linked circular list 
-       chunk pointers are always ALIGN * n - CHUNK_SIZE */
+    /** double-linked circular list 
+       chunk pointers are always ALIGN * n - CHUNK_SIZE **/
     struct ff_chunk_info *next;
     struct ff_chunk_info *prev;
 
-    /* the highest bit is free/used bit, all other = checksum
-        checksum = this + length;    */  
+    /** the highest bit is free/used bit, all other = checksum
+        checksum = this + length;    **/  
     uint checksum;    
 };
 
@@ -148,7 +148,7 @@ void try_to_repair(chunk_t *chunk) {
 struct firstfit_allocator * 
 firstfit_new(void *startmem, size_t size) {
     if (size < aligned(ALLOC_SIZE + CHUNK_SIZE) + CHUNK_SIZE + 1) 
-        return null;    /* not enough room even for 1 byte */
+        return null;    /** not enough room even for 1 byte **/
 
     alloc_t * this = (alloc_t *)startmem;
     this->startmem = (uint)startmem;
@@ -170,18 +170,17 @@ void * firstfit_malloc(struct firstfit_allocator *this, uint size) {
     chunk_t *chunk = this->current;
     while (true) {
         if (!is_used(chunk) && (((int)get_size(chunk) - (int)size) >= 0)) {  
-            /* allocate this chunk */
-            // possible position of new chunk counting from current + CHUNK_SIZE
+            /** allocate this chunk **/
+            // possible position of new chunk counting from current+CHUNK_SIZE
             uint new_chunk_offset = aligned(size);
             if (new_chunk_offset - CHUNK_SIZE < size) 
                 new_chunk_offset += aligned(CHUNK_SIZE);
 
-            // is there enough place
+            // is there enough place?
             if ((new_chunk_offset + 1) < get_size(chunk)) {
-                /* yes, split */
+                /** yes, split **/
                 chunk_t *new_chunk = 
                     (chunk_t *)( (uint)chunk + new_chunk_offset );
-                    // without CHUNK_SIZE, (((chunk+CHUNK_SIZE) + new_chunk_offset) - CHUNK_SIZE)
 
                 set_chunk(new_chunk, chunk->next, chunk, false);
                 set_chunk(chunk, new_chunk, prev(chunk), true);
@@ -203,9 +202,9 @@ void * firstfit_malloc(struct firstfit_allocator *this, uint size) {
             return null;
         }
 
-        /* full cycle over chunks */
+        /** full cycle over chunks? **/
         if (chunk == this->current)
-            return null;   /* no memory */
+            return null;   // no memory 
     }
 }
 
