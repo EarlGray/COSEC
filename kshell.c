@@ -186,7 +186,7 @@ void kshell_panic();
 
 const struct kshell_command main_commands[] = {
     {   .name = "info",     .handler = kshell_info,  .description = "various info", .options = "stack gdt pmem colors cpu pci" },
-    {   .name = "do",     .handler = kshell_test,  .description = "test utility", .options = "sprintf kbd timer serial tasks ring3" },
+    {   .name = "do",       .handler = kshell_test,  .description = "test utility", .options = "sprintf kbd timer serial tasks ring3 usr" },
     {   .name = "mem",      .handler = kshell_mem,   .description = "mem <start_addr> <size = 0x100>" },
     {   .name = "heap",     .handler = kshell_heap,  .description = "heap utility", .options = "info alloc free" },
     {   .name = "set",      .handler = kshell_set,   .description = "manage global variables", .options = "color prompt" },
@@ -196,12 +196,13 @@ const struct kshell_command main_commands[] = {
 };
 
 const struct kshell_subcmd  test_cmds[] = {
-    { .name = "sprintf", .handler = test_sprintf },
-    { .name = "timer",   .handler = test_timer,  },
-    { .name = "serial",  .handler = test_serial, },
-    { .name = "kbd",     .handler = test_kbd,    },
-    { .name = "tasks",   .handler = test_tasks,  },
-    { .name = "ring3",   .handler = test_userspace,  },
+    { .name = "sprintf", .handler = test_sprintf    },
+    { .name = "timer",   .handler = test_timer,     },
+    { .name = "serial",  .handler = test_serial,    },
+    { .name = "kbd",     .handler = test_kbd,       },
+    { .name = "tasks",   .handler = test_tasks,     },
+    { .name = "ring3",   .handler = test_userspace, },
+    { .name = "usr",     .handler = test_init,      },
     { .name = 0, .handler = 0    },
 };
 

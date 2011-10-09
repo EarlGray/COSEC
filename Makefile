@@ -26,6 +26,7 @@ objs		+= $(wildcard $(src_dir)/*.c)
 objs		:= $(patsubst $(src_dir)/%.S, $(build)/%.o, $(objs))
 objs		:= $(patsubst $(src_dir)/%.c, $(build)/%.o, $(objs))
 
+libinit		:= $(build)/usr/init.a
 kernel      := kernel
 
 mnt_dir     := mount_point
@@ -105,10 +106,10 @@ $(image):
 		echo -e "## ...generated\n";	\
 	fi
 
-$(kernel): $(build) $(objs) usr
+$(kernel): $(build) $(objs) $(libinit)
 	@echo "\n#### Linking..."
 	@echo -n "LD: "
-	$(ld) -o $(build)/$(kernel)	$(objs) $(ld_flags) && echo "## ...linked"
+	$(ld) -o $(build)/$(kernel)	$(objs) $(libinit) $(ld_flags) && echo "## ...linked"
 	@if [ `which objdump 2>/dev/null` ]; then objdump -d $(build)/$(kernel) > $(objdump); fi
 	@if [ `which nm 2>/dev/null` ]; then nm $(build)/$(kernel) | sort > $(build)/$(kernel).nm; fi
 	@if [ `which ctags 2>/dev/null ` ]; then ctags -R *; fi
@@ -128,8 +129,7 @@ $(build)/%.o : $(src_dir)/%.S
 	@echo -n "AS: "
 	$(as) -c $< -o $@ $(as_flags) -MT $(subst .d,.c,$@)
 
-.PHONY: usr
-usr:
+$(libinit):
 	@cd usr && make
 
 $(pipe_file):

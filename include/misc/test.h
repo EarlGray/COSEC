@@ -7,5 +7,6 @@ void test_serial(void);
 void test_kbd(void);
 void test_tasks(void);
 void test_userspace(void);
+void test_init(void);
 
 #endif //__TEST_H__

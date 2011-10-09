@@ -15,7 +15,6 @@
 #include <dev/intrs.h>
 #include <dev/timer.h>
 
-#define CONTEXT_SIZE        0x30
 
 task_struct default_task;
 task_struct *current = &default_task;
@@ -113,7 +112,7 @@ void task_init(task_struct *task, void *entry,
         stack[4] = tss->ss;
     }
 
-    uint *context = (uint *)((uint8_t *)stack - CONTEXT_SIZE);
+    uint *context = stack - CONTEXT_SIZE/sizeof(uint);
     context[0] = tss->gs;
     context[1] = tss->fs;
     context[2] = tss->es;

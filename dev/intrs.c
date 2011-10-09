@@ -116,7 +116,7 @@ void irq_handler(uint32_t irq_num) {
     irq_eoi();
 }
 
-inline void irq_set_handler(uint32_t irq_num, intr_handler_f handler) {
+inline void irq_set_handler(uint8_t irq_num, intr_handler_f handler) {
     irq[irq_num] = handler;
 }
 
@@ -136,9 +136,7 @@ void int_dummy() {
     k_printf("INTR: dummy interrupt\n");
 }
 
-void int_syscall() {
-    k_printf("#SYS");
-}
+extern void int_syscall();
 
 void int_odd_exception() {
     //k_printf("+");

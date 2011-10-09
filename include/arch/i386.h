@@ -199,6 +199,8 @@ typedef  struct i386_general_purpose_registers  i386_gp_regs;
   *     Interrupts
  ***/
 
+#define CONTEXT_SIZE        0x30
+
 extern uint  intr_err_code(void);
 extern ptr_t intr_context_esp(void);
 extern void  intr_set_context_esp(ptr_t esp);
