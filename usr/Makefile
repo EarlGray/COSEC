@@ -7,8 +7,8 @@ cc	:=gcc
 ld	:=ld
 ar	:=ar
 
-cc_flags 	:= -Wall -Wextra -O2 -MD
-cc_includes	:= -nostdinc -I./include 
+cc_flags 	:= -ffreestanding -Wall -Wextra -O2 -MD
+cc_includes	:= -nostdlib -nostdinc -I./include 
 ld_flags := 
 
 ### for 64bit host
@@ -21,14 +21,14 @@ init_objs := $(wildcard $(src_dir)/*.c)
 init_objs := $(patsubst $(src_dir)/%.c, $(build)/%.o, $(init_objs))
 
 default:  $(build)/init.a
-	@echo && echo "### Building userspace..."
+	@echo && echo "### Userspace built..."
 
 $(build)/%.o : $(src_dir)/%.c
+	@echo -n "CCu: "
 	$(cc) -c $< -o $@ $(cc_includes) $(cc_flags) -MT $(subst .d,.c,$@) 
 
-libc.a:
-
 $(build)/init.a: $(init_objs)	
+	@echo "ARu: "
 	$(ar) crT $(build)/init.a $(init_objs)
 
 include $(wildcard $(addprefix /*.d, $(build)/usr))

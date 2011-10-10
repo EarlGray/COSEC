@@ -13,5 +13,7 @@ Tools, languages and platform used:
 
 Features:
 - a simplest kernel shell with few built-in commands primarily for debugging
-Nothing more yet.
+- preemptive multitasking demo (two example tasks running in parallel)
+- simplest userspace init and syscalls;
+Nothing more yet (no VFS, no paging, no lot of things);
 
