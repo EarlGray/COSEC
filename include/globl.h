@@ -26,7 +26,7 @@ typedef short               int16_t;
 typedef long                int32_t;
 typedef long long           int64_t;
 
-typedef uint32_t	size_t, err_t, ptr_t, index_t;
+typedef uint32_t	size_t, ssize_t, err_t, ptr_t, index_t, count_t;
 
 typedef char bool;
 #define true 1

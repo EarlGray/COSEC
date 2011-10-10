@@ -9,6 +9,7 @@
 #include <kshell.h>
 #include <pmem.h>
 #include <tasks.h>
+#include <vfs.h>
 
 static void print_welcome(void) {
     clear_screen();
@@ -31,6 +32,7 @@ void kmain(uint32_t magic, struct multiboot_info *mbi) {
     /* general setup */
     cpu_setup();
     pmem_setup();
+    vfs_setup();
 
     /* devices setup */
     timer_setup();

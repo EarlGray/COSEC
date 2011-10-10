@@ -40,8 +40,20 @@ int vfs_open(const char *fname, int flags) {
 
 }
 
+err_t vfs_mount(const char *what, const char *at, const char *fs) {
+    k_printf("TODO: mount('%s', '%s', '%s')\n", 
+            what, at, fs);
+    return 0;
+}
+
+
+int vfs_mkdir(const char *path, uint mode) {
+    k_printf("TODO: mkdir('%s', %o)\n", path, mode);
+    return 0;
+}
+
 void vfs_setup(void) {
-    vfs_mount("ramfs", "/", "ramfs")
+    vfs_mount("ramfs", "/", "ramfs");
 
     vfs_mkdir("/etc", 0755);
     vfs_mkdir("/dev", 0755);

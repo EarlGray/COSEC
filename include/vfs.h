@@ -34,13 +34,20 @@ err_t vfs_opt_mount(const char *what, const char *at, mount_options *mntopts);
  ***/
 
 /** Try to open file by name **/
-err_t vfs_open(inode *index,  int flags);
+err_t vfs_open(const char *fname, int flags);
 
 ssize_t vfs_read(file_t fd, void *buf, size_t count);
 ssize_t vfs_write(file_t fd, void *buf, size_t count);
 
 err_t vfs_close(file_t fd);
 
+
+
+/*** **************************************************************************
+  *     Directory operations
+ ***/
+
+int vfs_mkdir(const char *path, uint mode);
 
 void vfs_setup(void);
 
