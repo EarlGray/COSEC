@@ -176,6 +176,8 @@ void print_uint(uint x, uint8_t base) {
 }
 
 void k_printf(const char *fmt, ...) {
+    if (fmt == null) return;
+
 	void *args = (void *)((char **)&fmt + 1);
     const char *s = fmt;
 	while (*s) {

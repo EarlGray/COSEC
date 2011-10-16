@@ -47,6 +47,9 @@ extern void* memset(void *s, int c, size_t n);
 extern void k_printf(const char *fmt, ...);
 extern void panic(const char *fatal_error);
 
+extern void* kmalloc(size_t);
+extern void kfree(void *);
+
 #endif // __GLOB_SYMS_H__
 
 #endif // ASM

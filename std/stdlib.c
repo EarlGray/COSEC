@@ -19,6 +19,9 @@ int strncmp(const char *s1, const char *s2, size_t n) {
 }
 
 char *strcpy(char *dest, const char *src) {
+    if (dest == null) {
+        dest = kmalloc(strlen(src) + 1);
+    }
     arch_strncpy(dest, src, 0xFFFFFFFF);
     return dest;
 }
