@@ -117,15 +117,6 @@ typedef struct {
     "rep movsb          \n" \
     : : "m"(dst),"m"(src),"r"(size) )
 
-
-#define i386_strncpy(dst, src, n)  \
-    asm(                    \
-    "movl %0, %%edi     \n" \
-    "movl %1, %%esi     \n" \
-    "movl %2, %%ecx     \n" \
-    "repnz movsb        \n" \
-    : : "m"(dst), "m"(src), "r"(n) )
-
 #define i386_hang()   asm volatile ("cli \n1: hlt\n\tjmp 1b\n" ::)
         
 #define io_wait()       asm ("\tjmp 1f\n1:\tjmp 1f\n1:") 

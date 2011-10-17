@@ -22,12 +22,19 @@ char *strcpy(char *dest, const char *src) {
     if (dest == null) {
         dest = kmalloc(strlen(src) + 1);
     }
-    arch_strncpy(dest, src, 0xFFFFFFFF);
+    char *d = dest;
+    while (*d++ = *src++);
+    *d = '\0';
     return dest;
 }
 
 char *strncpy(char *dest, const char *src, size_t n) {
-    arch_strncpy(dest, src, n);
+    size_t i = 0;
+    char *d = dest;
+    while ((*src) && !(i++ < n)) 
+        *d++ = *src++;
+    while (i++ < n) 
+        *d++ = '\0';
     return dest;
 }
 
