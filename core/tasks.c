@@ -64,15 +64,16 @@ static inline void task_cpu_load(task_struct *task) {
 }
 
 static void task_timer_handler(uint tick) {
-    task_struct *next = 0;
-    if (task_next) 
-        if ((next = task_next(tick))) {
+    if (task_next) {    // is there a scheduler
+        task_struct *next = task_next(tick);
+        if (next) {     // switch to the next task is needed
             task_save_context(current);
             task_push_context(next);
 
             task_cpu_load(next);
             current = next;
         }
+    }
 }
 
 inline task_struct *task_current(void) {

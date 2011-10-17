@@ -1,15 +1,18 @@
 CURRENT TASKS
 
-- page frames allocation
-- kernel heap
-- paging?
 - VFS:
     devfs: /dev/mem, /dev/serial/, /dev/vcs, /dev/stdin, /dev/ps2/kbd
+- syscalls (open/read/close, fork/exec, ...), userspace headers
 - tasks:
+    scheduler
     kernfs: /sys/<pid>, /sys/
-- syscalls (open/read/close, fork/exec, ...), usr directory, userspace headers
-- vsnprintf and va_arg
+- basic harddrive driver for VFS
+- paging
 
+DELAYED TASKS
+- good page frames allocation
+- more robust kernel heap
+- vsnprintf and va_arg
 
 AIMS
 
@@ -21,3 +24,4 @@ AIMS
 - sustainability/possibly will be microkernel
 - language-based features and managed userspace 
 - well-documented and easy-to-learn API/ABI/internals
+- make it work!
