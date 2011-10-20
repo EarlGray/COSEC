@@ -143,6 +143,6 @@ inline void task_kthread_init(task_struct *ktask, void *entry, void *k_esp) {
 void tasks_setup(void) {
     timer_set_frequency(TASK_DEFAULT_QUANT);
     timer_push_ontimer(task_timer_handler);
-    irq_mask(0, true);
+    irq_mask(TIMER_IRQ, true);
 }
 

@@ -186,6 +186,6 @@ void keyboard_irq(/*void *stack*/) {
 void kbd_setup(void) {
     memset((bool *)theKeyboard, 0, sizeof(theKeyboard));
     kbd_buf_setup();
-    irq_mask(1, true);
-    irq_set_handler(1, keyboard_irq);
+    irq_mask(PS2_IRQ, true);
+    irq_set_handler(PS2_IRQ, keyboard_irq);
 }
