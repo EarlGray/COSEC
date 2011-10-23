@@ -25,13 +25,24 @@ typedef  struct file_link           flink_t;
  ***/
 
 /** inode types **/
-#define IT_FILE     1
-#define IT_DIR      2
-#define IT_CHARDEV  3
+#define IT_FILE     '-'
+#define IT_DIR      'd'
+#define IT_CHARDEV  'c'
 
+typedef char filetype_t;
 
 struct index_node {
-    count_t hlinks_count;
+    index_t index;
+    mnode_t* mnode;
+    
+    count_t nlink;
+    filetype_t type;
+
+    inode_t *next;
+    inode_t *prev;
+
+    void *data;     /* 'dnode_t *' for directory */
+    void *fsinfo;   /* depends on filesystem */
 };
 
 
@@ -42,26 +53,27 @@ struct index_node {
 #define FS_DELIM      '/'
 
 struct file_link {
-    const char *name;
-    inode_t *inode;
+    const char *f_name;
+    inode_t *f_inode;
+    dnode_t *f_dir;
 
     /** neighbours in directory **/
-    flink_t *next_file;
-    flink_t *prev_file;
+    flink_t *f_next;
+    flink_t *f_prev;
 };
 
 struct directory {
-    mnode_t *mnode;
-    inode_t *inode;
+    flink_t f;     /* file which this dir is */
+    mnode_t *d_mnode;     /* mounted fs of this dir */
 
-    dnode_t *parent;
+    dnode_t *d_parent;
 
-    list dnode_t *subdirs;
-    list flink_t *files;
+    list dnode_t *d_subdirs;
+    list flink_t *d_files;
 
-    /*  */
-    dnode_t *next_dir;
-    dnode_t *prev_dir;
+    /* list of neighbours directories */
+    dnode_t *d_next;
+    dnode_t *d_prev;
 };
 
 int vfs_mkdir(const char *path, uint mode);
@@ -76,8 +88,9 @@ bool vfs_is_node(inode_t *node, uint node_type);
 struct filesystem_struct {
     const char *name;
 
-    char * (*get_name_for_device)(const char *);
+    char* (*get_name_for_device)(const char *);
     int (*populate_tree)(mnode_t *);
+    inode_t* (*new_inode)(mnode_t *);
 };
 
 filesystem_t* fs_by_name(const char *);
@@ -108,6 +121,7 @@ struct mount_node {
 #define ENODEV      0x8001
 #define ENOENT      0x8002
 #define ENOTDIR     0x8003
+#define EEXIST      0x8004
 
 struct mount_options_struct {
     const char *fs_str;     /* name of file system type, e.g. "ramfs" */
@@ -153,6 +167,8 @@ err_t vfs_close(file_t fd);
   *     Directory operations
  ***/
 
+void print_ls(void);
+void print_mount(void);
 
 void vfs_setup(void);
 

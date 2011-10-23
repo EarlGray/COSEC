@@ -9,4 +9,12 @@ char *strncpy(char *dest, const char *src, size_t n);
 
 int strlen(const char *s);
 
+int memcmp(const void *s1, const void *s2, size_t n);
+
+char *strchr(const char *s, char c);
+char *strrchr(const char *s, char c);
+
+char *strnchr(const char *s, size_t n, char c);
+char *strnrchr(const char *s, size_t n, char c);
+
 #endif //__STRING_H__

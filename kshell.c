@@ -13,6 +13,7 @@
 #include <mm/kheap.h>
 #include <misc/test.h>
 
+#include <vfs.h>
 
 /***
   *     Internal declarations
@@ -182,6 +183,8 @@ void kshell_test(const struct kshell_command *, const char *);
 void kshell_heap(const struct kshell_command *, const char *);
 void kshell_set(const struct kshell_command *, const char *);
 void kshell_mem(const struct kshell_command *, const char *);
+void kshell_ls();
+void kshell_mount();
 void kshell_panic();
 
 const struct kshell_command main_commands[] = {
@@ -192,6 +195,8 @@ const struct kshell_command main_commands[] = {
     {   .name = "set",      .handler = kshell_set,   .description = "manage global variables", .options = "color prompt" },
     {   .name = "panic",    .handler = kshell_panic, .description = "test The Red Screen of Death"     },
     {   .name = "help",     .handler = kshell_help,  .description = "show this help"   },
+    {   .name = "ls",       .handler = kshell_ls,    .description = "list current VFS directory"    },
+    {   .name = "mount",    .handler = kshell_mount, .description = "list current mounted filesystems"  },
     {   .name = null,       .handler = 0    }
 };
 
@@ -206,6 +211,13 @@ const struct kshell_subcmd  test_cmds[] = {
     { .name = 0, .handler = 0    },
 };
 
+void kshell_ls() {
+    print_ls();
+}
+
+void kshell_mount() {
+    print_mount();
+}
 
 /* return number of first different symbol or endchar */
 static inline size_t strcmpsz(const char *s1, const char *s2, char endchar) {

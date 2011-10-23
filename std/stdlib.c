@@ -9,6 +9,19 @@ int strcmp(const char *s1, const char *s2) {
     } 
 }
 
+int memcmp(const void *s1, const void *s2, size_t n) {
+    int i;
+    const char *c1 = s1;
+    const char *c2 = s2;
+    for (i = 0; i < n; ++i) {
+        char diff = *c1 - *c2;
+        if (diff) 
+            return diff;
+        ++c2; ++c1;
+    }
+    return 0;
+}
+
 int strncmp(const char *s1, const char *s2, size_t n) {
     size_t i;
     for (i = 0; i < n; ++i) {
@@ -55,4 +68,33 @@ inline void *memset(void *s, int c, size_t n) {
     for (i = 0; i < n; ++i)
         p[i] = c;
     return s;
+}
+
+char *strnchr(const char *s, size_t n, char c) {
+    char *cur = (char *)s;
+    while (*cur && ((cur - s) < n)) {
+        if (c == *cur) 
+            return cur;
+        ++cur;
+    }
+    return null;
+}
+
+char *strnrchr(const char *s, size_t n, char c) {
+    char *cur = (char *)s;
+    char *last = null;
+    while (*cur && ((cur - s) < n)) {
+        if (c == *cur) 
+            last = cur;
+        ++cur;
+    }
+    return last;
+}
+
+char *strchr(const char *s, char c) {
+    return strnchr(s, MAX_UINT, c);
+}
+
+char *strrchr(const char *s, char c) {
+    return strnrchr(s, MAX_UINT, c);
 }

@@ -17,16 +17,19 @@
 #ifndef __LANGEXTS__
 #define __LANGEXTS__
 
-typedef unsigned char	    uint8_t;
+typedef unsigned char	    uint8_t, byte;
 typedef unsigned short	    uint16_t;
 typedef unsigned int	    uint32_t, uint20_t, uint;
-typedef unsigned long long  uint64_t;
+typedef unsigned long long  uint64_t, ulong;
 
 typedef short               int16_t;
 typedef long                int32_t;
 typedef long long           int64_t;
 
-typedef uint32_t	size_t, ssize_t, err_t, ptr_t, index_t, count_t;
+typedef uint	size_t, ssize_t, err_t, ptr_t, index_t, count_t;
+
+#define MAX_UINT    ((1 << 32) - 1)
+#define MAX_ULONG   ((1 << 64) - 1)
 
 typedef char bool;
 #define true 1
