@@ -64,15 +64,16 @@ static inline void task_cpu_load(task_struct *task) {
 }
 
 static void task_timer_handler(uint tick) {
-    task_struct *next = 0;
-    if (task_next) 
-        if ((next = task_next(tick))) {
+    if (task_next) {    // is there a scheduler
+        task_struct *next = task_next(tick);
+        if (next) {     // switch to the next task is needed
             task_save_context(current);
             task_push_context(next);
 
             task_cpu_load(next);
             current = next;
         }
+    }
 }
 
 inline task_struct *task_current(void) {
@@ -142,6 +143,6 @@ inline void task_kthread_init(task_struct *ktask, void *entry, void *k_esp) {
 void tasks_setup(void) {
     timer_set_frequency(TASK_DEFAULT_QUANT);
     timer_push_ontimer(task_timer_handler);
-    irq_mask(0, true);
+    irq_mask(TIMER_IRQ, true);
 }
 

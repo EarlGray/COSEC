@@ -4,6 +4,12 @@
 #define I8259A_BASE 0x20
 #define SYS_INT     0x80
 
+#define TIMER_IRQ   0
+#define PS2_IRQ     1
+#define NMI_IRQ     2
+#define COM2_IRQ    3
+#define COM1_IRQ    4
+
 #ifndef ASM
 
 typedef void (*intr_handler_f) (void *);
