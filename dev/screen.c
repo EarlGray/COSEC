@@ -9,9 +9,11 @@
   *     VGA 80x25 'driver'
  ***/
 
+#define DEFAULT_CURSOR_ATTR 0x07
+
 static uint16_t cursorX = 0;
 static uint16_t cursorY = 0;
-static uint8_t  cursorAttr = 0x07;
+static uint8_t  cursorAttr = DEFAULT_CURSOR_ATTR;
 
 inline uint16_t get_cursor_x(void) { 	return cursorX;   }
 inline uint16_t get_cursor_y(void) {  	return cursorY;   }
@@ -141,8 +143,6 @@ void sprint_at(int x, int y, const char *s) {
 	}
 }
 
-
-
 inline char get_digit(uint8_t digit) {
 	if (digit < 10) return('0' + digit);
 	else return('A' + digit - 10);
@@ -175,29 +175,93 @@ void print_uint(uint x, uint8_t base) {
     }
 }
 
+#define CC_NUL 0x00
+#define CC_BEL '\a' /* 0x07 */
+#define CC_BS  '\b' /* 0x08 */
+#define CC_HT  '\t' /* 0x09 */
+#define CC_LF  '\n' /* 0x0a */
+#define CC_VT  0x0b
+#define CC_FF  0x0c
+#define CC_CR  '\r' /* 0x0d */
+#define CC_SO  0x0e
+#define CC_SI  0x0f
+#define CC_CAN 0x18
+#define CC_SUB 0x1a
+#define CC_ESC 0x1b /* ESC [ */
+#define CC_DEL 0x7f 
+#define CC_CSI 0x9b
+
+void ecma48_control_sequence(uint num) {
+    if (num == 0) { 
+        /* reset attributes */
+        set_cursor_attr(DEFAULT_CURSOR_ATTR);
+    } else if ((30 <= num) && (num <= 37)) {
+        /* set foreground color */
+        uint8_t attr = get_cursor_attr();
+        set_cursor_attr((attr & 0xF0) | (num - 30));
+    } else if ((40 <= num) && (num <= 47)) {
+        /* set background color */
+        uint8_t attr = get_cursor_attr();
+        set_cursor_attr((attr & 0x0F) | ((num - 40) << 4));
+    }
+}
+
+const char * ecma48_console_codes(const char *s) {
+    switch (*s) {
+    case CC_LF: case CC_VT: case CC_FF:
+        set_cursor_x(0);
+        move_cursor_next_line();
+        break;
+    case CC_CR:
+        set_cursor_x(0);
+        break;
+    case CC_HT: {
+        uint pos = TAB_INDENT * (1 + get_cursor_x()/TAB_INDENT);
+        if (pos >= SCR_WIDTH) pos = SCR_WIDTH - 1;
+        set_cursor_x(pos);
+        }
+        break;
+    case CC_BS:
+        if ((get_cursor_x() == 0) && (get_cursor_y() != 0))
+            move_cursor_to(SCR_WIDTH - 1, get_cursor_y()-1);
+        else
+            set_cursor_x(get_cursor_x() - 1);
+        break;
+
+    case CC_ESC:
+        switch (*++s) {
+        case '[': {
+            uint code = 0;
+            s = sscan_uint(++s, &code, 10);
+            if (*s == 'm') {
+                ecma48_control_sequence(code);
+                break;
+            }
+            } /* fall through */ 
+        default:
+            cprint(*s);
+        } 
+        break;
+
+    default: 
+        return s;
+    }
+    return ++s;
+}
+
 void k_printf(const char *fmt, ...) {
     if (fmt == null) return;
 
 	void *args = (void *)((char **)&fmt + 1);
     const char *s = fmt;
 	while (*s) {
+        const char *sn = ecma48_console_codes(s);
+        if (sn != s) {
+            s = sn;
+            continue;
+        }
+
 		switch (*s) {
-		case '\n': 
-			set_cursor_x(0);
-			move_cursor_next_line();
-			break;
-		case '\r':
-			set_cursor_x(0);
-			break;
-		case '\t':
-			set_cursor_x(TAB_INDENT * (1 + get_cursor_x()/TAB_INDENT));
-			break;
-		case '\b':
-            if ((get_cursor_x() == 0) && (get_cursor_y() != 0))
-                move_cursor_to(SCR_WIDTH - 1, get_cursor_y()-1);
-            else
-			    set_cursor_x(get_cursor_x() - 1);
-			break;
 		case '%': 
 			++s;
 			switch (*s) {
