@@ -2,6 +2,7 @@
 #include <dev/intrs.h>
 
 #include <arch/i386.h>
+#include <log.h>
 
 #define IER_OFFSET      1   /* Interrupt Enable Register */
 #define IIFCR_OFFSET    2   /* Interrupt identification and FIFO control register */
@@ -20,7 +21,7 @@ inline void serial_set_on_receive(serial_on_receive_f handler) {
 void serial_irq() {
     uint8_t iir;
     inb(COM1_PORT + IIFCR_OFFSET, iir);
-    //k_printf("IRQ4: IIR=%x\n", (uint)iir);
+    //logf("IRQ4: IIR=%x\n", (uint)iir);
 
     if (serial_is_received(COM1_PORT)) {
         uint8_t b = serial_read(COM1_PORT);
@@ -56,7 +57,7 @@ inline void out_bits_l(uint16_t port, uint32_t mask, uint32_t val) {
 /* receives 1 for 115200 ticks per second, 2 for 57600 baud and so on */
 inline void set_serial_divisor(uint16_t port, uint16_t div) {
     out_bits_b(port + LCR_OFFSET, 0x80, 0x80);
-    k_printf("0x%x port set to 0x%x\n", (uint)port, (uint)div);
+    logf("0x%x port set to 0x%x\n", (uint)port, (uint)div);
     inw(port, div);
     out_bits_b(port + LCR_OFFSET, 0x80, 0x00);
 }

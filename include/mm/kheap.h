@@ -13,5 +13,6 @@ void *kmalloc(size_t size);
 int kfree(void *p);
 
 void kheap_setup(void);
+void kheap_info(void);
 
 #endif // __KHEAP_H__

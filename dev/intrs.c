@@ -8,11 +8,14 @@
  *  IRQs are handled by irq_hander(), which calls a handler registered in irq[]
  */
 
+
 #include <arch/i386.h>
 
 #include <dev/intrs.h>
 
 #include <std/stdio.h>
+
+#include <log.h>
 
 #define ICW1_ICW4       0x01
 #define ICW1_SINGLE     0x02        // 0x00 - cascade
@@ -32,6 +35,15 @@
 #define PIC2_DATA_PORT   (PIC2_CMD_PORT + 1)
 
 #define PIC_EOI         0x20            // PIC end-of-interrput command code
+
+#if INTR_DEBUG
+#   define intr_logf(msg, ...) logf(msg, __VA_ARGS__)
+#   define intr_log(msg) log(msg)
+#else
+#   define intr_logf(msg, ...)
+#   define intr_log(msg)
+#endif
+
 
 /* 
  *      Declarations
@@ -110,7 +122,6 @@ inline void irq_eoi(void) {
 }
 
 void irq_handler(uint32_t irq_num) {
-    //if (irq_num > 2) k_printf("#IRQ%d#", irq_num);
     intr_handler_f callee = irq[irq_num];
     callee((void *)cpu_stack());
     irq_eoi();
@@ -123,7 +134,6 @@ inline void irq_set_handler(uint8_t irq_num, intr_handler_f handler) {
 /****************** IRQs ***********************/
 
 void irq_stub() {
-    //k_printf("#");
 }
 
 void irq_slave() {
@@ -133,26 +143,26 @@ void irq_slave() {
 /**************** exceptions *****************/
 
 void int_dummy() {
-    k_printf("INTR: dummy interrupt\n");
+    intr_log("INTR: dummy interrupt\n");
 }
 
 extern void int_syscall();
 
 void int_odd_exception() {
-    //k_printf("+");
+    intr_log("unspecified exception");
 }
 
 void int_double_fault() {
-    k_printf("#DF\nDouble fault...\n");
+    intr_log("#DF\nDouble fault...\n");
     panic("DOUBLE FAULT");
 }
 
 void int_division_by_zero(void ) {
-    k_printf("#DE\nINTR: division by zero\n");
+    intr_log("#DE\nINTR: division by zero\n");
 }
 
 void int_nonmaskable(void ) {
-    //k_printf("#NM");
+    //intr_log("#NM");
 }
 
 void int_invalid_op(void *stack) {
@@ -164,41 +174,41 @@ void int_invalid_op(void *stack) {
 }
 
 void int_page_fault(void ) {
-    k_printf("#PF");
+    intr_log("#PF");
 }
 
 void int_segment_not_present(void) {
-    k_printf("#NP");
+    intr_log("#NP");
 }
 
 void int_overflow(void ) {
-    k_printf("#OF");
+    intr_log("#OF");
 }
 
 void int_breakpoint(void) {
-    k_printf("#BP");
+    intr_log("#BP");
 }
 
 
 void int_out_of_bounds(void ) {
-    k_printf("#BR");
+    intr_log("#BR");
 }
 
 void int_stack_segment(void ) {
-    k_printf("#SS");
+    intr_log("#SS");
 }
 
 void int_invalid_tss(void ) {
-    k_printf("#TS");
-    k_printf("Invalid TSS exception\n");
+    intr_log("#TS");
+    intr_log("Invalid TSS exception\n");
     cpu_hang();
 }
 
 void int_gpf(void) {
-    k_printf("#GP\nGeneral protection fault, error code %x\n", 
+    intr_logf("#GP\nGeneral protection fault, error code %x\n", 
             intr_err_code());
     uint *ret_eip = (uint *)(intr_context_esp() + 0x2c);
-    k_printf("Interrupted at %x:%x\n", ret_eip[1], ret_eip[0]);
+    intr_logf("Interrupted at %x:%x\n", ret_eip[1], ret_eip[0]);
     cpu_hang();
 }
 

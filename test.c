@@ -11,6 +11,7 @@
 #include <dev/kbd.h>
 #include <arch/i386.h>
 #include <kshell.h>
+#include <log.h>
 
 volatile bool poll_exit = false;
 
@@ -29,14 +30,14 @@ static void test_vsprint(const char *fmt, ...) {
             switch (*(++c)) {
                 case 's': {
                     char *s = va_arg(ap, char *); 
-                    k_printf("%%s: 0x%x, *s=0x%x\n", (uint)s, (uint)*s);
+                    logf("%%s: 0x%x, *s=0x%x\n", (uint)s, (uint)*s);
                           } break;
                 case 'd': case 'u': case 'x': {
                     int arg = va_arg(ap, int);
-                    k_printf("%%d: 0x%x\n", (uint)arg);
+                    logf("%%d: 0x%x\n", (uint)arg);
                                               } break;
                 default:
-                    k_printf("Unknown operand for %%\n");
+                    log("Unknown operand for %%\n");
                         
             }
         }
@@ -44,7 +45,7 @@ static void test_vsprint(const char *fmt, ...) {
     }
 
     va_end(ap);
-    k_printf("\n%s\n", buf);
+    logf("\n%s\n", buf);
 }
 
 void test_sprintf(void) {
@@ -54,7 +55,7 @@ void test_sprintf(void) {
 void test_eflags(void) {
     uint flags = 0;
     i386_eflags(flags);
-    k_printf("flags=0x%x\n", flags);
+    logf("flags=0x%x\n", flags);
 }
 
 
@@ -83,11 +84,11 @@ static void on_timer(uint counter) {
     if (counter % 1000 == 0) {
         uint ts[2] = { 0 };
         i386_rdtsc((uint64_t *)ts);
-        k_printf("%d: rdtsc=%x %x ", counter, ts[1], ts[0]);
+        logf("%d: rdtsc=%x %x ", counter, ts[1], ts[0]);
 #if INTR_PROFILING
-        k_printf(" tick=%x %x, icnt = %x", intr_ticks.u32[1], intr_ticks.u32[0], intr_count);
+        logf(" tick=%x %x, icnt = %x", intr_ticks.u32[1], intr_ticks.u32[0], intr_count);
 #endif
-        k_printf("\n");
+        log("\n");
     }
 }
 
@@ -116,14 +117,14 @@ void test_timer(void) {
 inline static void print_serial_info(uint16_t port) {
     uint8_t iir;
     inb(port + 1, iir);
-    k_printf("(IER=%x\t", (uint)iir);
+    logf("(IER=%x\t", (uint)iir);
     inb(port + 2, iir);
-    k_printf("IIR=%x\t", (uint)iir);
+    logf("IIR=%x\t", (uint)iir);
     inb(port + 5, iir);
-    k_printf("LSR=%x\t", (uint)iir);
+    logf("LSR=%x\t", (uint)iir);
     inb(port + 6, iir);
-    k_printf("MSR=%x", (uint)iir);
-    k_printf("PIC=%x)", (uint)irq_get_mask());
+    logf("MSR=%x", (uint)iir);
+    logf("PIC=%x)", (uint)irq_get_mask());
 }
 
 void on_serial_received(uint8_t b) {
@@ -166,10 +167,10 @@ void poll_serial() {
 }
 
 void test_serial(void) {
-    k_printf("IRQs state = 0x%x\n", (uint)irq_get_mask());
+    logf("IRQs state = 0x%x\n", (uint)irq_get_mask());
 
     uint8_t saved_color = get_cursor_attr();
-    k_printf("Use <Esc> to quit, <Del> for register info\n");
+    print("Use <Esc> to quit, <Del> for register info\n");
     serial_setup();
 
     //poll_serial();
@@ -186,13 +187,13 @@ void test_serial(void) {
 }
 
 void test_kbd(void) {
-    k_printf("Use <Esc> to quit\n");
+    print("Use <Esc> to quit\n");
     uint8_t key = 0;
     while (key != 1) {
         key = kbd_wait_scan(true);
-        k_printf("%x->%x\t", (uint)key, (uint)translate_from_scan(null, key));
+        printf("%x->%x\t", (uint)key, (uint)translate_from_scan(null, key));
     }
-    k_printf("\n");
+    print("\n");
 }
 
 
@@ -218,12 +219,12 @@ void do_task0(void) {
     int i = 0;
     while (1) {
         ++i;
-        if (0 == (i % 75)) {    i = 0;   k_printf("\r");    }
+        if (0 == (i % 75)) {    i = 0;   print("\r");    }
         if (i > 75) {
-            k_printf("\nA: assert i <= 75 failed, i=0x%x\n", i);
+            logf("\nA: assert i <= 75 failed, i=0x%x\n", i);
             while (1) cpu_halt();
         }
-        k_printf("0");
+        print("0");
     }
 }
 
@@ -231,19 +232,19 @@ void do_task1(void) {
     int i = 0;
     while (1) {
         ++i;
-       if (0 == (i % 75)) {   i = 0;   k_printf("\r");   }
+       if (0 == (i % 75)) {   i = 0;   print("\r");   }
        if (i > 75) {
-           k_printf("\nB: assert i <= 75 failed, i=0x%x\n", i);
+           logf("\nB: assert i <= 75 failed, i=0x%x\n", i);
            while (1) cpu_halt();
        }
-       k_printf("1");
+       print("1");
     }
 }
 
 volatile bool quit;
 
 void key_press(/*scancode_t scan*/) {
-    k_printf("\n\nexiting...\n");
+    print("\n\nexiting...\n");
     quit = true;
 }
 
@@ -292,14 +293,14 @@ void test_tasks(void) {
     kbd_set_onpress(null);
     task_set_scheduler(null);
 
-    k_printf("\nBye.\n");
+    print("\nBye.\n");
 }
 
 /***********************************************************/
 void run_userspace(void) {
-    k_printf("Hello, userspace");
+    print("Hello, userspace");
     asm ("int $0x80  \t\n");
-    k_printf("... and we're back");
+    print("... and we're back");
     while (1);
 }
 
@@ -326,7 +327,7 @@ void test_userspace(void) {
     segment_selector tss_sel;
     tss_sel.as.word = make_selector(taskdescr_index, 0, PL_USER);
 
-    k_printf("GDT[%x]\n", taskdescr_index);
+    logf("GDT[%x]\n", taskdescr_index);
 
     kbd_set_onpress((kbd_event_f)key_press);
 
@@ -362,7 +363,7 @@ void test_init(void) {
     segment_selector tss_sel;
     tss_sel.as.word = make_selector(taskdescr_index, 0, PL_USER);
 
-    k_printf("GDT[%x]\n", taskdescr_index);
+    logf("GDT[%x]\n", taskdescr_index);
 
     kbd_set_onpress((kbd_event_f)key_press);
 

@@ -1,10 +1,17 @@
 #include <pmem.h>
+#include <log.h>
 
 #include <arch/i386.h>
 #include <arch/mboot.h>
 #include <arch/multiboot.h>
 
 #include <mm/kheap.h>
+
+#if MEM_DEBUG
+#   define mem_logf(msg, ...) logf(msg, __VA_ARGS__)
+#else 
+#   define mem_logf(msg, ...)    
+#endif
 
 /***
   *     Internal declarations
@@ -68,9 +75,7 @@ void pages_set(uint addr, uint size, bool reserved) {
     uint i = addr / PAGE_SIZE;
     if ((!reserved) && (addr % PAGE_SIZE)) ++i;
 
-#if MEM_DEBUG
-    k_printf("%s pages from %x to %x; ", (reserved? "reserving" : "freeing  "),  i, end_page - 1);
-#endif
+    mem_logf("%s pages from %x to %x; ", (reserved? "reserving" : "freeing  "),  i, end_page - 1);
 
     for (; i < end_page; ++i) {
         pg_init(mem_map + i, reserved);
@@ -80,10 +85,10 @@ void pages_set(uint addr, uint size, bool reserved) {
     } else 
         if (n_pages <= end_page) {
             n_pages = end_page;
-            k_printf("n_pages = %x", n_pages);
+            logf("n_pages = %x", n_pages);
         }
-        else k_printf("odd thing: n_pages(%d) > end_page(%d)", n_pages, end_page);
-    k_printf("\n");
+        else logf("odd thing: n_pages(%d) > end_page(%d)", n_pages, end_page);
+    log("\n");
 }
 
 uint pmem_alloc(size_t pages_count) {
@@ -97,10 +102,8 @@ uint pmem_alloc(size_t pages_count) {
         }
         if ((res - i) >= pages_count) {
             int j;
-#if MEM_DEBUG
-            k_printf("Allocating %x pages at [%x]\n", pages_count, res);
-#endif
-            for (j = 0; j < pages_count; ++j) 
+            mem_logf("Allocating %x pages at [%x]\n", pages_count, res);
+            for (j = 0; j < (int)pages_count; ++j) 
                 ++ mem_map[res + j].used;
             last_initialized_page = res + j;
             return res;
@@ -155,18 +158,18 @@ void pg_free(uint addr) {
 void pmem_info() {
     struct memory_map *mmmap = (struct memory_map *)mboot_mmap_addr();
     uint i;
-    k_printf("\nMemory map [%d]\n", mboot_mmap_length());
+    printf("\nMemory map [%d]\n", mboot_mmap_length());
     for (i = 0; i < mboot_mmap_length(); ++i) {
         if (mmmap[i].length_low == 0) continue;
         if (mmmap[i].size > 100) continue;
 
-        k_printf("%d) sz=%x,bl=%x,bh=%x,ll=%x,lh=%x,t=%x\n", i, mmmap[i].size, 
+        printf("%d) sz=%x,bl=%x,bh=%x,ll=%x,lh=%x,t=%x\n", i, mmmap[i].size, 
         mmmap[i].base_addr_low, mmmap[i].base_addr_high,
         mmmap[i].length_low, mmmap[i].length_high, 
         mmmap[i].type);
     }
 
-    k_printf("\nKernel memory: 0x%x-0x%x\nAvailable: %d\n", (uint)&_start, (uint)&_end, available_memory);
+    printf("\nKernel memory: 0x%x-0x%x\nAvailable: %d\n", (uint)&_start, (uint)&_end, available_memory);
 
     uint free_pages = 0, occupied_pages = 0, reserved_pages = 0;
     for (i = 0; i < n_pages; ++i) {
@@ -176,8 +179,8 @@ void pmem_info() {
             if (mem_map[i].used > 0) ++occupied_pages;
             else ++free_pages;
     }
-    k_printf("Page size: %d\nMem map[%d] at 0x%x\n", PAGE_SIZE, n_pages, (uint)mem_map);
-    k_printf("Pages count: %x; free: %x, occupied: %x, reserved: %x\n", 
+    printf("Page size: %d\nMem map[%d] at 0x%x\n", PAGE_SIZE, n_pages, (uint)mem_map);
+    printf("Pages count: %x; free: %x, occupied: %x, reserved: %x\n", 
             n_pages, free_pages, occupied_pages, reserved_pages);
-    k_printf("last initialized page is %x\n", last_initialized_page);
+    printf("last initialized page is %x\n", last_initialized_page);
 }

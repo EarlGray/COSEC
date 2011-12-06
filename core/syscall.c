@@ -1,6 +1,8 @@
 #include <syscall.h>
 #include <arch/i386.h>
 
+#include <log.h>
+
 uint sys_exit();
 uint sys_print(const char **fmt);
 
@@ -22,17 +24,17 @@ void int_syscall() {
     uint arg2 = *(stack - 3);
     uint arg3 = *(stack - 4);
 
-    k_printf("\n#syscall(%d, 0x%x, 0x%x, 0x%x)\n", 
+    logf("\n#syscall(%d, 0x%x, 0x%x, 0x%x)\n", 
             intr_num, arg1, arg2, arg3);
 
     if (intr_num > SYSCALL_MAX) {
-        k_printf("#SYS: invalid syscall 0x%x\n", intr_num);
+        logf("#SYS: invalid syscall 0x%x\n", intr_num);
         return;
     }
 
     const syscall_handler callee = syscalls[intr_num];
     if (callee == null) {
-        k_printf("#SYS: invalid handler for syscall[0x%x]\n", intr_num);
+        logf("#SYS: invalid handler for syscall[0x%x]\n", intr_num);
         return;
     }
 
@@ -40,6 +42,6 @@ void int_syscall() {
 }
 
 uint sys_print(const char **fmt) {
-    k_printf(*fmt);
+    print(*fmt);
     return 0;
 }

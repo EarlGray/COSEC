@@ -14,6 +14,7 @@
 #include <misc/test.h>
 
 #include <vfs.h>
+#include <log.h>
 
 /***
   *     Internal declarations
@@ -265,7 +266,7 @@ void kshell_heap(const struct kshell_command *this, const char *arg) {
     else
     if (!strncmp(arg, "alloc", 5)) {
         size_t size = 0;
-        const char *end = get_int_opt(arg, &size, 16);
+        const char *end = get_int_opt(arg, (int *)&size, 16);
         if (end == arg) return;
         
         void *p = kmalloc(size);
@@ -273,7 +274,7 @@ void kshell_heap(const struct kshell_command *this, const char *arg) {
     } else 
     if (!strncmp(arg, "free", 4)) {
         ptr_t p = 0;
-        const char *end = get_int_opt(arg, &p, 16);
+        const char *end = get_int_opt(arg, (int *)&p, 16);
         if (end == arg) return ;
         
         kfree((void *)p);

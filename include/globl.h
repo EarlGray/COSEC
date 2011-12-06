@@ -8,6 +8,7 @@
 #define INTR_PROFILING  (0)
 #define MEM_DEBUG       (1)
 #define TASK_DEBUG      (0)
+#define INTR_DEBUG      (1)
 
 #endif // __CONF_H__
 
@@ -17,6 +18,9 @@
 #ifndef __LANGEXTS__
 #define __LANGEXTS__
 
+/*
+ *  primitive types
+ */
 typedef unsigned char	    uint8_t, byte;
 typedef unsigned short	    uint16_t;
 typedef unsigned int	    uint32_t, uint20_t, uint;
@@ -28,31 +32,37 @@ typedef long long           int64_t;
 
 typedef uint	size_t, ssize_t, err_t, ptr_t, index_t, count_t;
 
-#define MAX_UINT    ((1 << 32) - 1)
-#define MAX_ULONG   ((1 << 64) - 1)
+#define MAX_UINT    (0xFFFFFFFF)
+#define MAX_ULONG   (i(MAX_UINT << 32) | MAX_UINT)
 
+/*
+ *  bool type
+ */
 typedef char bool;
 #define true 1
 #define false 0
 #define not(b) (1-(b))
 
+/*
+ *  memory routines and definitions
+ */
 #define null ((void *)0)
 
 #define reinterpret_cast(t)        *(t *)&
 
+/*
+ *  Lists
+ */
+#define __list
+
+#define DLINKED_LIST        \
+    struct {                \
+        void *next, *prev;  \
+    } link;
+
+#define list_next(node) ((typeof node *)(node->link.next))
+#define list_prev(node) ((typeof node *)(node->link.prev))
+
 #endif // __LANGEXTS__
-
-/**********************************************************/
-#ifndef __GLOB_SYMS_H__
-#define __GLOB_SYMS_H__
-
-extern void* memset(void *s, int c, size_t n);
-extern void k_printf(const char *fmt, ...);
-extern void panic(const char *fatal_error);
-
-extern void* kmalloc(size_t);
-extern int kfree(void *);
-
-#endif // __GLOB_SYMS_H__
 
 #endif // ASM

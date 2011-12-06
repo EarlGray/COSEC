@@ -2,6 +2,8 @@
 
 #include <arch/i386.h>
 
+#include <log.h>
+
 #define PCI_CONFIG_ADDR     0x0CF8
 #define PCI_CONFIG_DATA     0x0CFC
 
@@ -42,12 +44,12 @@ void pci_setup(void) {
         if (start_dev_id == 0) start_dev_id = id;
         else if (start_dev_id == id) break;
 
-        k_printf("[pci:%d] %x:%x", slot,
+        printf("[pci:%d] %x:%x", slot,
                 (uint)(id & 0xFFFF), (uint)(id >> 16));
 
         uint dev_class = pci_config_read_dword(bus, slot, 0, 8);
         uint8_t clss = dev_class >> 24;
-        k_printf(", class %x:%x (%s)\n", 
+        printf(", class %x:%x (%s)\n", 
                 (uint)clss, (uint)((dev_class & 0x00FF0000) >> 16),
                 (clss < sizeof(pci_class_descriptions)/sizeof(char*) ? pci_class_descriptions[clss] : "?" ));
     }  

@@ -20,7 +20,7 @@ int syscall(int num, ...) {
     ::"m"(num), "m"(arg1), "m"(arg2), "m"(arg3) );
 }
 
-inline int printf(const char *fmt, ...) {
-    syscall(CSC_DBG_PRINT, (void **)&fmt);
+int printf(const char *fmt, ...) {
+    return syscall(CSC_DBG_PRINT, (void **)&fmt);
 }
 

@@ -3,6 +3,8 @@
 #include <arch/i386.h>
 
 #include <std/string.h>
+#include <std/stdarg.h>
+#include <std/stdio.h>
 
 
 /***
@@ -252,7 +254,9 @@ const char * ecma48_console_codes(const char *s) {
 void k_printf(const char *fmt, ...) {
     if (fmt == null) return;
 
-	void *args = (void *)((char **)&fmt + 1);
+    va_list args;
+    va_start(args, fmt);
+
     const char *s = fmt;
 	while (*s) {
         const char *sn = ecma48_console_codes(s);
@@ -265,28 +269,23 @@ void k_printf(const char *fmt, ...) {
 		case '%': 
 			++s;
 			switch (*s) {
-			case 'd': {
-                int *arg = (int *)args;
-	  			print_int(*arg, 10);    
-				args = (void *)(arg + 1);
-                } break;
+			case 'd':
+	  			print_int(va_arg(args, int), 10);    
+                break;
             case 'u':
-                print_uint(*(uint*)args, 10);
-                args = (void *)((char *)args + 4);
-			case 'x': {
-                uint *arg = args;
-				print_uint(*arg, 16);
-				args = (void *)(arg + 1);
-                } break;
+                print_uint(va_arg(args, uint), 10);
+                break;
+			case 'x':
+				print_uint(va_arg(args, uint), 16);
+                break;
 			case 'o':
-				print_uint(*(int*)args, 8);
-				args = (void *)((char*)args + 4);
+				print_uint(va_arg(args, uint), 8);
 				break;
 			case 's': {
-                char *c = *(char **)args;
+                ptr_t ptr = va_arg(args, ptr_t);
+                char *c = (char *)ptr;
                 while (*c) 
                     cprint(*(c++));
-				args = (void *)((char *)args + 4);
                 } break;
 			default:
 				cprint(*s);
@@ -297,6 +296,7 @@ void k_printf(const char *fmt, ...) {
 		}
 		++s;	
 	}
+    va_end(args);
     update_hw_cursor();
 }
 

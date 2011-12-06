@@ -2,6 +2,7 @@
 #include <arch/intr.h>
 
 #include <dev/intrs.h>
+#include <std/string.h>
 
 
 /***

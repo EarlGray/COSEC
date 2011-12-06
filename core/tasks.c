@@ -15,18 +15,25 @@
 #include <dev/intrs.h>
 #include <dev/timer.h>
 
+#include <log.h>
 
 task_struct default_task;
 task_struct *current = &default_task;
 
 task_next_f         task_next           = null;
 
+#if TASK_DEBUG
+#   define task_logf(msg, ...) logf(msg, __VA_ARGS__)
+#else
+#   define task_logf(msg, ...)
+#endif
+
 /***
   *     Task switching 
  ***/
 
 #define return_if_not(assertion, msg)   \
-    if (!(assertion)) { k_printf(msg); return; }
+    if (!(assertion)) { log(msg); return; }
 
 /* this routine is normally called from within interrupt! */
 static void task_save_context(task_struct *task) {
@@ -38,9 +45,7 @@ static void task_save_context(task_struct *task) {
 
     task->tss.esp0 = (uint)context + CONTEXT_SIZE + 5*sizeof(uint);
 
-#if TASK_DEBUG
-    k_printf("\n| save cntxt=%x |", (uint)context);
-#endif
+    task_logf("\n| save cntxt=%x |", (uint)context);
 }
 
 /* this routine is normally called from within interrupt! */
@@ -48,9 +53,7 @@ static void task_push_context(task_struct *task) {
     uint context = task->tss.esp0 - CONTEXT_SIZE - 5*sizeof(uint);
     intr_set_context_esp(context);
 
-#if TASK_DEBUG
-    k_printf(" push cntxt=%x |\n", context);
-#endif
+    task_logf(" push cntxt=%x |\n", context);
 }
 
 static inline void task_cpu_load(task_struct *task) {
@@ -125,9 +128,7 @@ void task_init(task_struct *task, void *entry,
 
     task->tss_index = gdt_alloc_entry(taskdescr);
     return_if_not( task->tss_index, "Error: can't allocate GDT entry for TSSD\n");
-#if TASK_DEBUG
-    k_printf("new TSS <- GDT[%x]\n", task->tss_index);
-#endif
+    task_logf("new TSS <- GDT[%x]\n", task->tss_index);
 
     /* init is done */
     task->state = TS_READY;

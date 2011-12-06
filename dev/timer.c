@@ -2,6 +2,7 @@
 
 #include <dev/intrs.h>
 #include <arch/i386.h>
+#include <std/string.h>
 
 #define PIT_CH0_PORT    0x40
 #define PIT_CH1_PORT    0x41

@@ -1,5 +1,6 @@
 #include <std/string.h>
 #include <arch/i386.h>
+#include <mm/kheap.h>
 
 int strcmp(const char *s1, const char *s2) {
     while (1) {
@@ -13,7 +14,7 @@ int memcmp(const void *s1, const void *s2, size_t n) {
     int i;
     const char *c1 = s1;
     const char *c2 = s2;
-    for (i = 0; i < n; ++i) {
+    for (i = 0; i < (int)n; ++i) {
         char diff = *c1 - *c2;
         if (diff) 
             return diff;
@@ -33,10 +34,10 @@ int strncmp(const char *s1, const char *s2, size_t n) {
 
 char *strcpy(char *dest, const char *src) {
     if (dest == null) {
-        dest = kmalloc(strlen(src) + 1);
+        dest = (char *)kmalloc(strlen(src) + 1);
     }
     char *d = dest;
-    while (*d++ = *src++);
+    while ((*d++ = *src++));
     *d = '\0';
     return dest;
 }
@@ -72,7 +73,7 @@ inline void *memset(void *s, int c, size_t n) {
 
 char *strnchr(const char *s, size_t n, char c) {
     char *cur = (char *)s;
-    while (*cur && ((cur - s) < n)) {
+    while (*cur && ((cur - s) < (int)n)) {
         if (c == *cur) 
             return cur;
         ++cur;
@@ -83,7 +84,7 @@ char *strnchr(const char *s, size_t n, char c) {
 char *strnrchr(const char *s, size_t n, char c) {
     char *cur = (char *)s;
     char *last = null;
-    while (*cur && ((cur - s) < n)) {
+    while (*cur && ((cur - s) < (int)n)) {
         if (c == *cur) 
             last = cur;
         ++cur;
