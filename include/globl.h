@@ -60,8 +60,17 @@ typedef char bool;
         void *next, *prev;  \
     } link;
 
-#define list_next(node) ((typeof node *)(node->link.next))
-#define list_prev(node) ((typeof node *)(node->link.prev))
+#define DLINKED_LIST_INIT(_prev, _next)   \
+    .link = { .next = (_next), .prev = (_prev) }
+
+#define list_next(node) (typeof(node))(node->link.next)
+#define list_prev(node) (typeof(node))(node->link.prev)
+
+#define list_link_next(list, next_node) (list)->link.next = (next_node)
+#define list_link_prev(list, prev_node) (list)->link.prev = (prev_node)
+
+#define list_foreach(var, list) \
+    for (var = list; var; var = list_next(var)) 
 
 #endif // __LANGEXTS__
 

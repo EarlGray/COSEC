@@ -31,18 +31,19 @@ typedef  struct file_link           flink_t;
 
 typedef char filetype_t;
 
+/*
+ *  Interface for file data access,
+ *  does not know anything about file content and structure
+ */
 struct index_node {
-    index_t index;
     mnode_t* mnode;
-    
-    count_t nlink;
-    filetype_t type;
+    index_t index;
 
-    inode_t *next;
-    inode_t *prev;
+    count_t nlink;  /* reference count */
 
-    void *data;     /* 'dnode_t *' for directory */
-    void *fsinfo;   /* depends on filesystem */
+    void *fs_spec;  /* filesystem specific info */
+
+    DLINKED_LIST    /* index list */
 };
 
 
@@ -52,28 +53,44 @@ struct index_node {
 
 #define FS_DELIM      '/'
 
+/*
+ *  determines file type,
+ *  links to physical inode
+ *  holds file name,
+ *  owns additional file metainformation.
+ */
 struct file_link {
+    /* what is my name */
     const char *f_name;
+
+    /* my body */
     inode_t *f_inode;
+
+    /* society (directory) I belong to  */
     dnode_t *f_dir;
 
-    /** neighbours in directory **/
-    flink_t *f_next;
-    flink_t *f_prev;
+    /* who I am */
+    filetype_t type;
+
+    /* my social responsibilities according to 'type',
+       e.g. 'dnode_t *' for directory */
+    void *data;
+
+    /* circle of acquaintances (my directory) */
+    DLINKED_LIST
 };
 
+/*
+ *  directory entry
+ */
 struct directory {
-    flink_t f;     /* file which this dir is */
-    mnode_t *d_mnode;     /* mounted fs of this dir */
+    /* directory content starting from "." and ".." */
+    flink_t *d_files;
+    dnode_t *d_subdirs;  /* subset of d_files */
 
-    dnode_t *d_parent;
+    dnode_t *d_parent;          /* shortcut for d_files[1], ".." */
 
-    list dnode_t *d_subdirs;
-    list flink_t *d_files;
-
-    /* list of neighbours directories */
-    dnode_t *d_next;
-    dnode_t *d_prev;
+    DLINKED_LIST    /* list of directories node */
 };
 
 int vfs_mkdir(const char *path, uint mode);
