@@ -74,11 +74,13 @@ struct file_link {
 
     /* my social responsibilities according to 'type',
        e.g. 'dnode_t *' for directory */
-    void *data;
+    void *type_spec;
 
     /* circle of acquaintances (my directory) */
     DLINKED_LIST
 };
+
+#define vfs_flink_type_is(flink, type)  ((flink)->type == type)
 
 /*
  *  directory entry
@@ -88,9 +90,9 @@ struct directory {
     flink_t *d_files;
     dnode_t *d_subdirs;  /* subset of d_files */
 
-    dnode_t *d_parent;          /* shortcut for d_files[1], ".." */
+    dnode_t *d_parent;   /* shortcut for d_files[1], ".." */
 
-    DLINKED_LIST    /* list of directories node */
+    DLINKED_LIST         /* list of directories node */
 };
 
 int vfs_mkdir(const char *path, uint mode);
@@ -106,7 +108,7 @@ struct filesystem_struct {
     const char *name;
 
     char* (*get_name_for_device)(const char *);
-    int (*populate_tree)(mnode_t *);
+    int (*grow_branch)(mnode_t *);
     inode_t* (*new_inode)(mnode_t *);
 };
 
@@ -125,6 +127,9 @@ struct mount_node {
 
     /** count of dependent mount nodes **/
     count_t deps_count;
+
+    /** fs-specific info */
+
 };
 
 
@@ -135,10 +140,11 @@ struct mount_node {
 #define EINVAL      0x0001
 #define ENOMEM      0x0002
 
-#define ENODEV      0x8001
+#define ENODEV      0x8001 /* fs type is not recognized */
 #define ENOENT      0x8002
 #define ENOTDIR     0x8003
 #define EEXIST      0x8004
+#define EBUSY       0x8005
 
 struct mount_options_struct {
     const char *fs_str;     /* name of file system type, e.g. "ramfs" */

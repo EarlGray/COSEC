@@ -3,14 +3,23 @@
 
 #define VIRTUAL_ADDRESS 0xc0100000
 
-uint pg_alloc(void);
-void pg_free(uint);
+/** allocate a page **/
+index_t pg_alloc(void);
 
-/***
-  *     Allocating pages
-  *     returns number of first page
- ***/
-uint pmem_alloc(size_t pages_count);
+/** free the page **/
+void pg_free(index_t);
+
+/*
+ *  Allocate consequent pageframes
+ *  returns index of first page
+ */
+index_t pmem_alloc(size_t pages_count);
+
+/*
+ *  Releases pages
+ */
+
+err_t pmem_free(index_t start_page, size_t pages_count);
 
 void pmem_setup(void);
 void pmem_info(void);

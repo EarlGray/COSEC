@@ -30,7 +30,8 @@ typedef short               int16_t;
 typedef long                int32_t;
 typedef long long           int64_t;
 
-typedef uint	size_t, ssize_t, err_t, ptr_t, index_t, count_t;
+typedef uint32_t	size_t, ssize_t, ptr_t, index_t, count_t;
+typedef int32_t     err_t, off_t;
 
 #define MAX_UINT    (0xFFFFFFFF)
 #define MAX_ULONG   (i(MAX_UINT << 32) | MAX_UINT)
@@ -55,19 +56,32 @@ typedef char bool;
  */
 #define __list
 
-#define DLINKED_LIST        \
-    struct {                \
-        void *next, *prev;  \
-    } link;
+typedef struct {
+    void *prev;
+    void *next;
+} list_node;
+
+#define __DEFAULT_LIST_NAME         link
+
+#define DLINKED_NAMED_LIST(name)    list_node name;        // named list
+#define DLINKED_LIST                DLINKED_NAMED_LIST(__DEFAULT_LIST_NAME);
 
 #define DLINKED_LIST_INIT(_prev, _next)   \
-    .link = { .next = (_next), .prev = (_prev) }
+    .__DEFAULT_LIST_NAME = { .next = (_next), .prev = (_prev) }
+#define DLINKED_NAMED_LIST_INIT(_name, _prev, _next) \
+    ._name = { .next = (_next), .prev = (_prev) }
 
-#define list_next(node) (typeof(node))(node->link.next)
-#define list_prev(node) (typeof(node))(node->link.prev)
+#define list_next(node) (typeof(node))(node->__DEFAULT_LIST_NAME.next)
+#define list_prev(node) (typeof(node))(node->__DEFAULT_LIST_NAME.prev)
 
-#define list_link_next(list, next_node) (list)->link.next = (next_node)
-#define list_link_prev(list, prev_node) (list)->link.prev = (prev_node)
+#define nlist_next(name, node) (typeof(node))(node->name.next)
+#define nlist_prev(name, node) (typeof(node))(node->name.prev)
+
+#define list_link_next(list, next_node) (list)->__DEFAULT_LIST_NAME.next = (next_node)
+#define list_link_prev(list, prev_node) (list)->__DEFAULT_LIST_NAME.prev = (prev_node)
+
+#define nlist_link_next(name, node, next_node) (node)->(nlist).next = (next_node)
+#define nlist_link_prev(name, node, prev_node) (node)->(nlist).prev = (prev_node)
 
 #define list_foreach(var, list) \
     for (var = list; var; var = list_next(var)) 
