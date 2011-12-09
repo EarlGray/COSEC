@@ -12,13 +12,13 @@ struct index_node;
 struct vfs_pool_struct;
 struct filesystem_struct;
 
+typedef  struct index_node          inode_t;
+typedef  struct file_link           flink_t;
+typedef  struct directory           dnode_t;
 typedef  struct filesystem_struct   filesystem_t;
 typedef  struct mount_node          mnode_t;
-typedef  struct index_node          inode_t;
-typedef  struct directory           dnode_t;
+typedef  struct mount_options_struct  mount_options;
 typedef  struct vfs_pool_struct     vfs_pool_t;
-typedef  struct file_link           flink_t;
-
 
 /***
   *         File structure
@@ -45,7 +45,6 @@ struct index_node {
 
     DLINKED_LIST    /* index list */
 };
-
 
 /***
   *         Directory structure
@@ -80,7 +79,10 @@ struct file_link {
     DLINKED_LIST
 };
 
-#define vfs_flink_type_is(flink, type)  ((flink)->type == type)
+
+static inline bool vfs_flink_type_is(flink_t *flink, filetype_t ftype) {
+    return flink->type == ftype;
+}
 
 /*
  *  directory entry
@@ -150,7 +152,6 @@ struct mount_options_struct {
     const char *fs_str;     /* name of file system type, e.g. "ramfs" */
     uint flags;
 };
-typedef  struct mount_options_struct  mount_options;
 
 
 /** Mount: file 'what' at 'at' as 'fs' **/
@@ -170,7 +171,6 @@ typedef uint file_t;
 struct vfs_pool_struct {
     dnode_t *cwd;
 };
-
 
 /*** **************************************************************************
   *     File operations

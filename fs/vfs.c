@@ -21,7 +21,7 @@ flink_t root_file = {
 };
 
 dnode_t root_directory = {
-    .d_files = null,
+    .d_files = &root_file,
     .d_subdirs = null,
     .d_parent = null,               /* const */
 
@@ -82,7 +82,7 @@ flink_t* vfs_file_by_npath(const char *path, const size_t n) {
         if ((start - path) >= n)
             end = path + n;
 
-        flink_t *subdir = vfs_file_by_nname(start, end - start);
+        flink_t *subdir = vfs_file_by_nname(current, start, end - start);
         if (!vfs_flink_type_is(subdir, IT_DIR))
             return null;
 
@@ -166,6 +166,7 @@ err_t mount(const char *source, dnode_t *dir, filesystem_t *fs, mount_options *o
     mnode->deps_count = 0;
     mnode->at = dir;
     mnode->name = fs->get_name_for_device(source);
+    mnode->fs = fs;
 
     // if (
 
@@ -223,19 +224,20 @@ void print_ls(void){
 
 void print_mount(void) {
     struct mountpoints_list_t *mntlist = mountpoints_list;
-    while (mntlist) {
+    for (; mntlist; mntlist = mntlist->next) {
         mnode_t *mnode = mntlist->mnode;
-        k_printf("%s\t%s\n", mnode->name, mnode->fs->name);
-        mntlist = mntlist->next;
+        k_printf("%s\t'%s'\tat %s\n",
+                mnode->fs->name, mnode->name, mnode->at->d_files->f_name);
     }
 }
 
 #include <fs/ramfs.h>
 
 void vfs_setup(void) {
+    err_t retval = 0;
+
     fs_register(&ramfs);
 
-    err_t retval = 0;
     retval = vfs_mount("rootfs", "/", "ramfs");
     if (retval) logf("error: 0x%x\n", retval);
 
