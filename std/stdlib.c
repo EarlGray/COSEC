@@ -3,11 +3,13 @@
 #include <mm/kheap.h>
 
 int strcmp(const char *s1, const char *s2) {
+    if (s1 == s2)
+        return true;
     while (1) {
-        if ((*s1) != (*s2)) return ((*s2) - (*s1));   
+        if ((*s1) != (*s2)) return ((*s2) - (*s1));
         if (0 == (*s1)) return 0;
         ++s1, ++s2;
-    } 
+    }
 }
 
 int memcmp(const void *s1, const void *s2, size_t n) {
@@ -16,7 +18,7 @@ int memcmp(const void *s1, const void *s2, size_t n) {
     const char *c2 = s2;
     for (i = 0; i < (int)n; ++i) {
         char diff = *c1 - *c2;
-        if (diff) 
+        if (diff)
             return diff;
         ++c2; ++c1;
     }
@@ -26,7 +28,7 @@ int memcmp(const void *s1, const void *s2, size_t n) {
 int strncmp(const char *s1, const char *s2, size_t n) {
     size_t i;
     for (i = 0; i < n; ++i) {
-        if (s1[i] != s2[i]) return (s2[i] - s1[i]);   
+        if (s1[i] != s2[i]) return (s2[i] - s1[i]);
         if (0 == s1[i]) return 0;
     }
     return 0;
@@ -45,9 +47,9 @@ char *strcpy(char *dest, const char *src) {
 char *strncpy(char *dest, const char *src, size_t n) {
     size_t i = 0;
     char *d = dest;
-    while ((*src) && !(i++ < n)) 
+    while ((*src) && !(i++ < n))
         *d++ = *src++;
-    while (i++ < n) 
+    while (i++ < n)
         *d++ = '\0';
     return dest;
 }
@@ -74,7 +76,7 @@ inline void *memset(void *s, int c, size_t n) {
 char *strnchr(const char *s, size_t n, char c) {
     char *cur = (char *)s;
     while (*cur && ((cur - s) < (int)n)) {
-        if (c == *cur) 
+        if (c == *cur)
             return cur;
         ++cur;
     }
@@ -85,7 +87,7 @@ char *strnrchr(const char *s, size_t n, char c) {
     char *cur = (char *)s;
     char *last = null;
     while (*cur && ((cur - s) < (int)n)) {
-        if (c == *cur) 
+        if (c == *cur)
             last = cur;
         ++cur;
     }

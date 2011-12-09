@@ -3,7 +3,7 @@
 #include <log.h>
 
 vfs_pool_t default_pool;
-#define current_vfs_pool() (&default_pool) 
+#define current_vfs_pool() (&default_pool)
 
 extern dnode_t root_directory;
 
@@ -49,7 +49,7 @@ flink_t* vfs_file_by_name(const dnode_t *dir, const char *fname) {
 flink_t* vfs_file_by_nname(const dnode_t *dir, const void *fname, size_t n) {
     flink_t *file;
     for (file = dir->d_files; file; file = list_next(file)) {
-        if (('\0' == file->f_name[n]) 
+        if (('\0' == file->f_name[n])
                 && !memcmp(fname, file->f_name, n))
             return file;
     }
@@ -59,18 +59,35 @@ flink_t* vfs_file_by_nname(const dnode_t *dir, const void *fname, size_t n) {
 flink_t* vfs_file_by_npath(const char *path, const size_t n) {
     if (path == null) return null;
 
-    dnode_t *current = &root_directory;
-
     /* prepare pathname lookup */
     if (path[0] != FS_DELIM) {
         log("TODO: vfs_flink_by_path(): relative path resolution");
         return null;
     }
+
     if (path[1] == 0)
         return &root_file;
 
-    log("TODO: not root pathname resolution\n");
-    return null;
+    dnode_t *current = &root_directory;
+    char *start = path, *end = path;  // position of subdir name
+
+    while (1) {
+        start = end + 1;
+
+        end = strchr(start, FS_DELIM);
+        if (null == end)
+            // FS_DELIM not found, path remains a stripped file name:
+            return vfs_file_by_nname(current, start, n - (start - path));
+
+        if ((start - path) >= n)
+            end = path + n;
+
+        flink_t *subdir = vfs_file_by_nname(start, end - start);
+        if (!vfs_flink_type_is(subdir, IT_DIR))
+            return null;
+
+        current = (dnode_t *) subdir->type_spec;
+    }
 }
 
 flink_t* vfs_file_by_path(const char *path) {
@@ -80,7 +97,7 @@ flink_t* vfs_file_by_path(const char *path) {
 
 
 /***
-  *         Filesystems 
+  *         Filesystems
  ***/
 
 struct filesystems_list_t {
@@ -107,7 +124,7 @@ filesystem_t * fs_by_name(const char *name) {
     {
         filesystem_t *fs = fslist->fs;
 
-        if (!strcmp(fs->name, name)) 
+        if (!strcmp(fs->name, name))
             return fs;
     }
     return null;
@@ -208,7 +225,7 @@ void print_mount(void) {
     struct mountpoints_list_t *mntlist = mountpoints_list;
     while (mntlist) {
         mnode_t *mnode = mntlist->mnode;
-        k_printf("%s\t%s\n", mnode->name, mnode->fs->name); 
+        k_printf("%s\t%s\n", mnode->name, mnode->fs->name);
         mntlist = mntlist->next;
     }
 }
