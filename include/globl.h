@@ -58,6 +58,7 @@ typedef char bool;
 #define __list
 
 typedef struct {
+    void *first;
     void *prev;
     void *next;
 } list_node;

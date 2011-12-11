@@ -19,6 +19,7 @@ native sudo. In order to do use mount when fuse is installed, use
 
 To make boot image manually, use res/fd.tar.bz2 (floppy image with preinstalled 
 GRUB, copy res/menu.lst to ${floppy.img}/boot/grub/, put ${kernel} to ${floppy}/.
+For GRUB: use 'multiboot' command or 'kernel --type=multiboot (fd0)/kernel' before 
+'boot'!
 
 Please report issues to dmytrish@gmail.com 
-

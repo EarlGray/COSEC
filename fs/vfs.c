@@ -21,8 +21,8 @@ flink_t root_file = {
 };
 
 dnode_t root_directory = {
-    .d_files = null,
     .d_file = &root_file,           /* const */
+    .d_files = null,
     .d_parent = null,               /* const */
 
     DLINKED_LIST_INIT(null, null)   /* const */
@@ -320,10 +320,9 @@ void vfs_setup(void) {
     retval = vfs_mkdir("/etc", 0755);
     if (retval) logf("error: 0x%x\n", retval);
 
-    /*retval = vfs_mkdir("/dev", 0755);
+    retval = vfs_mkdir("/dev", 0755);
     if (retval) logf("error: 0x%x\n", retval);
 
     retval = vfs_mount("devfs", "/dev", "ramfs");
     if (retval) logf("error: 0x%x\n", retval);
-*/
 }

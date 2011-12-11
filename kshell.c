@@ -71,7 +71,7 @@ void print_mem(const char *p, size_t count) {
             /* start next line */
             s = snprintf(buf, 100, "%0.8x: ", (uint32_t)(p + i));
         }
-    
+
         if (0 == (uint)(p + i) % 0x4) {
             s += snprintf(buf + s, 100 - s, " ");
         }
@@ -121,9 +121,9 @@ void console_readline(char *buf, size_t size) {
     char *cur = buf;
     while (1) {
         char c = getchar();
-           
+
         switch (c) {
-        case '\n': 
+        case '\n':
             cur[0] = 0;
             k_printf("\n");
             return;
@@ -188,9 +188,14 @@ void kshell_ls();
 void kshell_mount();
 void kshell_panic();
 
+void kshell_init() {
+    test_init();
+}
+
 const struct kshell_command main_commands[] = {
+    {   .name = "init",     .handler = kshell_init,  .description = "userspace init()", .options = "just init!" },
+    {   .name = "test",     .handler = kshell_test,  .description = "test utility", .options = "sprintf kbd timer serial tasks ring3 usr" },
     {   .name = "info",     .handler = kshell_info,  .description = "various info", .options = "stack gdt pmem colors cpu pci" },
-    {   .name = "do",       .handler = kshell_test,  .description = "test utility", .options = "sprintf kbd timer serial tasks ring3 usr" },
     {   .name = "mem",      .handler = kshell_mem,   .description = "mem <start_addr> <size = 0x100>" },
     {   .name = "heap",     .handler = kshell_heap,  .description = "heap utility", .options = "info alloc free check" },
     {   .name = "set",      .handler = kshell_set,   .description = "manage global variables", .options = "color prompt" },
@@ -234,12 +239,12 @@ static inline size_t strcmpsz(const char *s1, const char *s2, char endchar) {
 bool kshell_autocomplete(char *buf) {
     int i;
     const struct kshell_command *cmd;
-    
+
     // search for commands
     for (cmd = main_commands; cmd->name; ++cmd) {
         i = strcmpsz(cmd->name, buf, 0);
         if (i == strlen(cmd->name)) {
-            // full main command 
+            // full main command
             char *rest = buf + i;
             skip_gaps(rest);
             if (0 == *rest) {
@@ -262,7 +267,7 @@ bool kshell_autocomplete(char *buf) {
 }
 
 void kshell_heap(const struct kshell_command *this, const char *arg) {
-    if (!strncmp(arg, "info", 4)) 
+    if (!strncmp(arg, "info", 4))
         kheap_info();
     else
     if (!strncmp(arg, "alloc", 5)) {
@@ -270,16 +275,16 @@ void kshell_heap(const struct kshell_command *this, const char *arg) {
         arg += 5;
         const char *end = get_int_opt(arg, (int *)&size, 16);
         if (end == arg) return;
-        
+
         void *p = kmalloc(size);
         k_printf("kmalloc(%x) = *%x\n", (uint)size, (uint)p);
-    } else 
+    } else
     if (!strncmp(arg, "free", 4)) {
         ptr_t p = 0;
         arg += 4;
         const char *end = get_int_opt(arg, (int *)&p, 16);
         if (end == arg) return ;
-        
+
         kfree((void *)p);
         k_printf("kfree(*%x)\n", (uint)p);
     } else
@@ -314,7 +319,7 @@ void kshell_info(const struct kshell_command *this, const char *arg) {
     } else
     if (!strcmp(arg, "cpu")) {
         print_cpu();
-    } else 
+    } else
     if (!strcmp(arg, "pci")) {
         pci_setup();
     } else {
@@ -328,11 +333,16 @@ void kshell_set(const struct kshell_command *this, const char *arg) {
         arg += 5;
         int attr;
         const char *end = get_int_opt(arg, &attr, 16);
-        if (end != arg) 
+        if (end != arg)
             set_cursor_attr(attr);
-    } else 
+        else
+            printf("color = %x\n", (uint)get_cursor_attr());
+    } else
     if (!strncmp(arg, "prompt", 6)) {
-        strncpy(prompt, arg + 7, PROMPT_BUF_SIZE);
+        if (*(arg + 6))
+            strncpy(prompt, arg + 7, PROMPT_BUF_SIZE);
+        else
+            print("Why do you want to output prompt if you see it?!\n");
     } else {
         k_printf("Variables: %s\n", this->options);
     }
@@ -344,9 +354,9 @@ void kshell_mem(const struct kshell_command *this, const char *arg) {
     if (addr == 0) {
         k_printf("%s warning: reading 0x0000, default\n", this->name);
     }
-    
+
     arg = get_int_opt(arg, (int *)&size, 16);
-    if (size == 0) 
+    if (size == 0)
         size = 0x100;
 
     print_mem((void *)addr, size);
@@ -355,12 +365,12 @@ void kshell_mem(const struct kshell_command *this, const char *arg) {
 
 void kshell_test(const struct kshell_command *this, const char *cmdline) {
     const struct kshell_subcmd *subcmd;
-    for (subcmd = test_cmds; subcmd->name; ++subcmd) 
+    for (subcmd = test_cmds; subcmd->name; ++subcmd)
         if (!strncmp(cmdline, subcmd->name, strlen(subcmd->name))) {
             (subcmd->handler)();
             return;
         }
-            
+
     k_printf("Options: %s\n\n", this->options);
 }
 
@@ -378,7 +388,7 @@ void kshell_help() {
     k_printf("Available commands:\n");
 
     const struct kshell_command *cmd;
-    for (cmd = main_commands; cmd->name; ++cmd) 
+    for (cmd = main_commands; cmd->name; ++cmd)
         k_printf("\t%s - %s\n", cmd->name, cmd->description);
 
     k_printf("Available shortcuts:\n\tCtrl-L - clear screen\n\n");
@@ -390,7 +400,7 @@ static char * get_args(char *command) {
     char *arg;
     for (arg = command; *arg; ++arg)
         if (*arg == ' ') {
-            while (*arg == ' ') 
+            while (*arg == ' ')
                 *(arg++) = 0;
             break;
         }
@@ -407,14 +417,14 @@ static const char * get_int_opt(const char *arg, int *res, uint8_t base) {
 }
 
 void kshell_do(char *command) {
-    // empty command 
-    if (0 == *command) 
+    // empty command
+    if (0 == *command)
         return;
 
     char *arg = get_args(command);
 
-    const struct kshell_command *cmd; 
-    for (cmd = main_commands; cmd->name; ++cmd) 
+    const struct kshell_command *cmd;
+    for (cmd = main_commands; cmd->name; ++cmd)
         if (!strcmp(cmd->name, command)) {
             cmd->handler(cmd, arg);
             return;
@@ -428,9 +438,9 @@ void kshell_do(char *command) {
 
 void kshell_run(void) {
     char cmd_buf[CMD_SIZE] = { 0 };
-      
+
     console_setup();
-    
+
     for_ever {
         console_write(prompt);
         console_readline(cmd_buf, CMD_SIZE);
