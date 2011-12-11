@@ -7,7 +7,7 @@
 
 #define KHEAP_INITIAL_SIZE  0x100000
 
-#if MEM_DEBUG
+#if MEM_DEBUG && 0
 #   define mem_logf(msg, ...) logf(msg, __VA_ARGS__)
 #else 
 #   define mem_logf(msg, ...)
@@ -22,14 +22,20 @@ void kheap_setup(void) {
 }
 
 void *kmalloc(size_t size) {
+    mem_logf("kmalloc(0x%x)\n", size);
     return firstfit_malloc(theHeap, size);
 }
 
 int kfree(void *p) {
+    mem_logf("kfree(*0x%x)\n", p);
     firstfit_free(theHeap, p);
     return 0;
 }
 
 void kheap_info(void) {
     heap_info(theHeap);
+}
+
+void * kheap_check(void) {
+    return firstfit_corruption(theHeap);
 }

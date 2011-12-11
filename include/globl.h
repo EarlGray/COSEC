@@ -34,6 +34,7 @@ typedef uint32_t	size_t, ssize_t, ptr_t, index_t, count_t;
 typedef int32_t     err_t, off_t;
 
 #define MAX_UINT    (0xFFFFFFFF)
+#define MAX_INT    (0x7FFFFFFF)
 #define MAX_ULONG   (i(MAX_UINT << 32) | MAX_UINT)
 
 /*
@@ -81,9 +82,23 @@ typedef struct {
 #define nlist_link_next(name, node, next_node) (node)->(nlist).next = (next_node)
 #define nlist_link_prev(name, node, prev_node) (node)->(nlist).prev = (prev_node)
 
-#define list_foreach(var, list) \
-    for (var = list; var; var = list_next(var)) 
+#define list_insert(_list, new_node)            \
+    do {                                        \
+        list_link_prev((new_node), null);       \
+        list_link_next((new_node), (_list));    \
+        if ((_list) != null)                    \
+            list_link_prev((_list), (new_node));\
+        (_list) = (new_node);                   \
+    } while (0)
+
+#define list_foreach(_v, _list) \
+    for (_v = (_list); _v; _v = list_next(_v))
 
 #endif // __LANGEXTS__
+
+#ifndef __KSTDLIB_H__
+#define __KSTDLIB_H__
+
+#endif //__KSTDLIB_H__
 
 #endif // ASM

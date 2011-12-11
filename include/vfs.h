@@ -89,15 +89,15 @@ static inline bool vfs_flink_type_is(flink_t *flink, filetype_t ftype) {
  */
 struct directory {
     /* directory content starting from "." and ".." */
-    flink_t *d_files;
-    dnode_t *d_subdirs;  /* subset of d_files */
+    __list flink_t *d_files;
 
+    flink_t *d_file;     /* which file this directory is */
     dnode_t *d_parent;   /* shortcut for d_files[1], ".." */
 
     DLINKED_LIST         /* list of directories node */
 };
 
-int vfs_mkdir(const char *path, uint mode);
+err_t vfs_mkdir(const char *path, uint mode);
 
 bool vfs_is_node(inode_t *node, uint node_type);
 
@@ -130,17 +130,21 @@ struct mount_node {
     /** count of dependent mount nodes **/
     count_t deps_count;
 
+    /** inodes list **/
+    __list inode_t *inodes;
+
     /** fs-specific info */
 
 };
+
 
 
 /** mount flags **/
 #define MS_DEFAULT  0
 
 /** mount errors **/
-#define EINVAL      0x0001
-#define ENOMEM      0x0002
+#define EINVAL      0x8BAD
+#define ENOMEM      0xFFFF
 
 #define ENODEV      0x8001 /* fs type is not recognized */
 #define ENOENT      0x8002
@@ -190,7 +194,7 @@ err_t vfs_close(file_t fd);
   *     Directory operations
  ***/
 
-void print_ls(void);
+void print_ls(const char *);
 void print_mount(void);
 
 void vfs_setup(void);

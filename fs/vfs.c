@@ -11,9 +11,9 @@ extern dnode_t root_directory;
  *      Root directory structures
  */
 flink_t root_file = {
-    .f_name = "/",                  /* const */
-    .f_inode = null,
-    .f_dir = null,                  /* const */
+    .f_name = "/",                  /* const: the only file with / in name */
+    .f_inode = null,                /* to be set on mounting rootfs */
+    .f_dir = null,                  /* const: root file does not belong to any directory */
     .type = IT_DIR,                 /* const */
     .type_spec = &root_directory,   /* const */
 
@@ -21,16 +21,19 @@ flink_t root_file = {
 };
 
 dnode_t root_directory = {
-    .d_files = &root_file,
-    .d_subdirs = null,
+    .d_files = null,
+    .d_file = &root_file,           /* const */
     .d_parent = null,               /* const */
 
     DLINKED_LIST_INIT(null, null)   /* const */
 };
 
 
+#define return_err_if(assertion, msg, errcode) \
+    if (assertion) { k_printf((msg)); return errcode; }
+
 #define return_err_if_not(assertion, msg, errcode) \
-    if (! (assertion)) { k_printf((msg)); return errcode; }
+    if (! (assertion)) { print(msg); return errcode; }
 
 #define return_if_equal(x1, x2) if ((x1) == (x2)) return (x2);
 
@@ -61,15 +64,15 @@ flink_t* vfs_file_by_npath(const char *path, const size_t n) {
 
     /* prepare pathname lookup */
     if (path[0] != FS_DELIM) {
-        log("TODO: vfs_flink_by_path(): relative path resolution");
+        log("TODO: vfs_flink_by_path(): relative path resolution\n");
         return null;
     }
 
-    if (path[1] == 0)
+    if ((path[1] == 0) || (n < 2))
         return &root_file;
 
     dnode_t *current = &root_directory;
-    char *start = path, *end = path;  // position of subdir name
+    const char *start = path, *end = path;  // position of subdir name
 
     while (1) {
         start = end + 1;
@@ -79,7 +82,7 @@ flink_t* vfs_file_by_npath(const char *path, const size_t n) {
             // FS_DELIM not found, path remains a stripped file name:
             return vfs_file_by_nname(current, start, n - (start - path));
 
-        if ((start - path) >= n)
+        if ((start - path) >= (off_t)n)
             end = path + n;
 
         flink_t *subdir = vfs_file_by_nname(current, start, end - start);
@@ -91,7 +94,7 @@ flink_t* vfs_file_by_npath(const char *path, const size_t n) {
 }
 
 flink_t* vfs_file_by_path(const char *path) {
-    return vfs_file_by_npath(path, MAX_UINT);
+    return vfs_file_by_npath(path, MAX_INT);
 }
 
 
@@ -109,29 +112,28 @@ struct filesystems_list_t {
 struct filesystems_list_t *filesystems_list = null;
 
 err_t fs_register(filesystem_t *fs) {
-    struct filesystems_list_t *entry = kmalloc(sizeof(struct filesystems_list_t));
-    list_link_next(entry, filesystems_list);
+    if (null == fs) return EINVAL;
+
+    struct filesystems_list_t *entry =
+        (struct filesystems_list_t *)kmalloc(sizeof(struct filesystems_list_t));
+    if (null == entry) return ENOMEM;
+
     entry->fs = fs;
-    filesystems_list = entry;
+    list_insert(filesystems_list, entry);
     return 0;
 }
 
 filesystem_t * fs_by_name(const char *name) {
     struct filesystems_list_t *fslist;
-    for (fslist = filesystems_list;
-         fslist;
-         fslist = list_next(fslist))
-    {
+    list_foreach(fslist, filesystems_list) {
         filesystem_t *fs = fslist->fs;
-
         if (!strcmp(fs->name, name))
             return fs;
     }
     return null;
 };
 
-#define mnode_parent(mnode) \
-    ((mnode)->at->mnode)
+
 
 struct mountpoints_list_t {
     mnode_t *mnode;
@@ -211,23 +213,97 @@ err_t vfs_mount(const char *source, const char *target, const char *fstype) {
     return mount(source, dir, fs, null);
 }
 
-int vfs_mkdir(const char *path, uint mode) {
-    logf("TODO: vfs_mkdir('%s')\n", path);
+/* Just creates the file and inserts it into directory */
+static inline err_t new_file(
+        dnode_t *dir, const char *name, flink_t **file) {
+    flink_t *f = (flink_t *) kmalloc( sizeof(flink_t) );
+    return_err_if_not(f, "new_file(): ENOMEM", ENOMEM);
+
+    f->f_dir = dir;
+    f->f_name = strcpy(null, name);
+
+    list_insert(dir->d_files, f);
+
+    if (file) *file = f;
     return 0;
 }
 
+
+static err_t new_directory(dnode_t *parent, const char *name, dnode_t **dir) {
+    dnode_t *newd = (dnode_t *) kmalloc( sizeof(dnode_t) );
+    return_err_if_not(newd, "new_directory(): ENOMEM", ENOMEM);
+
+    newd->d_parent = parent;
+
+    flink_t *fnewd;
+    return_err_if(
+        new_file(parent, name, &fnewd),
+        "new_directory():1: ENOMEM", ENOMEM);
+
+    fnewd->type_spec = newd;
+    fnewd->type = IT_DIR;
+
+    newd->d_file = fnewd;
+
+    if (dir) *dir = newd;
+    return 0;
+}
+
+err_t vfs_mkdir(const char *path, uint mode) {
+    logf("vfs_mkdir('%s')\n", path);
+
+    const char *file_delim = strrchr(path, FS_DELIM);
+    const char *fname = file_delim + 1;
+
+    if (file_delim == null)
+        return EINVAL;
+
+    flink_t *fpdir = vfs_file_by_npath(path, fname - path);
+    if (null == fpdir)
+        return ENOENT;
+    if (! vfs_flink_type_is(fpdir, IT_DIR))
+        return ENOTDIR;
+
+    dnode_t *parent_dir = (dnode_t *) fpdir->type_spec;
+
+    /* initialize a new dnode */
+    return new_directory(parent_dir, fname, null);
+}
+
+
 struct kshell_command;
 
-void print_ls(void){
-    //
+void print_ls(const char *arg){
+    flink_t *file = vfs_file_by_path(arg);
+    if (!file) {
+        print("File not found\n");
+        return;
+    }
+
+    printf("  flink_t at *%x\n", file);
+
+    switch (file->type) {
+    case IT_DIR: {
+        dnode_t *dir = (dnode_t *) file->type_spec;
+        printf("  dnode_t at *%x\n", arg, dir);
+
+        print("Files:\n");
+        flink_t *f;
+        list_foreach(f, dir->d_files) 
+            printf("    *%x\t%s\n", f, f->f_name);
+
+        } break;
+    default:
+        printf("Unknown file type 0x%x\n", file->type);
+    }
 }
 
 void print_mount(void) {
     struct mountpoints_list_t *mntlist = mountpoints_list;
     for (; mntlist; mntlist = mntlist->next) {
-        mnode_t *mnode = mntlist->mnode;
-        k_printf("%s\t'%s'\tat %s\n",
-                mnode->fs->name, mnode->name, mnode->at->d_files->f_name);
+        const mnode_t *mnode = mntlist->mnode;
+        k_printf("%s\t on %s\ttype %s\n",
+                mnode->name, mnode->at->d_file->f_name, mnode->fs->name);
     }
 }
 
@@ -241,9 +317,13 @@ void vfs_setup(void) {
     retval = vfs_mount("rootfs", "/", "ramfs");
     if (retval) logf("error: 0x%x\n", retval);
 
-    vfs_mkdir("/etc", 0755);
-    vfs_mkdir("/dev", 0755);
+    retval = vfs_mkdir("/etc", 0755);
+    if (retval) logf("error: 0x%x\n", retval);
+
+    /*retval = vfs_mkdir("/dev", 0755);
+    if (retval) logf("error: 0x%x\n", retval);
 
     retval = vfs_mount("devfs", "/dev", "ramfs");
     if (retval) logf("error: 0x%x\n", retval);
+*/
 }

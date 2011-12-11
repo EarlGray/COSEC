@@ -40,7 +40,7 @@ char *strcpy(char *dest, const char *src) {
     }
     char *d = dest;
     while ((*d++ = *src++));
-    *d = '\0';
+    //*d = '\0';
     return dest;
 }
 
@@ -54,7 +54,7 @@ char *strncpy(char *dest, const char *src, size_t n) {
     return dest;
 }
 
-inline int strlen(const char *s) {
+int strlen(const char *s) {
     const char *c = s;
     while (*c) ++c;
     return c - s;
@@ -65,7 +65,7 @@ void* memcpy(void *dest, const void *src, size_t size) {
     return dest;
 }
 
-inline void *memset(void *s, int c, size_t n) {
+void *memset(void *s, int c, size_t n) {
     char *p = (char *)s;
     unsigned i;
     for (i = 0; i < n; ++i)
@@ -95,9 +95,9 @@ char *strnrchr(const char *s, size_t n, char c) {
 }
 
 char *strchr(const char *s, char c) {
-    return strnchr(s, MAX_UINT, c);
+    return strnchr(s, MAX_INT, c);
 }
 
 char *strrchr(const char *s, char c) {
-    return strnrchr(s, MAX_UINT, c);
+    return strnrchr(s, MAX_INT, c);
 }
