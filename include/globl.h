@@ -4,6 +4,7 @@
 
 #define VERBOSE
 #define VIRTUAL_OFFSET  (0xc0000000)
+#define PAGE_SIZE       0x1000
 
 #define INTR_PROFILING  (0)
 #define MEM_DEBUG       (1)
@@ -99,6 +100,11 @@ typedef struct {
 
 #ifndef __KSTDLIB_H__
 #define __KSTDLIB_H__
+
+extern void *kmalloc(size_t);
+extern int kfree(void *);
+
+#define tmalloc(_type)  ((_type *) kmalloc(sizeof(_type)))
 
 #endif //__KSTDLIB_H__
 

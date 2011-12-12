@@ -71,7 +71,6 @@ static inline uint aligned(uint addr) {
     return ALIGN + (addr & ~(ALIGN - 1));
 }
 
-
 #define USED ((uint)0x80000000)
 
 struct ff_chunk_info {
@@ -163,7 +162,7 @@ firstfit_new(void *startmem, size_t size) {
     chunk_t *initial = (chunk_t *)
             (aligned(this->startmem + ALLOC_SIZE + CHUNK_SIZE) - CHUNK_SIZE);
     chunk_t *heap_end = (chunk_t *)
-            (aligned_back((uint)this->endmem) - CHUNK_SIZE);
+            (((uint)this->endmem / ALIGN) - CHUNK_SIZE);
     set_chunk(initial, heap_end, heap_end, false);
     set_chunk(heap_end, initial, initial, true);    // never merge
 

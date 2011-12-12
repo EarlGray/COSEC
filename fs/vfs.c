@@ -22,6 +22,7 @@ flink_t root_file = {
 
 dnode_t root_directory = {
     .d_file = &root_file,           /* const */
+    .d_mount = null,
     .d_files = null,
     .d_parent = null,               /* const */
 
@@ -161,13 +162,14 @@ err_t mount(const char *source, dnode_t *dir, filesystem_t *fs, mount_options *o
     if (null == new_mountlist_node)
         return ENOMEM;
 
-    mnode_t *mnode = (mnode_t *) kmalloc(sizeof(mnode_t));
+    /* create superblock and initialize fs-dependent part */
+    mnode_t *mnode = fs->new_superblock(source, null);
     if (null == mnode)
         return ENOMEM;
 
+    /* initialize fs-independent fields */
     mnode->deps_count = 0;
     mnode->at = dir;
-    mnode->name = fs->get_name_for_device(source);
     mnode->fs = fs;
 
     // if (

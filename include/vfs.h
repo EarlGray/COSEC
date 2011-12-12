@@ -8,15 +8,17 @@ struct file_link;
 struct directory;
 struct mount_node;
 struct index_node;
+struct inode_operations;
 
 struct vfs_pool_struct;
 struct filesystem_struct;
 
 typedef  struct index_node          inode_t;
+typedef  struct inode_operations    inode_ops;
 typedef  struct file_link           flink_t;
 typedef  struct directory           dnode_t;
 typedef  struct filesystem_struct   filesystem_t;
-typedef  struct mount_node          mnode_t;
+typedef  struct superblock          mnode_t;
 typedef  struct mount_options_struct  mount_options;
 typedef  struct vfs_pool_struct     vfs_pool_t;
 
@@ -41,9 +43,16 @@ struct index_node {
 
     count_t nlink;  /* reference count */
 
-    void *fs_spec;  /* filesystem specific info */
+    size_t length;  /* content length */
+
+    inode_ops *ops; /* inode operations */
 
     DLINKED_LIST    /* index list */
+};
+
+struct inode_operations {
+    ssize_t (*read)(inode_t *, void *, size_t);
+    ssize_t (*write)(inode_t *, void *, size_t);
 };
 
 /***
@@ -80,9 +89,10 @@ struct file_link {
 };
 
 
-static inline bool vfs_flink_type_is(flink_t *flink, filetype_t ftype) {
-    return flink->type == ftype;
+static inline filetype_t vfs_flink_type(flink_t *flink) {
+    return flink->type;
 }
+
 
 /*
  *  directory entry
@@ -92,6 +102,7 @@ struct directory {
     __list flink_t *d_files;
 
     flink_t *d_file;     /* which file this directory is */
+    flink_t *d_mount;    /* mounted tree, if this dir is a mountpoint */
     dnode_t *d_parent;   /* shortcut for d_files[1], ".." */
 
     DLINKED_LIST         /* list of directories node */
@@ -106,18 +117,28 @@ bool vfs_is_node(inode_t *node, uint node_type);
   *         Mount structure
  ***/
 
+/* An abstract filesystem */
 struct filesystem_struct {
     const char *name;
 
-    char* (*get_name_for_device)(const char *);
-    int (*grow_branch)(mnode_t *);
+    mnode_t* (*new_superblock)(const char *source);
+
     inode_t* (*new_inode)(mnode_t *);
 };
 
 filesystem_t* fs_by_name(const char *);
 err_t fs_register(filesystem_t *fs);
 
-struct mount_node {
+/* helper structure for a block device */
+typedef struct {
+    size_t block_size;  /* 0, if a chardev */
+} blockdev_t;
+
+/* Superblock structure
+ * Note: Since superblocks are allocated with fs->new_sb(),
+ * we don't need this ugly void* fs_specific here.
+ */
+struct superblock {
     /** contain name for a specific device, e.g. "MyDisk" **/
     const char *name;
 
@@ -128,16 +149,23 @@ struct mount_node {
     dnode_t *at;
 
     /** count of dependent mount nodes **/
-    count_t deps_count;
+    count_t n_deps;
 
     /** inodes list **/
     __list inode_t *inodes;
 
-    /** fs-specific info */
-
+    /** block device info **/
+    blockdev_t blk;
 };
 
 
+static inline size_t block_size(const mnode_t *superblock) {
+    return superblock->blk.block_size;
+}
+
+static inline bool is_block_device(mnode_t *superblock) {
+    return superblock->blk.block_size != 0;
+}
 
 /** mount flags **/
 #define MS_DEFAULT  0
