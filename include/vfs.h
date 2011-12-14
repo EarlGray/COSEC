@@ -6,7 +6,7 @@
 struct file_link;
 
 struct directory;
-struct mount_node;
+struct superblock;
 struct index_node;
 struct inode_operations;
 
@@ -51,8 +51,8 @@ struct index_node {
 };
 
 struct inode_operations {
-    ssize_t (*read)(inode_t *, void *, size_t);
-    ssize_t (*write)(inode_t *, void *, size_t);
+    ssize_t (*read)(inode_t *, void *, off_t, size_t);
+    ssize_t (*write)(inode_t *, void *, off_t, size_t);
 };
 
 /***
@@ -93,6 +93,10 @@ static inline filetype_t vfs_flink_type(flink_t *flink) {
     return flink->type;
 }
 
+static inline bool vfs_is_directory(flink_t *flink) {
+    return flink->type == IT_DIR;
+}
+
 
 /*
  *  directory entry
@@ -121,7 +125,7 @@ bool vfs_is_node(inode_t *node, uint node_type);
 struct filesystem_struct {
     const char *name;
 
-    mnode_t* (*new_superblock)(const char *source);
+    mnode_t* (*new_superblock)(const char *source, mount_options *opts);
 
     inode_t* (*new_inode)(mnode_t *);
 };
@@ -140,7 +144,7 @@ typedef struct {
  */
 struct superblock {
     /** contain name for a specific device, e.g. "MyDisk" **/
-    const char *name;
+    char *name;
 
     /** fs driver **/
     filesystem_t *fs;
@@ -151,7 +155,10 @@ struct superblock {
     /** count of dependent mount nodes **/
     count_t n_deps;
 
-    /** inodes list **/
+    /** inodes list
+        Note: this field should be readonly, because filesystem
+        must manage inodes and their memory.
+     **/
     __list inode_t *inodes;
 
     /** block device info **/

@@ -183,8 +183,6 @@ typedef  struct i386_general_purpose_registers  i386_gp_regs;
 /***
   *     Paging
  ***/
-#define PAGE_SHIFT  12
-#define PAGE_SIZE   (1 << PAGE_SHIFT)
 
 /***
   *     Interrupts

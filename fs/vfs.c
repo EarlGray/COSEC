@@ -87,7 +87,7 @@ flink_t* vfs_file_by_npath(const char *path, const size_t n) {
             end = path + n;
 
         flink_t *subdir = vfs_file_by_nname(current, start, end - start);
-        if (!vfs_flink_type_is(subdir, IT_DIR))
+        if (! vfs_is_directory(subdir))
             return null;
 
         current = (dnode_t *) subdir->type_spec;
@@ -168,7 +168,7 @@ err_t mount(const char *source, dnode_t *dir, filesystem_t *fs, mount_options *o
         return ENOMEM;
 
     /* initialize fs-independent fields */
-    mnode->deps_count = 0;
+    mnode->n_deps = 0;
     mnode->at = dir;
     mnode->fs = fs;
 
@@ -208,7 +208,7 @@ err_t vfs_mount(const char *source, const char *target, const char *fstype) {
         return reterr;
 
     /* source must be mountable */
-    reterr = check_device_mountability(source, fstype);
+    reterr = check_device_mountability(source, fs);
     if (reterr)
         return reterr;
 
@@ -263,7 +263,7 @@ err_t vfs_mkdir(const char *path, uint mode) {
     flink_t *fpdir = vfs_file_by_npath(path, fname - path);
     if (null == fpdir)
         return ENOENT;
-    if (! vfs_flink_type_is(fpdir, IT_DIR))
+    if (! vfs_is_directory(fpdir))
         return ENOTDIR;
 
     dnode_t *parent_dir = (dnode_t *) fpdir->type_spec;
@@ -319,7 +319,7 @@ void vfs_setup(void) {
     retval = vfs_mount("rootfs", "/", "ramfs");
     if (retval) logf("error: 0x%x\n", retval);
 
-    retval = vfs_mkdir("/etc", 0755);
+    /*retval = vfs_mkdir("/etc", 0755);
     if (retval) logf("error: 0x%x\n", retval);
 
     retval = vfs_mkdir("/dev", 0755);
@@ -327,4 +327,5 @@ void vfs_setup(void) {
 
     retval = vfs_mount("devfs", "/dev", "ramfs");
     if (retval) logf("error: 0x%x\n", retval);
+    */
 }

@@ -25,6 +25,17 @@ int memcmp(const void *s1, const void *s2, size_t n) {
     return 0;
 }
 
+/*
+void* memcpy(void *dest, const void *src, size_t n) {
+    char *d = dest;
+    const char *s = src;
+    size_t i;
+    for (i = 0; i < n; ++i)
+        *d++ = *s++;
+    return dest;
+}
+ */
+
 int strncmp(const char *s1, const char *s2, size_t n) {
     size_t i;
     for (i = 0; i < n; ++i) {
