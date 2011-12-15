@@ -384,14 +384,23 @@ void kshell_panic() {
     asm (".word 0xB9F0 \n");
 }
 
-void kshell_help() {
-    k_printf("Available commands:\n");
-
+void kshell_help(const struct kshell_command *this, const char *cmdline) {
     const struct kshell_command *cmd;
-    for (cmd = main_commands; cmd->name; ++cmd)
-        k_printf("\t%s - %s\n", cmd->name, cmd->description);
+    if (*cmdline) {
+        for (cmd = main_commands; cmd->name; ++cmd)
+            if (!strcmp(cmd->name, cmdline)) {
+                printf("\n\t%s\n", cmd->name);
+                printf("Description: %s\n", cmd->description);
+                printf("Options:     %s\n", cmd->options);
+                return;
+            }
+    }
 
-    k_printf("Available shortcuts:\n\tCtrl-L - clear screen\n\n");
+    print("Available commands ('help cmd' for more):\n\t");
+    for (cmd = main_commands; cmd->name; ++cmd)
+        printf("%s, ", cmd->name);
+
+    print("\n\nAvailable shortcuts:\n\tCtrl-L - clear screen\n\n");
 }
 
 
