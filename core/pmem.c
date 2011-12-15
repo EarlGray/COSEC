@@ -51,16 +51,16 @@ extern void _start, _end;
   *     Alignment
  ***/
 
-inline uint aligned_back(uint addr) {
-    return (addr & ~(PAGE_SIZE - 1));
+static inline uint aligned_back(uint addr) {
+    return addr / PAGE_SIZE;
 }
 
 /*      aligned(n*PAGE_SIZE) = n*PAGE_SIZE
  *      aligned(n*PAGE_SIZE + 1) = (n+1)*PAGE_SIZE
  */
-inline uint aligned(uint addr) {
-    if (addr & (uint)(PAGE_SIZE - 1))
-        return aligned_back(addr) + PAGE_SIZE;
+static inline uint aligned(uint addr) {
+    if (addr % PAGE_SIZE)
+        return PAGE_SIZE * (1 + addr / PAGE_SIZE);
     return addr;
 }
 
@@ -103,8 +103,7 @@ void pg_free(index_t index) {
 
 void pages_set(uint addr, uint size, bool reserved) {
     uint end_page = aligned(addr + size - 1) / PAGE_SIZE;
-    if (end_page == 0)
-        return;
+    if (end_page == 0) return;
 
     uint i = addr / PAGE_SIZE;
     if ((!reserved) && (addr % PAGE_SIZE)) ++i;
@@ -180,7 +179,7 @@ index_t pmem_alloc(size_t pages_count) {
 
         if ((i - last_reserved) >= pages_count) {
             int j;
-            mem_logf("Allocating %x pages at [%x]\n", pages_count, last_reserved);
+            mem_logf("pmem_alloc(%x) => page[%x]\n", pages_count, last_reserved);
             for (j = 0; j < (int)pages_count; ++j) {
                 ++ thePageframeMap[last_reserved + j].used;
                 -- n_available_pages;
@@ -227,7 +226,7 @@ void pmem_info() {
             else ++free_pages;
     }
     printf("Page size: 0x%x\nMem map[0x%x] at 0x%x\n", PAGE_SIZE, n_pages, (uint)thePageframeMap);
-    printf("Pages count: 0x%x; free: 0x%x, occupied: 0x%x, reserved: 0x%xh\n",
-            n_pages, free_pages, occupied_pages, reserved_pages);
+    printf("Pages count: 0x%x; free: 0x%x(0x%x), occupied: 0x%x, reserved: 0x%xh\n",
+            n_pages, n_available_pages, free_pages, occupied_pages, reserved_pages);
     printf("currrent page index = 0x%x\n", current_page);
 }

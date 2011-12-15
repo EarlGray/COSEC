@@ -116,7 +116,7 @@ err_t fs_register(filesystem_t *fs) {
     if (null == fs) return EINVAL;
 
     struct filesystems_list_t *entry =
-        (struct filesystems_list_t *)kmalloc(sizeof(struct filesystems_list_t));
+        tmalloc(struct filesystems_list_t);
     if (null == entry) return ENOMEM;
 
     entry->fs = fs;
@@ -314,18 +314,19 @@ void print_mount(void) {
 void vfs_setup(void) {
     err_t retval = 0;
 
-    fs_register(&ramfs);
+    retval = fs_register(get_ramfs());
+    if (retval) logf("error: 0x%x\n", retval);
 
     retval = vfs_mount("rootfs", "/", "ramfs");
     if (retval) logf("error: 0x%x\n", retval);
 
-    /*retval = vfs_mkdir("/etc", 0755);
+    retval = vfs_mkdir("/etc", 0755);
     if (retval) logf("error: 0x%x\n", retval);
 
     retval = vfs_mkdir("/dev", 0755);
     if (retval) logf("error: 0x%x\n", retval);
 
-    retval = vfs_mount("devfs", "/dev", "ramfs");
+    /*retval = vfs_mount("devfs", "/dev", "ramfs");
     if (retval) logf("error: 0x%x\n", retval);
     */
 }

@@ -4,6 +4,7 @@
 #include <vfs.h>
 
 extern inode_ops ramfs_inode_ops;
-extern filesystem_t ramfs;
+
+const filesystem_t *get_ramfs(void);
 
 #endif //__RAMFS_H__

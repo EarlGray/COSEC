@@ -20,7 +20,7 @@
  *
  *  Size of pool is determined as count of blocks descriptors
  *  which fit to one block.
- *  Block descriptor (ramfs_block_descriptor_t) contains pointer to
+ *  Block descriptor (blkdescr_t) contains pointer to
  *  its pool, pointer to block itself and pointer to next block descrip-
  *  tor. The first block in pool is used for holding the block
  *  descriptors array; the first item of this array
@@ -77,6 +77,10 @@ filesystem_t ramfs = {
     .new_inode = ramfs_new_inode,
 };
 
+const filesystem_t *get_ramfs(void) {
+    return &ramfs;
+}
+
 
 /*
  *      Internal declarations
@@ -88,7 +92,7 @@ struct ramfs_pool_struct;
 
 typedef void * block_t;
 
-typedef  struct ramfs_blkdescr_struct  ramfs_block_descriptor_t;
+typedef  struct ramfs_blkdescr_struct  blkdescr_t;
 typedef  struct ramfs_superblock_struct  ramfs_superblock_t;
 typedef  struct ramfs_pool_struct  ramfs_pool_t;
 
@@ -123,24 +127,30 @@ struct ramfs_pool_struct {
     /* array of block descriptors for this pool.
        it fills the first block of the pool,
        its length is held in inf.n_blocks */
-    ramfs_block_descriptor_t blkarray[0];
+    blkdescr_t blkarray[0];
 };
 
-#define BLK_DESCR_SIZE  sizeof(ramfs_block_descriptor_t)
+#define BLK_DESCR_SIZE  sizeof(blkdescr_t)
 
 /* allocate and insert into 'this' a new pool */
 static ramfs_pool_t *make_pool(ramfs_superblock_t *this);
 
-static inline ramfs_block_descriptor_t *
+static inline blkdescr_t *
 get_free_blocks_of(ramfs_pool_t *pool) {
     return pool->blkarray + RAMFS_FREE_BLOCK;
 }
 
 static inline ptr_t
-block_aligned(const ramfs_block_descriptor_t *b, ptr_t addr) {
+block_aligned(const blkdescr_t *b, ptr_t addr) {
     ptr_t blksz = b->pool->inf.block_size;
     return addr / blksz + ( addr % blksz ? blksz : 0 );
 }
+
+static __list blkdescr_t *
+allocate_block_list(ramfs_superblock_t *sb, size_t block_count);
+
+static err_t free_block_list(__list blkdescr_t *blocks);
+
 
 /*
  *      VFS structures extensions
@@ -160,7 +170,7 @@ struct ramfs_superblock_struct {
 typedef struct {
     inode_t vfs;    /* vfs index node */
 
-    ramfs_block_descriptor_t* start_block;
+    blkdescr_t* start_block;
 } ramfs_inode_t;
 
 
@@ -251,7 +261,7 @@ static ssize_t ramfs_read(
 
     size_t bytes_to_copy;
 
-    ramfs_block_descriptor_t * block = rfs_inode->start_block;
+    blkdescr_t * block = rfs_inode->start_block;
 
     const size_t blksz = block->pool->inf.block_size;
 
@@ -270,7 +280,6 @@ static ssize_t ramfs_read(
 
         bytes_read += bytes_to_copy;
         offp += bytes_to_copy;
-
         buf = (uint8_t *)buf + bytes_to_copy;
         block = list_next(block);
     }
@@ -280,7 +289,50 @@ static ssize_t ramfs_read(
 
 static ssize_t ramfs_write(
         inode_t *this, void *buf, off_t offset, size_t count) {
-    return 0;
+    ramfs_inode_t *rthis = (ramfs_inode_t *)this;
+
+    // is there enough place?
+    const size_t blksz = block_size(this->mnode);
+    size_t blocks_count = this->length / blksz;
+    if (this->length % blksz) ++blocks_count;
+
+    size_t blocks_needed = (offset + count) / blksz;
+    if ((offset + count) % blksz) ++blocks_needed;
+
+    int n_newblocks = (int)blocks_needed - (int)blocks_count;
+    if (n_newblocks > 0) {
+        // allocate additional blocks
+        ramfs_superblock_t *sb = (ramfs_superblock_t *)this->mnode;
+        __list blkdescr_t *newl = allocate_block_list(sb, n_newblocks);
+        list_append(rthis->start_block, newl);
+    }
+
+    size_t bytes_written = 0;
+    size_t bytes_to_write = 0;
+    off_t offp = 0;
+
+    blkdescr_t *block = rthis->start_block;
+    while (offp + blksz < offset) {
+        offp += blksz;
+        block = list_next(block);
+    }
+
+    while (bytes_written < count) {
+        const block_offset = offp % blksz;
+        bytes_to_write = blksz - block_offset;
+        if (bytes_to_write > count)
+            bytes_to_write = count;
+
+        memcpy((uint8_t*)(block->data) + block_offset, 
+                buf, bytes_to_write);
+
+        bytes_written += bytes_to_write;
+        offp += bytes_to_write;
+        buf = (uint8_t *)buf + bytes_to_write;
+        block = list_next(block);
+    }
+
+    return bytes_written;
 }
 
 
@@ -309,7 +361,7 @@ static ramfs_pool_t *new_pool(ramfs_superblock_t *this) {
     pool->inf.block_size = block_size((mnode_t *)this);
 
     // initialize blocks as free
-    ramfs_block_descriptor_t *blkdescr = pool->blkarray;
+    blkdescr_t *blkdescr = pool->blkarray;
 
     index_t i = 0;
     for (; i < pool->inf.n_blocks; ++i) {
@@ -347,7 +399,7 @@ static ramfs_pool_t *make_pool(ramfs_superblock_t *this) {
     list_last(this->pools, last_pool);
 
     /* concatenate lists of free blocks */
-    ramfs_block_descriptor_t *free_block;
+    blkdescr_t *free_block;
     list_last(get_free_blocks_of((ramfs_pool_t *)last_pool),
             free_block);
 
@@ -366,9 +418,9 @@ static ramfs_pool_t *make_pool(ramfs_superblock_t *this) {
  *      Blocks management
  */
 
-static ramfs_block_descriptor_t *
+static blkdescr_t *
 allocate_block(ramfs_superblock_t *sb) {
-    ramfs_block_descriptor_t *blkdescr = null;
+    blkdescr_t *blkdescr = null;
 
     list_foreach (blkdescr, get_free_blocks_of(sb->pools)) {
         /* the first block of a pool can not be taken */
@@ -383,9 +435,9 @@ allocate_block(ramfs_superblock_t *sb) {
     return blkdescr;
 }
 
-static __list ramfs_block_descriptor_t *
+static __list blkdescr_t *
 allocate_block_list(ramfs_superblock_t *sb, size_t block_count) {
-    typedef ramfs_block_descriptor_t bd_t;
+    typedef blkdescr_t bd_t;
 
     __list bd_t *newlist = null;
 
@@ -421,8 +473,8 @@ allocate_block_list(ramfs_superblock_t *sb, size_t block_count) {
     return null;
 }
 
-static err_t free_block_list(__list ramfs_block_descriptor_t *blocks) {
-    typedef ramfs_block_descriptor_t bd_t;
+static err_t free_block_list(__list blkdescr_t *blocks) {
+    typedef blkdescr_t bd_t;
 
     bd_t *cur_blk;
     bd_t *next_blk = blocks;

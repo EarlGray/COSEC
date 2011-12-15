@@ -162,7 +162,7 @@ firstfit_new(void *startmem, size_t size) {
     chunk_t *initial = (chunk_t *)
             (aligned(this->startmem + ALLOC_SIZE + CHUNK_SIZE) - CHUNK_SIZE);
     chunk_t *heap_end = (chunk_t *)
-            (((uint)this->endmem / ALIGN) - CHUNK_SIZE);
+            (ALIGN * (this->endmem / ALIGN) - CHUNK_SIZE);
     set_chunk(initial, heap_end, heap_end, false);
     set_chunk(heap_end, initial, initial, true);    // never merge
 
@@ -248,8 +248,8 @@ void *firstfit_corruption(struct firstfit_allocator *this) {
 #include <log.h>
 
 void heap_info(struct firstfit_allocator *this) {
-    printf("header: \tstartmem = 0x%x\tendmem = 0x%x\tcurrent = 0x%x\n",
-            (uint)this->startmem, (uint)this->endmem, (uint)this->current);
+    printf("header(*%x): startmem = 0x%x, endmem = 0x%x, current = 0x%x\n",
+            (uint)this, (uint)this->startmem, (uint)this->endmem, (uint)this->current);
     chunk_t *cur = this->current;
     do {
         printf("  0x%x %s (0x%x : 0x%x) [0x%x]\n",

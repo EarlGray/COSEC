@@ -17,6 +17,11 @@ struct firstfit_allocator *theHeap;
 
 void kheap_setup(void) {
     void *start_heap_addr = (void *)( pmem_alloc(KHEAP_INITIAL_SIZE / PAGE_SIZE + 1) * PAGE_SIZE );
+    if (0 == start_heap_addr) {
+        log("theHeap allocation failed\n");
+        return;
+    }
+
     theHeap = firstfit_new(start_heap_addr, KHEAP_INITIAL_SIZE);
     mem_logf("theHeap at *%x\n", (ptr_t)theHeap);
 }
