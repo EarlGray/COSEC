@@ -84,7 +84,7 @@ void *memset(void *s, int c, size_t n) {
     return s;
 }
 
-char *strnchr(const char *s, size_t n, char c) {
+char *strnchr(char *s, size_t n, char c) {
     char *cur = (char *)s;
     while (*cur && ((cur - s) < (int)n)) {
         if (c == *cur)
@@ -94,7 +94,7 @@ char *strnchr(const char *s, size_t n, char c) {
     return null;
 }
 
-char *strnrchr(const char *s, size_t n, char c) {
+char *strnrchr(char *s, size_t n, char c) {
     char *cur = (char *)s;
     char *last = null;
     while (*cur && ((cur - s) < (int)n)) {
@@ -105,10 +105,10 @@ char *strnrchr(const char *s, size_t n, char c) {
     return last;
 }
 
-char *strchr(const char *s, char c) {
+char *strchr(char *s, char c) {
     return strnchr(s, MAX_INT, c);
 }
 
-char *strrchr(const char *s, char c) {
+char *strrchr(char *s, char c) {
     return strnrchr(s, MAX_INT, c);
 }

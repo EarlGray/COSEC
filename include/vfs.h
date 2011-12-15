@@ -97,6 +97,12 @@ static inline bool vfs_is_directory(flink_t *flink) {
     return flink->type == IT_DIR;
 }
 
+static inline dnode_t *get_dnode(flink_t *flink) {
+    if (!vfs_is_directory(flink)) return null;
+    if (flink_t->d_mount) return 
+    return (dnode_t *) this->type_spec;
+}
+
 
 /*
  *  directory entry
@@ -106,7 +112,6 @@ struct directory {
     __list flink_t *d_files;
 
     flink_t *d_file;     /* which file this directory is */
-    flink_t *d_mount;    /* mounted tree, if this dir is a mountpoint */
     dnode_t *d_parent;   /* shortcut for d_files[1], ".." */
 
     DLINKED_LIST         /* list of directories node */

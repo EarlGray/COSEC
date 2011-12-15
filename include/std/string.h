@@ -13,10 +13,10 @@ void* memset(void *s, int c, size_t n);
 int memcmp(const void *s1, const void *s2, size_t n);
 void* memcpy(void *dest, const void *src, size_t n);
 
-char *strchr(const char *s, char c);
-char *strrchr(const char *s, char c);
+char *strchr(char *s, char c);
+char *strrchr(char *s, char c);
 
-char *strnchr(const char *s, size_t n, char c);
-char *strnrchr(const char *s, size_t n, char c);
+char *strnchr(char *s, size_t n, char c);
+char *strnrchr(char *s, size_t n, char c);
 
 #endif //__STRING_H__

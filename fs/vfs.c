@@ -10,7 +10,7 @@ extern dnode_t root_directory;
 /*
  *      Root directory structures
  */
-flink_t root_file = {
+flink_t dummy_root_file = {
     .f_name = "/",                  /* const: the only file with / in name */
     .f_inode = null,                /* to be set on mounting rootfs */
     .f_dir = null,                  /* const: root file does not belong to any directory */
@@ -21,7 +21,7 @@ flink_t root_file = {
 };
 
 dnode_t root_directory = {
-    .d_file = &root_file,           /* const */
+    .d_file = &dummy_root_file,     /* const */
     .d_mount = null,
     .d_files = null,
     .d_parent = null,               /* const */
@@ -29,6 +29,7 @@ dnode_t root_directory = {
     DLINKED_LIST_INIT(null, null)   /* const */
 };
 
+dnode_t *root_file = &dummy_root_file;
 
 #define return_err_if(assertion, msg, errcode) \
     if (assertion) { k_printf((msg)); return errcode; }
@@ -50,11 +51,12 @@ flink_t* vfs_file_by_name(const dnode_t *dir, const char *fname) {
     return null;
 }
 
-flink_t* vfs_file_by_nname(const dnode_t *dir, const void *fname, size_t n) {
+flink_t* vfs_file_by_nname(const dnode_t *dir, const char *fname, size_t n) {
     flink_t *file;
+    size_t namelen = strlen(fname);
     for (file = dir->d_files; file; file = list_next(file)) {
-        if (('\0' == file->f_name[n])
-                && !memcmp(fname, file->f_name, n))
+        if (('\0' == file->f_name[namelen])
+                && !memcmp((void *)fname, (void *)file->f_name, n))
             return file;
     }
     return null;
@@ -70,7 +72,7 @@ flink_t* vfs_file_by_npath(const char *path, const size_t n) {
     }
 
     if ((path[1] == 0) || (n < 2))
-        return &root_file;
+        return root_file;
 
     dnode_t *current = &root_directory;
     const char *start = path, *end = path;  // position of subdir name
@@ -87,8 +89,10 @@ flink_t* vfs_file_by_npath(const char *path, const size_t n) {
             end = path + n;
 
         flink_t *subdir = vfs_file_by_nname(current, start, end - start);
-        if (! vfs_is_directory(subdir))
+        if (! vfs_is_directory(subdir)) {
+            logf("Not a directory: %s\n", start);
             return null;
+        }
 
         current = (dnode_t *) subdir->type_spec;
     }
@@ -157,8 +161,8 @@ err_t vfs_is_dir_mountable(dnode_t *dir) {
 }
 
 err_t mount(const char *source, dnode_t *dir, filesystem_t *fs, mount_options *opts) {
-    struct mountpoints_list_t *new_mountlist_node =
-            (struct mountpoints_list_t *) kmalloc(sizeof(struct mountpoints_list_t));
+    struct mountpoints_list_t 
+        *new_mountlist_node = tmalloc(struct mountpoints_list_t);
     if (null == new_mountlist_node)
         return ENOMEM;
 
@@ -169,13 +173,21 @@ err_t mount(const char *source, dnode_t *dir, filesystem_t *fs, mount_options *o
 
     /* initialize fs-independent fields */
     mnode->n_deps = 0;
-    mnode->at = dir;
     mnode->fs = fs;
 
-    // if (
+    /* initialize mountpoint */
+    dnode_t *mntdir;
+    new_directory(dir->d_parent, null, &mntdir);
+    mntdir->d_file->f_name = dir->d_file->f_name;
+    
+    /* replace file link in dir->d_parent with new one */
+    list_replace(dir->d_parent->d_files, dir->d_file, mntdir->d_file);
+
+    mnode->at = mntdir;
 
     /* insert mnode to mountlist */
     new_mountlist_node->mnode = mnode;
+    new_mountlist_node->shadow_dir = dir;
     new_mountlist_node->next = mountpoints_list;
     mountpoints_list = new_mountlist_node;
     return 0;
@@ -216,9 +228,9 @@ err_t vfs_mount(const char *source, const char *target, const char *fstype) {
 }
 
 /* Just creates the file and inserts it into directory */
-static inline err_t new_file(
+static inline err_t new_file_link(
         dnode_t *dir, const char *name, flink_t **file) {
-    flink_t *f = (flink_t *) kmalloc( sizeof(flink_t) );
+    flink_t *f = tmalloc(flink_t);
     return_err_if_not(f, "new_file(): ENOMEM", ENOMEM);
 
     f->f_dir = dir;
@@ -232,14 +244,14 @@ static inline err_t new_file(
 
 
 static err_t new_directory(dnode_t *parent, const char *name, dnode_t **dir) {
-    dnode_t *newd = (dnode_t *) kmalloc( sizeof(dnode_t) );
+    dnode_t *newd = tmalloc(dnode_t);
     return_err_if_not(newd, "new_directory(): ENOMEM", ENOMEM);
 
     newd->d_parent = parent;
 
     flink_t *fnewd;
     return_err_if(
-        new_file(parent, name, &fnewd),
+        new_file_link(parent, name, &fnewd),
         "new_directory():1: ENOMEM", ENOMEM);
 
     fnewd->type_spec = newd;
@@ -304,8 +316,10 @@ void print_mount(void) {
     struct mountpoints_list_t *mntlist = mountpoints_list;
     for (; mntlist; mntlist = mntlist->next) {
         const mnode_t *mnode = mntlist->mnode;
-        k_printf("%s\t on %s\ttype %s\n",
-                mnode->name, mnode->at->d_file->f_name, mnode->fs->name);
+        k_printf("%s (sb=*%x)\t on %s\ttype %s (fs=*%x)\n",
+                mnode->name, (ptr_t)mnode,
+                mnode->at->d_file->f_name, 
+                mnode->fs->name, (ptr_t)mnode->fs);
     }
 }
 
