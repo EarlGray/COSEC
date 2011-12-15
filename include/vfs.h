@@ -99,8 +99,7 @@ static inline bool vfs_is_directory(flink_t *flink) {
 
 static inline dnode_t *get_dnode(flink_t *flink) {
     if (!vfs_is_directory(flink)) return null;
-    if (flink_t->d_mount) return 
-    return (dnode_t *) this->type_spec;
+    return (dnode_t *) flink->type_spec;
 }
 
 

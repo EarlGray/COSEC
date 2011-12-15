@@ -142,7 +142,12 @@ typedef struct {
 
 #define list_release(_list, _node)                  \
     do {                                            \
-        list_node_release(_node);                   \
+        typeof(_node) _lnext = list_next(_node);    \
+        typeof(_node) _lprev = list_prev(_node);    \
+        if (! empty_list(_lnext))                   \
+            list_link_prev(_lnext, list_prev(_node));   \
+        if (! empty_list(_lprev))                   \
+            list_link_next(_lprev, _lnext);         \
         if ((_node) == (_list))                     \
             _list = _lnext; /*maybe null, it's ok*/ \
     } while (0)

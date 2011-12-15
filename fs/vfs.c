@@ -22,7 +22,6 @@ flink_t dummy_root_file = {
 
 dnode_t root_directory = {
     .d_file = &dummy_root_file,     /* const */
-    .d_mount = null,
     .d_files = null,
     .d_parent = null,               /* const */
 
@@ -38,6 +37,8 @@ dnode_t *root_file = &dummy_root_file;
     if (! (assertion)) { print(msg); return errcode; }
 
 #define return_if_equal(x1, x2) if ((x1) == (x2)) return (x2);
+
+static err_t new_directory(dnode_t *parent, const char *name, dnode_t **dir);
 
 /*
  *    File paths and search
@@ -142,6 +143,7 @@ filesystem_t * fs_by_name(const char *name) {
 
 struct mountpoints_list_t {
     mnode_t *mnode;
+    dnode_t *shadow_dir;
     struct mountpoints_list_t *next;
 };
 
@@ -181,7 +183,8 @@ err_t mount(const char *source, dnode_t *dir, filesystem_t *fs, mount_options *o
     mntdir->d_file->f_name = dir->d_file->f_name;
     
     /* replace file link in dir->d_parent with new one */
-    list_replace(dir->d_parent->d_files, dir->d_file, mntdir->d_file);
+    list_release(dir->d_parent->d_files, dir->d_file);
+    list_append(dir->d_parent->d_files, mntdir->d_file);
 
     mnode->at = mntdir;
 
