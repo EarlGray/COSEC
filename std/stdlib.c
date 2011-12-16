@@ -2,14 +2,19 @@
 #include <arch/i386.h>
 #include <mm/kheap.h>
 
-int strcmp(const char *s1, const char *s2) {
-    if (s1 == s2)
-        return 0;
-    while (1) {
+inline int strncmp(const char *s1, const char *s2, size_t n) {
+    if (s1 == s2) return 0;
+    int i = 0;
+    while (i++ < n) {
         if ((*s1) != (*s2)) return ((*s2) - (*s1));
         if (0 == (*s1)) return 0;
         ++s1, ++s2;
     }
+    return 0;
+}
+
+int strcmp(const char *s1, const char *s2) {
+    return strncmp(s1, s2, MAX_UINT);
 }
 
 int memcmp(const void *s1, const void *s2, size_t n) {
@@ -25,49 +30,45 @@ int memcmp(const void *s1, const void *s2, size_t n) {
     return 0;
 }
 
-/*
-void* memcpy(void *dest, const void *src, size_t n) {
-    char *d = dest;
-    const char *s = src;
-    size_t i;
-    for (i = 0; i < n; ++i)
-        *d++ = *s++;
-    return dest;
+inline char *strndup(const char *s, size_t n) {
+    if (s == null) return null;
+    size_t len = strlen(s) + 1;
+    if (len > n) len = n;
+    char *d = (char *) kmalloc(len);
+    return strncpy(d, s, n);
 }
- */
 
-int strncmp(const char *s1, const char *s2, size_t n) {
-    size_t i;
-    for (i = 0; i < n; ++i) {
-        if (s1[i] != s2[i]) return (s2[i] - s1[i]);
-        if (0 == s1[i]) return 0;
-    }
-    return 0;
+char *strdup(const char *s) {
+    return strndup(s, MAX_UINT);
 }
 
 char *strcpy(char *dest, const char *src) {
-    if (dest == null) {
-        dest = (char *)kmalloc(strlen(src) + 1);
-    }
+    if ((src == null) || (dest == null))
+        return null;
     char *d = dest;
     while ((*d++ = *src++));
-    //*d = '\0';
     return dest;
 }
 
 char *strncpy(char *dest, const char *src, size_t n) {
     size_t i = 0;
     char *d = dest;
-    while ((*src) && !(i++ < n))
+    while ((*src) && (i++ < n))
         *d++ = *src++;
-    while (i++ < n)
-        *d++ = '\0';
+    /*while (i++ < n)  *d++ = '\0'; // Sorry: POSIX requires this */
     return dest;
 }
 
-int strlen(const char *s) {
+size_t strlen(const char *s) {
     const char *c = s;
     while (*c) ++c;
+    return c - s;
+}
+
+size_t strnlen(const char *s, size_t maxlen) {
+    const char *c = s;
+    size_t i = 0;
+    while ((i++ < maxlen) && *c) ++c;
     return c - s;
 }
 

@@ -68,17 +68,17 @@ struct inode_operations {
  *  owns additional file metainformation.
  */
 struct file_link {
+    /* who I am */
+    filetype_t type;
+
     /* what is my name */
     const char *f_name;
-
-    /* my body */
-    inode_t *f_inode;
 
     /* society (directory) I belong to  */
     dnode_t *f_dir;
 
-    /* who I am */
-    filetype_t type;
+    /* my body */
+    inode_t *f_inode;
 
     /* my social responsibilities according to 'type',
        e.g. 'dnode_t *' for directory */

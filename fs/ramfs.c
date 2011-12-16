@@ -187,7 +187,7 @@ static mnode_t *ramfs_new_superblock(
     // TODO: read block_size from 'opts'
     mnode->blk.block_size = RAMFS_DEF_BLOCK_SIZE;
 
-    mnode->name = strcpy(null, source);
+    mnode->name = strdup(source);
 
     mnode->inodes = null;
 

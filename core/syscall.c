@@ -14,9 +14,6 @@ const syscall_handler syscalls[] = {
     [SYSCALL_MAX] = sys_print,
 };
 
-#define return_with_msg_if_not(condition, msg)  \
-    do { if (! (condition) ) {   k_printf(msg); return ; } }  while 0
-
 void int_syscall() {
     uint * stack = (uint *)intr_context_esp() + CONTEXT_SIZE/sizeof(uint);
     uint intr_num = *(stack - 1);

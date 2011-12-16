@@ -9,6 +9,12 @@
  *                        ^
  *          point of support for the interrupt
  */
+
+#if TASK_DEBUG
+#   define __DEBUG
+#endif
+
+
 #include <tasks.h>
 
 #include <arch/i386.h>
@@ -22,18 +28,9 @@ task_struct *current = &default_task;
 
 task_next_f         task_next           = null;
 
-#if TASK_DEBUG
-#   define task_logf(msg, ...) logf(msg, __VA_ARGS__)
-#else
-#   define task_logf(msg, ...)
-#endif
-
 /***
   *     Task switching 
  ***/
-
-#define return_if_not(assertion, msg)   \
-    if (!(assertion)) { log(msg); return; }
 
 /* this routine is normally called from within interrupt! */
 static void task_save_context(task_struct *task) {
@@ -41,11 +38,11 @@ static void task_save_context(task_struct *task) {
 
     /* ss3:esp3, efl, cs:eip, general-purpose registers, DS and ES are saved */
     uint *context = (uint *)intr_context_esp();
-    return_if_not (context, "task_save_context: intr_ret is cleared!");
+    assertv(context, "task_save_context: intr_ret is cleared!");
 
     task->tss.esp0 = (uint)context + CONTEXT_SIZE + 5*sizeof(uint);
 
-    task_logf("\n| save cntxt=%x |", (uint)context);
+    logdf("\n| save cntxt=%x |", (uint)context);
 }
 
 /* this routine is normally called from within interrupt! */
@@ -53,7 +50,7 @@ static void task_push_context(task_struct *task) {
     uint context = task->tss.esp0 - CONTEXT_SIZE - 5*sizeof(uint);
     intr_set_context_esp(context);
 
-    task_logf(" push cntxt=%x |\n", context);
+    logdf(" push cntxt=%x |\n", context);
 }
 
 static inline void task_cpu_load(task_struct *task) {
@@ -127,8 +124,8 @@ void task_init(task_struct *task, void *entry,
     segdescr_taskstate_init(taskdescr, (uint)tss, PL_USER);
 
     task->tss_index = gdt_alloc_entry(taskdescr);
-    return_if_not( task->tss_index, "Error: can't allocate GDT entry for TSSD\n");
-    task_logf("new TSS <- GDT[%x]\n", task->tss_index);
+    assertv( task->tss_index, "Error: can't allocate GDT entry for TSSD\n");
+    logdf("new TSS <- GDT[%x]\n", task->tss_index);
 
     /* init is done */
     task->state = TS_READY;

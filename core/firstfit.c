@@ -9,19 +9,6 @@ typedef char bool;
 #define null ((void *)0)
 #endif // __LANGEXTS__
 
-#if MEM_DEBUG
-#   define return_if(assertion, msg)  \
-        if (assertion) {   log(msg);  return; }
-#   define return_if_not(assertion, msg)  \
-        return_if(!(assertion), (msg))
-#else
-#   define return_if(assertion, msg)  \
-        if (assertion)  return
-#   define return_if_not(assertion, msg)  \
-        return_if(!(assertion), (msg))
-#endif
-
-
 /***
  *          Memory allocator with first-fit algorithm
  *
@@ -210,7 +197,7 @@ void * firstfit_malloc(struct firstfit_allocator *this, uint size) {
 }
 
 void firstfit_free(struct firstfit_allocator *this, void *p) {
-    return_if( p == null, "firstfit warning: trying to deallocate ");
+    assertv(p, "firstfit warning: trying to deallocate null");
 
     chunk_t *chunk = (chunk_t *)((uint)p - CHUNK_SIZE);
     if (! check_sum(chunk)) {
