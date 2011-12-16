@@ -190,6 +190,7 @@ static mnode_t *ramfs_new_superblock(
     mnode->name = strdup(source);
 
     mnode->inodes = null;
+    mnode->ops = &ramfs_inode_ops;
 
     /** initialize a pool **/
     // how many memory?
@@ -245,6 +246,7 @@ static inode_t *ramfs_new_inode(mnode_t *this) {
         list_init(this->inodes, cur_inode);
 
     vfsinode->index = index;
+    inode->start_block = null;
     return vfsinode;
 }
 
@@ -331,6 +333,9 @@ static ssize_t ramfs_write(
         buf = (uint8_t *)buf + bytes_to_write;
         block = list_next(block);
     }
+
+    if (offp > this->length)
+        this->length = offp;
 
     return bytes_written;
 }

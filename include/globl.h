@@ -118,14 +118,13 @@ typedef struct {
         list_link_prev((_node2), (_new_node));      \
     } while (0)
 
-#define list_append(_list, _node)                   \
+#define list_append(__list, _node)                  \
     do {                                            \
-        if (empty_list(_list))                      \
-            list_init((_list), (_node));            \
+        if (empty_list(__list))                     \
+            list_init((__list), (_node));           \
         else {                                      \
-            typeof(_node) _cur = list_head(_list);  \
-            for (; list_next(_cur);                 \
-                 _cur = list_next(_cur));           \
+            typeof(_node) _cur = null;              \
+            list_last((__list), _cur);              \
             list_insert_after(_cur, (_node));       \
         }                                           \
     } while (0)
@@ -145,7 +144,7 @@ typedef struct {
         typeof(_node) _lnext = list_next(_node);    \
         typeof(_node) _lprev = list_prev(_node);    \
         if (! empty_list(_lnext))                   \
-            list_link_prev(_lnext, list_prev(_node));   \
+            list_link_prev(_lnext, _lprev);         \
         if (! empty_list(_lprev))                   \
             list_link_next(_lprev, _lnext);         \
         if ((_node) == (_list))                     \

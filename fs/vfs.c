@@ -26,6 +26,7 @@ dnode_t dummy_root_directory = {
     .d_file = &dummy_root_file,     /* const */
     .d_files = null,
     .d_parent = null,               /* const */
+    .d_mount = null,
 
     DLINKED_LIST_INIT(null, null)   /* const */
 };
@@ -33,6 +34,9 @@ dnode_t dummy_root_directory = {
 flink_t *root_file = &dummy_root_file;
 
 static err_t new_directory(dnode_t *parent, const char *name, dnode_t **dir);
+
+size_t vfs_write(inode_t *node, void *buf, off_t offset, size_t length);
+size_t vfs_read(inode_t *node, void *buf, off_t offset, size_t length);
 
 /*
  *    File paths and search
@@ -58,35 +62,33 @@ flink_t* vfs_file_by_nname(const dnode_t *dir, const char *fname, size_t n) {
     return null;
 }
 
-flink_t* vfs_file_by_npath(const char *path, const size_t n) {
+flink_t* vfs_file_by_npath(const char *path, size_t n) {
     return_if_eq (path, null);
 
     /* prepare pathname lookup */
     return_if (path[0] != FS_DELIM , null,
-            "TODO: vfs_flink_by_path(): relative path resolution\n");
+            "TODO: fbnp(): relative path resolution\n");
 
     if ( (path[1] == 0) || (n < 2))
         return root_file;
 
     dnode_t *current = get_dnode(root_file);
-    char *start = path, *end = path;  // position of subdir name
+    char *start = (char *)path, *end = (char *)path;  // position of subdir name
 
     while (1) {
         start = end + 1;
+        assert( ((start - path) < (off_t)n), null, "fbnp(): out of path\n");
 
         end = strchr(start, FS_DELIM);
-        if (null == end)
+        if ((null == end) || ((end - path) >= (off_t)n))
             // FS_DELIM not found, path remains a stripped file name:
             return vfs_file_by_nname(current, start, n - (start - path));
 
-        if ((start - path) >= (off_t)n)
-            end = path + n;
-
         flink_t *subdir = vfs_file_by_nname(current, start, end - start);
-        assertf (subdir, null, "No such a directory: %s\n", start);
+        assertf (subdir, null, "fbnp(): No such directory: %s\n", start);
 
         current = get_dnode(subdir);
-        assertf (current, null, "Cannot get dnode for %s\n", start);
+        assertf (current, null, "fbnp(): Cannot get dnode for %s\n", start);
     }
 }
 
@@ -166,24 +168,24 @@ err_t mount(const char *source, dnode_t *dir, filesystem_t *fs, mount_options *o
     mnode->n_deps = 0;
     mnode->fs = fs;
 
+    /* replace file link in dir->d_parent with new one */
+    new_mountlist_node->shadow_dir = dir;
+    if (dir->d_parent)
+        list_release(dir->d_parent->d_files, dir->d_file);
+
     /* initialize mountpoint */
     dnode_t *mntdir;
     new_directory(dir->d_parent, null, &mntdir);
     mntdir->d_file->f_name = dir->d_file->f_name;
-
-    /* replace file link in dir->d_parent with new one */
-    if (dir->d_parent) {
-        list_release(dir->d_parent->d_files, dir->d_file);
-        list_append(dir->d_parent->d_files, mntdir->d_file);
-    }
-    else // root directory
-        root_file = mntdir->d_file;
+    mntdir->d_mount = mnode;
 
     mnode->at = mntdir;
 
+    if (! dir->d_parent)
+        root_file = mntdir->d_file;
+
     /* insert mnode to mountlist */
     new_mountlist_node->mnode = mnode;
-    new_mountlist_node->shadow_dir = dir;
     new_mountlist_node->next = mountpoints_list;
     mountpoints_list = new_mountlist_node;
     return 0;
@@ -222,6 +224,25 @@ err_t vfs_mount(const char *source, const char *target, const char *fstype) {
         return reterr;
 
     return mount(source, dir, fs, null);
+}
+
+
+static inode_t *new_inode(mnode_t *sb) {
+    inode_t *node = sb->fs->new_inode(sb);
+    node->mnode = sb;
+    node->nlink = 0;
+    return node;
+}
+
+static void link_inode(inode_t *node, flink_t *file) {
+    assertvf( (file->f_dir->d_mount == node->mnode),
+            "Cannot link file *%x to inode *%x: different mnodes\n",
+            (ptr_t)file, (ptr_t)node);
+
+    assertv( null == file->f_inode, "Cannot relink\n");
+
+    file->f_inode = node;
+    ++ node->nlink;
 }
 
 /* Just creates the file and inserts it into directory
@@ -265,6 +286,8 @@ static err_t new_directory(dnode_t *parent, const char *name, dnode_t **dir) {
 
     newd->d_file = fnewd;
     newd->d_parent = parent;
+    if (parent)
+        newd->d_mount = parent->d_mount;
     list_init(newd->d_files, null);
 
     if (dir) *dir = newd;
@@ -289,6 +312,22 @@ err_t vfs_mkdir(const char *path, uint mode) {
 
     return 0;
 }
+
+
+size_t vfs_write(inode_t *node, void *buf, off_t offset, size_t length) {
+    mnode_t *sb = node->mnode;
+    assertf(node->ops->write, 0, "No write() operation for inode *%x\n", (ptr_t)node);
+
+    return node->ops->write(node, buf, offset, length);
+}
+
+size_t vfs_read(inode_t *node, void *buf, off_t offset, size_t length) {
+    mnode_t *sb = node->mnode;
+    assertf(node->ops->read, 0, "No read() operation for inode *%x\n", (ptr_t)node);
+
+    return node->ops->read(node, buf, offset, length);
+}
+
 
 
 struct kshell_command;
@@ -319,10 +358,100 @@ void print_mount(void) {
     struct mountpoints_list_t *mntlist = mountpoints_list;
     for (; mntlist; mntlist = mntlist->next) {
         const mnode_t *mnode = mntlist->mnode;
-        k_printf("%s (sb=*%x)\t on %s\ttype %s (fs=*%x)\n",
+        printf("%s (sb=*%x)\t on %s\ttype %s (fs=*%x)\n",
                 mnode->name, (ptr_t)mnode,
                 mnode->at->d_file->f_name,
                 mnode->fs->name, (ptr_t)mnode->fs);
+    }
+}
+
+
+
+#include <std/stdio.h>
+
+void vfs_shell(const char *arg) {
+    char *arg_end = strchr(arg, ' ');
+    assertv(arg_end, "Usage: write|read </full/path/to/file>\n");
+
+    /* get file path */
+    char *fpath = arg_end;
+    while (*fpath && (*fpath == ' ')) ++fpath;
+
+    /* get file name */
+    char *fname = strrchr(fpath, FS_DELIM);
+    assertv(fname, "Specify full path to file\n");
+
+    flink_t *fdir = vfs_file_by_npath(fpath, fname - fpath);
+    assertvf(fdir, "Cannot find directory for '%s'\n", fpath);
+    ++fname; // to exclude '/' at the beginning
+
+    flink_t *flink = vfs_file_by_path(fpath);
+    inode_t *fnode;
+
+    const int bufsz = 256;
+    char buf[bufsz];
+
+    off_t pos = 0;
+
+    if (!strncmp("write", arg, arg_end - arg)) {
+        /*** low-level file writing ***/
+        if (null == flink) {
+            /* create a new one */
+            make_file_link(get_dnode(fdir), fname, &flink);
+            assertv(flink, "Cannot create filelink\n");
+            logf("Filelink *%x created\n", (ptr_t)flink);
+
+            mnode_t *sb = get_dnode(fdir)->d_mount;
+            fnode = new_inode(sb);
+            assertv(fnode, "Cannot create inode\n");
+            logf("Inode at *%x\n", (ptr_t)fnode);
+
+            link_inode(fnode, flink);
+        } else {
+            logf("Existing filelink *%x will be rewritten\n", flink);
+            fnode = flink->f_inode;
+        }
+
+        print("----- Type, ctrl-d for exit:\n");
+        while (1) {
+            int ret = getline(buf, bufsz);
+            cprint('\n');
+
+            size_t len = strlen(buf);
+            buf[len++] = '\n';
+            buf[len] = 0;
+            off_t written = vfs_write(fnode, buf, pos, len);
+            if (written < len)
+                printf("[only %d bytes written from %d]\n", written, len);
+
+            pos += written;
+            if (ret == 4)
+                break;
+        }
+
+        printf("----- Done, bytes written: %d\n", pos);
+    }
+    else if (!strncmp("read", arg, arg_end - arg)) {
+        /*** low-level file writing ***/
+        assertvf(flink, "Cannot find link for path '%s'\n", fpath);
+        fnode = flink->f_inode;
+        assertvf(fnode, "No inode for link *%x\n", (ptr_t)fnode);
+
+        print("-------\n");
+        while (1) {
+            size_t read_bytes = vfs_read(fnode, buf, pos, bufsz);
+            if (read_bytes == 0) break;
+
+            int i;
+            for (i = 0; i < read_bytes; ++i)
+                cprint(buf[i]);
+
+            pos += read_bytes;
+        }
+        printf("----- Done, bytes read: %d\n", pos);
+    }
+    else {
+        print("?\n");
     }
 }
 
@@ -343,7 +472,6 @@ void vfs_setup(void) {
     retval = vfs_mkdir("/dev", 0755);
     if (retval) logf("error: 0x%x\n", retval);
 
-    /*retval = vfs_mount("devfs", "/dev", "ramfs");
+    retval = vfs_mount("devfs", "/dev", "ramfs");
     if (retval) logf("error: 0x%x\n", retval);
-    */
 }

@@ -184,6 +184,7 @@ void kshell_test(const struct kshell_command *, const char *);
 void kshell_heap(const struct kshell_command *, const char *);
 void kshell_set(const struct kshell_command *, const char *);
 void kshell_mem(const struct kshell_command *, const char *);
+void kshell_vfs(const struct kshell_command *, const char *);
 void kshell_ls();
 void kshell_mount();
 void kshell_panic();
@@ -198,6 +199,7 @@ const struct kshell_command main_commands[] = {
     {   .name = "info",     .handler = kshell_info,  .description = "various info", .options = "stack gdt pmem colors cpu pci" },
     {   .name = "mem",      .handler = kshell_mem,   .description = "mem <start_addr> <size = 0x100>" },
     {   .name = "heap",     .handler = kshell_heap,  .description = "heap utility", .options = "info alloc free check" },
+    {   .name = "vfs",      .handler = kshell_vfs,   .description = "vfs utility",  .options = "write read", },
     {   .name = "set",      .handler = kshell_set,   .description = "manage global variables", .options = "color prompt" },
     {   .name = "panic",    .handler = kshell_panic, .description = "test The Red Screen of Death"     },
     {   .name = "help",     .handler = kshell_help,  .description = "show this help"   },
@@ -220,6 +222,10 @@ const struct kshell_subcmd  test_cmds[] = {
 void kshell_ls(const struct kshell_command *this, const char *arg) {
     while (*arg && (*arg == ' ')) ++arg;
     print_ls(arg);
+}
+
+void kshell_vfs(const struct kshell_command *this, const char *arg) {
+    vfs_shell(arg);
 }
 
 void kshell_mount() {

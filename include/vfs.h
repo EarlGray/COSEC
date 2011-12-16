@@ -112,6 +112,7 @@ struct directory {
 
     flink_t *d_file;     /* which file this directory is */
     dnode_t *d_parent;   /* shortcut for d_files[1], ".." */
+    mnode_t *d_mount;    /* pointer to mounted fs */
 
     DLINKED_LIST         /* list of directories node */
 };
@@ -164,6 +165,9 @@ struct superblock {
         must manage inodes and their memory.
      **/
     __list inode_t *inodes;
+
+    /** operations **/
+    inode_ops *ops;
 
     /** block device info **/
     blockdev_t blk;
@@ -219,14 +223,14 @@ struct vfs_pool_struct {
   *     File operations
  ***/
 
-/** Try to open file by name **/
+/** Try to open file by name
 err_t vfs_open(const char *fname, int flags);
 
 ssize_t vfs_read(file_t fd, void *buf, size_t count);
 ssize_t vfs_write(file_t fd, void *buf, size_t count);
 
 err_t vfs_close(file_t fd);
-
+**/
 
 
 /*** **************************************************************************
@@ -236,6 +240,7 @@ err_t vfs_close(file_t fd);
 void print_ls(const char *);
 void print_mount(void);
 
+void vfs_shell(const char *arg);
 void vfs_setup(void);
 
 #endif // __VIRTUAL_FILE_SYSTEM__

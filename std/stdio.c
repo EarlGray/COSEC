@@ -24,6 +24,30 @@ int putchar(int c) {
     return c;
 }
 
+
+int getline(char *buf, size_t bufsize) {
+    char *cur = buf;
+    while (1) {
+        char c = getchar();
+        switch (c) {
+        case '\n': case 4:  // ctrl-d
+            *cur = 0;
+            return c;
+        case '\b':
+            if (cur > buf) {
+                printf("\b \b");
+                --cur;
+            }
+            break;
+        default:
+            if (cur - buf < bufsize) {
+                *cur++ = c;
+                putchar(c);
+            }
+        }
+    }
+}
+
 /***
   *     I/O
  ***/
