@@ -4,6 +4,7 @@
 #include <arch/i386.h>
 
 #include <std/stdarg.h>
+#include <log.h>
 
 volatile char c = 0;
 
@@ -30,12 +31,12 @@ int getline(char *buf, size_t bufsize) {
     while (1) {
         char c = getchar();
         switch (c) {
-        case '\n': case 4:  // ctrl-d
+        case 4:  // ctrl-d
             *cur = 0;
             return c;
         case '\b':
             if (cur > buf) {
-                printf("\b \b");
+                print("\b \b");
                 --cur;
             }
             break;
@@ -43,6 +44,10 @@ int getline(char *buf, size_t bufsize) {
             if (cur - buf < bufsize) {
                 *cur++ = c;
                 putchar(c);
+                if (c == '\n') {
+                    *cur = 0;
+                    return c;
+                }
             }
         }
     }
@@ -237,6 +242,11 @@ int snprintf(char *str, size_t size, const char *format, ...) {
             case 'u': {
                 uint *arg = (uint *)stack;
                 out_c = snprint_uint(out_c, end, *arg, 10, flags, precision);
+                stack = (void *)(arg + 1);
+                } break;
+            case 'c': {
+                int *arg = (int *)stack;
+                *out_c++ = (char)*arg;
                 stack = (void *)(arg + 1);
                 } break;
             case 's': {

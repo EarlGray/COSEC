@@ -162,7 +162,7 @@ err_t mount(const char *source, dnode_t *dir, filesystem_t *fs, mount_options *o
 
     /* create superblock and initialize fs-dependent part */
     mnode_t *mnode = fs->new_superblock(source, null);
-    assertq (mnode, ENOMEM);
+    assert (mnode, ENOMEM, "Cannot create superblock\n");
 
     /* initialize fs-independent fields */
     mnode->n_deps = 0;
@@ -318,36 +318,49 @@ size_t vfs_write(inode_t *node, void *buf, off_t offset, size_t length) {
     mnode_t *sb = node->mnode;
     assertf(node->ops->write, 0, "No write() operation for inode *%x\n", (ptr_t)node);
 
-    return node->ops->write(node, buf, offset, length);
+    size_t bwritten = node->ops->write(node, buf, offset, length);
+    //logdf("vfs_write(*%x, *%x, %x, %x) = %x\n", node, buf, offset, length, bwritten);
+    return bwritten;
 }
 
 size_t vfs_read(inode_t *node, void *buf, off_t offset, size_t length) {
     mnode_t *sb = node->mnode;
     assertf(node->ops->read, 0, "No read() operation for inode *%x\n", (ptr_t)node);
 
-    return node->ops->read(node, buf, offset, length);
+    size_t bread = node->ops->read(node, buf, offset, length);
+    //logdf("vfs_read(*%x, *%x, %x, %x) = %x\n", node, buf, offset, length, bread);
+    return bread;
 }
 
 
 
 struct kshell_command;
 
+static void print_info(const flink_t *f, const char *name) {
+    size_t flen = 0;
+    if (f->f_inode)
+        flen = f->f_inode->length;
+
+    printf("  %c *%x\t*%x\t*%x\t%d\t%s\n", f->type,
+            f, (ptr_t)f->f_inode, (ptr_t)f->type_spec, flen,
+            (name ? : f->f_name));
+}
+
 void print_ls(const char *arg){
     flink_t *file = vfs_file_by_path(arg);
     assertvf( file , "File '%s' not found\n", arg);
 
-    printf("  flink_t at *%x\n", file);
-
     switch (file->type) {
     case IT_DIR: {
         dnode_t *dir = get_dnode(file);
-        printf("  dnode_t at *%x\n", dir);
+        print_info(file, ".");
 
-        print("Files:\n");
         flink_t *f;
         list_foreach(f, dir->d_files)
-            printf("    *%x\t%s\n", f, f->f_name);
-
+            print_info(f, null);
+       } break;
+    case IT_FILE: {
+        print_info(file, null);
         } break;
     default:
         printf("Unknown file type 0x%x\n", file->type);
@@ -369,6 +382,84 @@ void print_mount(void) {
 
 #include <std/stdio.h>
 
+static void file_to_stdout(flink_t *flink, const char *fpath) {
+    /*** low-level file writing  example ***/
+    assertvf(flink, "Cannot find link for path '%s'\n", fpath);
+
+    inode_t *fnode = flink->f_inode;
+    assertvf(fnode, "No inode for link *%x\n", (ptr_t)fnode);
+
+    const int bufsz = 256;
+    char buf[bufsz];
+
+    off_t pos = 0;
+
+    print("-------\n");
+    while (1) {
+        size_t read_bytes = vfs_read(fnode, buf, pos, bufsz);
+        if (read_bytes == 0) break;
+        if (read_bytes > bufsz) {
+            print("\n[read_bytes > bufsz]\n");
+            read_bytes = bufsz;
+        }
+
+        int i;
+        for (i = 0; i < read_bytes; ++i)
+            cprint(buf[i]);
+
+        pos += read_bytes;
+        if (pos > fnode->length) {
+            print("\n[pos > length]\n");
+            break;
+        }
+    }
+    printf("\n----- Done, bytes read: %d\n", pos);
+}
+
+static void file_from_stdin(flink_t *flink, dnode_t *fdir, const char *fname) {
+    /*** low-level file writing ***/
+    const int bufsz = 256;
+    char buf[bufsz];
+
+    off_t pos = 0;
+
+    inode_t *fnode;
+
+    if (null == flink) {
+        /* create a new one */
+        make_file_link(get_dnode(fdir), fname, &flink);
+        assertv(flink, "Cannot create filelink\n");
+        logf("Filelink *%x created\n", (ptr_t)flink);
+        flink->type = IT_FILE;
+
+        mnode_t *sb = get_dnode(fdir)->d_mount;
+        fnode = new_inode(sb);
+        assertv(fnode, "Cannot create inode\n");
+        logf("Inode at *%x\n", (ptr_t)fnode);
+
+        link_inode(fnode, flink);
+    } else {
+        logf("[existing filelink *%x will be rewritten]\n", flink);
+        fnode = flink->f_inode;
+    }
+
+    print("----- Type, ctrl-d for exit:\n");
+    while (1) {
+        int ret = getline(buf, bufsz);
+
+        size_t len = strlen(buf);
+        size_t written = vfs_write(fnode, buf, pos, len);
+        if (written < len)
+            printf("[only %d bytes written from %d]\n", written, len);
+
+        pos += written;
+        if (ret == 4) // ctrl-d
+            break;
+    }
+    printf("----- Done, bytes written: %d\n", pos);
+}
+
+
 void vfs_shell(const char *arg) {
     char *arg_end = strchr(arg, ' ');
     assertv(arg_end, "Usage: write|read </full/path/to/file>\n");
@@ -386,70 +477,11 @@ void vfs_shell(const char *arg) {
     ++fname; // to exclude '/' at the beginning
 
     flink_t *flink = vfs_file_by_path(fpath);
-    inode_t *fnode;
 
-    const int bufsz = 256;
-    char buf[bufsz];
-
-    off_t pos = 0;
-
-    if (!strncmp("write", arg, arg_end - arg)) {
-        /*** low-level file writing ***/
-        if (null == flink) {
-            /* create a new one */
-            make_file_link(get_dnode(fdir), fname, &flink);
-            assertv(flink, "Cannot create filelink\n");
-            logf("Filelink *%x created\n", (ptr_t)flink);
-
-            mnode_t *sb = get_dnode(fdir)->d_mount;
-            fnode = new_inode(sb);
-            assertv(fnode, "Cannot create inode\n");
-            logf("Inode at *%x\n", (ptr_t)fnode);
-
-            link_inode(fnode, flink);
-        } else {
-            logf("Existing filelink *%x will be rewritten\n", flink);
-            fnode = flink->f_inode;
-        }
-
-        print("----- Type, ctrl-d for exit:\n");
-        while (1) {
-            int ret = getline(buf, bufsz);
-            cprint('\n');
-
-            size_t len = strlen(buf);
-            buf[len++] = '\n';
-            buf[len] = 0;
-            off_t written = vfs_write(fnode, buf, pos, len);
-            if (written < len)
-                printf("[only %d bytes written from %d]\n", written, len);
-
-            pos += written;
-            if (ret == 4)
-                break;
-        }
-
-        printf("----- Done, bytes written: %d\n", pos);
-    }
-    else if (!strncmp("read", arg, arg_end - arg)) {
-        /*** low-level file writing ***/
-        assertvf(flink, "Cannot find link for path '%s'\n", fpath);
-        fnode = flink->f_inode;
-        assertvf(fnode, "No inode for link *%x\n", (ptr_t)fnode);
-
-        print("-------\n");
-        while (1) {
-            size_t read_bytes = vfs_read(fnode, buf, pos, bufsz);
-            if (read_bytes == 0) break;
-
-            int i;
-            for (i = 0; i < read_bytes; ++i)
-                cprint(buf[i]);
-
-            pos += read_bytes;
-        }
-        printf("----- Done, bytes read: %d\n", pos);
-    }
+    if (!strncmp("write", arg, arg_end - arg))
+        file_from_stdin(flink, fdir, fname);
+    else if (!strncmp("read", arg, arg_end - arg))
+        file_to_stdout(flink, fpath);
     else {
         print("?\n");
     }

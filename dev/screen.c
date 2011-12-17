@@ -59,7 +59,7 @@ void clear_screen(void) {
 	{
 		pos[0] = 0x20;
 		pos[1] = cursorAttr;
-		pos += 2; 
+		pos += 2;
 	}
     move_cursor_to(0, 0);
 }
@@ -81,7 +81,7 @@ inline void move_cursor_to(uint16_t cx, uint16_t cy) {
 }
 
 inline void move_cursor_next_line() {
-	if (cursorY + 1 >= SCR_HEIGHT) 
+	if (cursorY + 1 >= SCR_HEIGHT)
 		scroll_up_line();
 	else ++cursorY;
 }
@@ -113,7 +113,7 @@ inline void set_char_at(int x, int y, char c, char attr) {
 
 inline void cprint(char c) {
     switch (c) {
-    case '\n': 
+    case '\n':
         set_cursor_x(0);
         move_cursor_next_line();
         break;
@@ -140,7 +140,7 @@ void sprint_at(int x, int y, const char *s) {
 	while (*p)
 	{
 		set_char_at(x, y, *p, cursorAttr);
-		++p; 
+		++p;
 		++x;
 	}
 }
@@ -151,10 +151,10 @@ inline char get_digit(uint8_t digit) {
 }
 
 void print_int(int x, uint8_t base) {
-	if (x < 0) { 
+	if (x < 0) {
         cprint('-');
         x = -x;
-    }        
+    }
     print_uint(x, base);
 }
 
@@ -165,7 +165,7 @@ void print_uint(uint x, uint8_t base) {
     if (x == 0) {
         --n;
         a[n] = '0';
-    } else 
+    } else
     while (x != 0) {
         --n;
         a[n] = get_digit(x % base);
@@ -190,11 +190,11 @@ void print_uint(uint x, uint8_t base) {
 #define CC_CAN 0x18
 #define CC_SUB 0x1a
 #define CC_ESC 0x1b /* ESC [ */
-#define CC_DEL 0x7f 
+#define CC_DEL 0x7f
 #define CC_CSI 0x9b
 
 void ecma48_control_sequence(uint num) {
-    if (num == 0) { 
+    if (num == 0) {
         /* reset attributes */
         set_cursor_attr(DEFAULT_CURSOR_ATTR);
     } else if ((30 <= num) && (num <= 37)) {
@@ -239,13 +239,13 @@ const char * ecma48_console_codes(const char *s) {
                 ecma48_control_sequence(code);
                 break;
             }
-            } /* fall through */ 
+            } /* fall through */
         default:
             cprint(*s);
-        } 
+        }
         break;
 
-    default: 
+    default:
         return s;
     }
     return ++s;
@@ -266,11 +266,11 @@ void k_printf(const char *fmt, ...) {
         }
 
 		switch (*s) {
-		case '%': 
+		case '%':
 			++s;
 			switch (*s) {
 			case 'd':
-	  			print_int(va_arg(args, int), 10);    
+	  			print_int(va_arg(args, int), 10);
                 break;
             case 'u':
                 print_uint(va_arg(args, uint), 10);
@@ -281,10 +281,13 @@ void k_printf(const char *fmt, ...) {
 			case 'o':
 				print_uint(va_arg(args, uint), 8);
 				break;
+            case 'c':
+                cprint(va_arg(args, int));
+                break;
 			case 's': {
                 ptr_t ptr = va_arg(args, ptr_t);
                 char *c = (char *)ptr;
-                while (*c) 
+                while (*c)
                     cprint(*(c++));
                 } break;
 			default:

@@ -48,7 +48,7 @@ typedef char bool;
 
 /*
  *  memory routines and definitions
- */
+ (ptr_t)f->type_spec,*/
 #define null ((void *)0)
 
 #define reinterpret_cast(t)        *(t *)&
@@ -56,10 +56,9 @@ typedef char bool;
 /*
  *  Lists
  */
-#define __list
+#define __list__
 
 typedef struct {
-    void *first;
     void *prev;
     void *next;
 } list_node;

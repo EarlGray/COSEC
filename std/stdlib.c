@@ -73,7 +73,12 @@ size_t strnlen(const char *s, size_t maxlen) {
 }
 
 void* memcpy(void *dest, const void *src, size_t size) {
-    arch_memcpy(dest, src, size);
+    //arch_memcpy(dest, src, size);
+    size_t i = 0;
+    uint8_t *d = dest;
+    const uint8_t *s = src;
+    while (i++ < size)
+        *d++ = *s++;
     return dest;
 }
 

@@ -108,7 +108,7 @@ static inline dnode_t *get_dnode(flink_t *flink) {
  */
 struct directory {
     /* directory content starting from "." and ".." */
-    __list flink_t *d_files;
+    __list__ flink_t *d_files;
 
     flink_t *d_file;     /* which file this directory is */
     dnode_t *d_parent;   /* shortcut for d_files[1], ".." */
@@ -164,7 +164,7 @@ struct superblock {
         Note: this field should be readonly, because filesystem
         must manage inodes and their memory.
      **/
-    __list inode_t *inodes;
+    __list__ inode_t *inodes;
 
     /** operations **/
     inode_ops *ops;
