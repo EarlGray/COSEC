@@ -36,17 +36,39 @@ void panic(const char *fatal_error) {
 
     set_cursor_attr(0x4E);
     clear_screen();
+    k_printf("\n");
     print_centered("O_o");
     print_centered("Oops, kernel panic");
     k_printf("\n");
 
-    snprintf(buf, 100, "----> %s <-----", fatal_error);
+    /*snprintf(buf, 100, "----> %s <-----", fatal_error);
     print_centered(buf);
 
     k_printf("\nCPU: \n");
     print_cpu();
     k_printf("\n\nKernel stack: \n");
     print_mem((char *)cpu_stack(), 0x50);
+    */
+
+    // original ascii-art from: http://brainbox.cc/repository/trunk/sixty-four/multiboot/include/kernel.h
+	k_printf("\n"
+"              ___  _____ \n"
+"            .'/,-Y\"     \"~-. \n"
+"            l.Y             ^. \n"
+"            /\\               _\\_      \"Yaaaaah! oh-my-GOD!\n"
+"           i            ___/\"   \"\\     We're trapped inside some\n"
+"           |          /\"   \"\\   o !    computer-dimension-\n"
+"           l         ]     o !__./     something-or-another!\"\n"
+"            \\ _  _    \\.___./    \"~\\ \n"
+"             X \\/ \\            ___./ \n"
+"            ( \\ ___.   _..--~~\"   ~`-. \n"
+"             ` Z,--   /               \\ \n"
+"               \\__.  (   /       ______) \n"
+"                 \\   l  /-----~~\" / \n"
+"                  Y   \\          /\n"
+"                  |    \"x______.^ \n"
+"                  |           \\ \n"
+"\n");
 
     cpu_hang();
 }

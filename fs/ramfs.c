@@ -35,7 +35,7 @@
  *  If free blocks in a pool are exausted, it can be linked to
  *  a next pool. A ramfs structure is tracking and managing pools,
  *  allocating pool if there are no free blocks;
- /
+ *
  *  Ramfs does not track directories, it contains only blocks of some
  *  content, directory/links handling is up to VFS. It extends VFS's
  *  structures, adding specific information, like pointer to start block

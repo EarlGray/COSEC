@@ -1,13 +1,19 @@
 CURRENT TASKS
 
-- VFS:
-    devfs: /dev/mem, /dev/serial/, /dev/vcs, /dev/stdin, /dev/ps2/kbd
+- devfs: /dev/mem, /dev/serial/, /dev/vcs, /dev/stdin, /dev/ps2/kbd
 - syscalls (open/read/close, fork/exec, ...), userspace headers
+- userspace; tty;
+- paging
 - tasks:
     scheduler
     kernfs: /sys/<pid>, /sys/
-- basic harddrive driver for VFS
-- paging
+- basic harddrive drivers for VFS, FAT, ext2;
+- ELF loader
+- sh/vi/gcc;
+- Network stack (stub through COM, over SLIP?);
+- Network stack with simplest Ethernet driver;
+
+- Lisp version of userspace instead of sh?
 
 DELAYED TASKS
 - good page frames allocation
@@ -16,12 +22,12 @@ DELAYED TASKS
 
 AIMS
 
-- general-purpose 
+- general-purpose
 - highly-configurable
 - networking/distributed
 - safety/modularuty
 - multiuser/multitasking
 - sustainability/possibly will be microkernel
-- language-based features and managed userspace 
+- language-based features and managed userspace
 - well-documented and easy-to-learn API/ABI/internals
 - make it work!
