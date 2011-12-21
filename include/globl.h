@@ -48,10 +48,12 @@ typedef char bool;
 
 /*
  *  memory routines and definitions
- (ptr_t)f->type_spec,*/
+ */
 #define null ((void *)0)
 
-#define reinterpret_cast(t)        *(t *)&
+#define reinterpret_cast(t)         *(t *)&
+
+#define for_range(var, max_value)   for(var = 0; var < (max_value); ++var)
 
 /*
  *  Lists
