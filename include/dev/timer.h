@@ -7,16 +7,21 @@
 typedef void (*timer_event_f)(uint);
 typedef uint timer_t;
 
-/*** 
-  *  adds timer event handler
-  *  returns timer ID, which has to be stored to delete it 
-  *    if N_TIMERS, event can't be enabled
- **/
+/*
+ *  adds timer event handler
+ *  returns timer ID, which has to be stored to delete i
+ *    if N_TIMERS, event can't be enabled
+ */
 timer_t timer_push_ontimer(timer_event_f ontimer);
 
-/***
-  * deletes a timer event with id
- ***/
+/*
+ *  gets how manu ticks are done
+ */
+ulong timer_ticks(void);
+
+/*
+ * deletes a timer event with id
+ */
 void timer_pop_ontimer(timer_t id);
 
 void timer_set_frequency(uint hz);

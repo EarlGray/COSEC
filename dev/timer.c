@@ -10,6 +10,7 @@
 #define PIT_CMD_PORT    0x43
 
 volatile uint timer_freq_divisor = 0x10000;
+volatile ulong ticks = 0;
 
 timer_event_f timers[N_TIMERS] = { 0 };
 
@@ -21,6 +22,10 @@ timer_t timer_push_ontimer(timer_event_f ontimer) {
             return i;
         }
     return i;
+}
+
+ulong timer_ticks(void) {
+    return ticks;
 }
 
 void timer_pop_ontimer(timer_t id) {
@@ -44,12 +49,11 @@ void timer_setup(void) {
 }
 
 void timer_irq() {
-    static uint32_t counter = 0;
-    ++counter;
+    ++ ticks;
 
     int i;
-    for (i = 0; i < N_TIMERS; ++i)
+    for_range (i, N_TIMERS)
         if (timers[i])
-            timers[i](counter); 
+            timers[i](ticks);
 }
 
