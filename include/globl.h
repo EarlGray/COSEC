@@ -31,7 +31,7 @@ typedef short               int16_t;
 typedef long                int32_t;
 typedef long long           int64_t;
 
-typedef uint32_t	size_t, ssize_t, ptr_t, index_t, count_t;
+typedef uint32_t	size_t, ssize_t, ptr_t, index_t, count_t, mode_t;
 typedef int32_t     err_t, off_t;
 
 #define MAX_UINT    (0xFFFFFFFF)

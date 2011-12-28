@@ -1,17 +1,20 @@
 #include <syscall.h>
 #include <arch/i386.h>
+#include <fs/fs_syscalls.h>
 
 #include <log.h>
 
-uint sys_exit();
-uint sys_print(const char **fmt);
+int sys_print(const char **fmt);
 
-typedef uint (*syscall_handler)();
+typedef int (*syscall_handler)();
 
-#define SYSCALL_MAX 255
 const syscall_handler syscalls[] = {
+    [SYS_MOUNT] = sys_mount,
 
-    [SYSCALL_MAX] = sys_print,
+    [SYS_MKDIR] = sys_mkdir,
+    [SYS_LSDIR] = sys_lsdir,
+
+    [N_SYSCALLS - 1] = sys_print,
 };
 
 void int_syscall() {
@@ -24,21 +27,16 @@ void int_syscall() {
     logf("\n#syscall(%d, 0x%x, 0x%x, 0x%x)\n", 
             intr_num, arg1, arg2, arg3);
 
-    if (intr_num > SYSCALL_MAX) {
-        logf("#SYS: invalid syscall 0x%x\n", intr_num);
-        return;
-    }
+    assertvf( intr_num >= N_SYSCALLS,
+            "#SYS: invalid syscall 0x%x\n", intr_num);
 
     const syscall_handler callee = syscalls[intr_num];
-    if (callee == null) {
-        logf("#SYS: invalid handler for syscall[0x%x]\n", intr_num);
-        return;
-    }
+    assertvf(callee, "#SYS: invalid handler for syscall[0x%x]\n", intr_num);
 
     callee(arg1, arg2, arg3);
 }
 
-uint sys_print(const char **fmt) {
+int sys_print(const char **fmt) {
     print(*fmt);
     return 0;
 }
