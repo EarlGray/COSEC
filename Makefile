@@ -11,7 +11,7 @@ cc_flags    := -ffreestanding -nostdinc -nostdlib -Wall -Wextra -Winline -O2 -MD
 as_flags    := -Wall -MD $(addprefix -I, $(include_dir))
 ld_flags    := -static -nostdlib -Tlink.ld
 
-cc_includes := -include include/globl.h $(addprefix -I, $(include_dir)) 
+cc_includes := $(addprefix -I, $(include_dir)) -include globl.h 
 
 ### for 64bit host
 cc_flags 	+= -m32

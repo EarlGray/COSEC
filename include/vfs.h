@@ -1,7 +1,7 @@
 #ifndef __VIRTUAL_FILE_SYSTEM__
 #define __VIRTUAL_FILE_SYSTEM__
 
-#define list
+#include <std/list.h>
 
 struct file_link;
 

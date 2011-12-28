@@ -1,6 +1,7 @@
 #define __DEBUG
 
 #include <vfs.h>
+#include <std/list.h>
 #include <std/string.h>
 #include <log.h>
 
