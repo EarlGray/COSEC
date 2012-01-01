@@ -1,8 +1,11 @@
 #define __DEBUG
 
 #include <vfs.h>
+#include <dev/devtable.h>
 #include <std/list.h>
 #include <std/string.h>
+#include <std/sys/errno.h>
+#include <std/sys/stat.h>
 #include <log.h>
 
 vfs_pool_t default_pool;
@@ -36,8 +39,8 @@ flink_t *root_file = &dummy_root_file;
 
 static err_t new_directory(dnode_t *parent, const char *name, dnode_t **dir);
 
-size_t vfs_write(inode_t *node, void *buf, off_t offset, size_t length);
-size_t vfs_read(inode_t *node, void *buf, off_t offset, size_t length);
+size_t vfs_writei(inode_t *node, void *buf, off_t offset, size_t length);
+size_t vfs_readi(inode_t *node, void *buf, off_t offset, size_t length);
 
 /*
  *    File paths and search
@@ -98,6 +101,15 @@ flink_t* vfs_file_by_path(const char *path) {
 }
 
 
+mode_t filetype_to_mode(filetype_t type) {
+    switch (type) {
+    case IT_FILE:   return S_IFREG;
+    case IT_DIR:    return S_IFDIR;
+    case IT_CHRDEV: return S_IFCHR;
+    case IT_BLKDEV: return S_IFBLK;
+    default: return 0;
+    }
+}
 
 /***
   *         Filesystems
@@ -228,10 +240,11 @@ err_t vfs_mount(const char *source, const char *target, const char *fstype) {
 }
 
 
-static inode_t *new_inode(mnode_t *sb) {
-    inode_t *node = sb->fs->new_inode(sb);
+static inode_t *new_inode(mnode_t *sb, mode_t mode) {
+    inode_t *node = sb->fs->new_inode(sb, mode);
     node->mnode = sb;
     node->nlink = 0;
+    node->mode = mode;
     return node;
 }
 
@@ -295,18 +308,16 @@ static err_t new_directory(dnode_t *parent, const char *name, dnode_t **dir) {
     return 0;
 }
 
-err_t vfs_mkdir(const char *path, uint mode) {
+err_t vfs_mkdir(const char *path, mode_t mode) {
     logdf("mkdir('%s')\n", path);
 
     char *file_delim = strrchr(path, FS_DELIM);
     char *fname = file_delim + 1;
 
-    if (file_delim == null)
-        return EINVAL;
+    assertq( file_delim , EINVAL);
 
     flink_t *fpdir = vfs_file_by_npath(path, fname - path);
-    if (null == fpdir)
-        return ENOENT;
+    assertq( fpdir , ENOENT);
 
     dnode_t *newdir;
     new_directory(get_dnode(fpdir), fname, &newdir);
@@ -314,22 +325,62 @@ err_t vfs_mkdir(const char *path, uint mode) {
     return 0;
 }
 
+err_t mkdev(const char *path, mode_t mode, dev_t dev) {
+    assertq( S_ISBLK(mode) || S_ISCHR(mode), EINVAL);
+    assertq( dev_is_valid(dev), ENODEV);
 
-size_t vfs_write(inode_t *node, void *buf, off_t offset, size_t length) {
+    char *file_delim = strrchr(path, FS_DELIM);
+    char *fname = file_delim + 1;
+    assert( file_delim, EINVAL, "mkdev(): invalid path");
+
+    flink_t *fpardir = vfs_file_by_npath(path, file_delim - path);
+    assertq( fpardir, ENOENT);
+
+    /*
+    flink_t *file = tmalloc(flink_t);
+    file->f_inode = new_inode(get_dnode(fpardir)->d_mount, mode);
+    assert( file->f_inode, ENOMEM, "mkdev(): no new inode");
+
+    file->type = IT_CHRDEV;
+    file->f_name = strdup(fname);
+    file->f_dir = get_dnode(fpardir);
+    */
+
+    return ETODO;
+}
+
+err_t vfs_mknod(const char *path, mode_t mode, dev_t dev) {
+    logdf("vfs_mknod('%s', 0%o, %x)\n", path, mode, dev);
+
+    switch (mode & S_IFMT) {
+    case S_IFREG:
+        return 0;
+    case S_IFDIR:
+        return vfs_mkdir(path, mode);
+    case S_IFCHR: case S_IFBLK:
+        return mkdev(path, mode, dev);
+    default:
+        logf("Mode %x is invalid or unimplemented\n", mode);
+        return EINVAL;
+    }
+}
+
+
+size_t vfs_writei(inode_t *node, void *buf, off_t offset, size_t length) {
     mnode_t *sb = node->mnode;
     assertf(node->ops->write, 0, "No write() operation for inode *%x\n", (ptr_t)node);
 
     size_t bwritten = node->ops->write(node, buf, offset, length);
-    //logdf("vfs_write(*%x, *%x, %x, %x) = %x\n", node, buf, offset, length, bwritten);
+    //logdf("vfs_writei(*%x, *%x, %x, %x) = %x\n", node, buf, offset, length, bwritten);
     return bwritten;
 }
 
-size_t vfs_read(inode_t *node, void *buf, off_t offset, size_t length) {
+size_t vfs_readi(inode_t *node, void *buf, off_t offset, size_t length) {
     mnode_t *sb = node->mnode;
     assertf(node->ops->read, 0, "No read() operation for inode *%x\n", (ptr_t)node);
 
     size_t bread = node->ops->read(node, buf, offset, length);
-    //logdf("vfs_read(*%x, *%x, %x, %x) = %x\n", node, buf, offset, length, bread);
+    //logdf("vfs_readi(*%x, *%x, %x, %x) = %x\n", node, buf, offset, length, bread);
     return bread;
 }
 
@@ -397,7 +448,7 @@ static void file_to_stdout(flink_t *flink, const char *fpath) {
 
     print("-------\n");
     while (1) {
-        size_t read_bytes = vfs_read(fnode, buf, pos, bufsz);
+        size_t read_bytes = vfs_readi(fnode, buf, pos, bufsz);
         if (read_bytes == 0) break;
         if (read_bytes > bufsz) {
             print("\n[read_bytes > bufsz]\n");
@@ -409,10 +460,6 @@ static void file_to_stdout(flink_t *flink, const char *fpath) {
             cprint(buf[i]);
 
         pos += read_bytes;
-        if (pos > fnode->length) {
-            print("\n[pos > length]\n");
-            break;
-        }
     }
     printf("\n----- Done, bytes read: %d\n", pos);
 }
@@ -434,7 +481,7 @@ static void file_from_stdin(flink_t *flink, dnode_t *fdir, const char *fname) {
         flink->type = IT_FILE;
 
         mnode_t *sb = get_dnode(fdir)->d_mount;
-        fnode = new_inode(sb);
+        fnode = new_inode(sb, S_IFREG);
         assertv(fnode, "Cannot create inode\n");
         logf("Inode at *%x\n", (ptr_t)fnode);
 
@@ -449,7 +496,7 @@ static void file_from_stdin(flink_t *flink, dnode_t *fdir, const char *fname) {
         int ret = getline(buf, bufsz);
 
         size_t len = strlen(buf);
-        size_t written = vfs_write(fnode, buf, pos, len);
+        size_t written = vfs_writei(fnode, buf, pos, len);
         if (written < len)
             printf("[only %d bytes written from %d]\n", written, len);
 
@@ -460,29 +507,70 @@ static void file_from_stdin(flink_t *flink, dnode_t *fdir, const char *fname) {
     printf("----- Done, bytes written: %d\n", pos);
 }
 
+#define skip_spaces(s) do while (*s && (*s == ' ')) ++s; while(0)
 
 void vfs_shell(const char *arg) {
     char *arg_end = strchr(arg, ' ');
-    assertv(arg_end, "Usage: write|read </full/path/to/file>\n");
+    assertv(arg_end, "Usage:\twrite|read </full/path/to/file>\n"
+            "\tmknod <type=-|d|c> </full/path/to> [<dev-maj> <dev-min>]\n"
+            "\tmkdir </full/path/to>\n");
 
     /* get file path */
-    char *fpath = arg_end;
-    while (*fpath && (*fpath == ' ')) ++fpath;
 
-    /* get file name */
-    char *fname = strrchr(fpath, FS_DELIM);
-    assertv(fname, "Specify full path to file\n");
+    if (!strncmp("write", arg, arg_end - arg)
+            || !strncmp("read", arg, arg_end - arg))
+    {
+        skip_spaces(arg_end);
+        char *fpath = arg_end;
 
-    flink_t *fdir = vfs_file_by_npath(fpath, fname - fpath);
-    assertvf(fdir, "Cannot find directory for '%s'\n", fpath);
-    ++fname; // to exclude '/' at the beginning
+        /* get file name */
+        char *fname = strrchr(fpath, FS_DELIM);
+        assertv(fname, "Specify full path to file\n");
 
-    flink_t *flink = vfs_file_by_path(fpath);
+        flink_t *fdir = vfs_file_by_npath(fpath, fname - fpath);
+        assertvf(fdir, "Cannot find directory for '%s'\n", fpath);
+        ++fname; // to exclude '/' at the beginning
 
-    if (!strncmp("write", arg, arg_end - arg))
-        file_from_stdin(flink, fdir, fname);
-    else if (!strncmp("read", arg, arg_end - arg))
-        file_to_stdout(flink, fpath);
+        flink_t *flink = vfs_file_by_path(fpath);
+
+        if (!strncmp("read", arg, arg_end - arg))
+            file_to_stdout(flink, fpath);
+        else
+            file_from_stdin(flink, fdir, fname);
+    }
+    else if (!strncmp("mkdir", arg, arg_end - arg)) {
+        skip_spaces(arg_end);
+        vfs_mkdir(arg_end, S_IFDIR);
+    }
+    else if (!strncmp("mknod", arg, arg_end - arg)) {
+        skip_spaces(arg_end);
+
+        /* read type */
+        assertv(arg_end[1] == ' ', "Type must be a single letter");
+        char type = arg_end[0];
+        ++arg_end;
+        skip_spaces(arg_end);
+
+        /** read path **/
+        char *cur = arg_end;
+        while (*cur && (*cur != ' ')) ++cur;
+        char namebuf[cur - arg_end + 1];
+        strncpy(namebuf, arg_end, cur - arg_end);
+        namebuf[cur - arg_end] = 0;
+
+        int major = 0, minor = 0;
+        if ((type == IT_CHRDEV) || (type == IT_BLKDEV)) {
+            while (*cur && (*cur != ' ')) ++cur;
+            skip_spaces(cur);
+            cur = sscan_int(cur, &major, 10);
+            skip_spaces(cur);
+            sscan_int(cur, &minor, 10);
+        }
+        err_t ret =
+            vfs_mknod(namebuf, filetype_to_mode(type), makedev(major, minor));
+        if (ret)
+            printf("Error %d\n", ret);
+    }
     else {
         print("?\n");
     }

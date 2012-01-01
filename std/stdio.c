@@ -4,6 +4,7 @@
 #include <arch/i386.h>
 
 #include <std/stdarg.h>
+#include <std/ctype.h>
 #include <log.h>
 
 volatile char c = 0;
@@ -152,12 +153,8 @@ char * snprint_int(char *str, char *const end, int x, uint8_t base, uint flags, 
 const char * sscan_uint(const char *str, uint *res, const uint8_t base) {
     *res = 0;
 
-    bool read = false;
     do {
-        if (read) ++str;
-        read = true;
-    
-        char c = *str;
+        char c = toupper(*str);
         if (('0' <= c) && (c <= '9')) {
             *res *= base;
             *res += (c - '0');
@@ -165,16 +162,10 @@ const char * sscan_uint(const char *str, uint *res, const uint8_t base) {
         if (('A' <= c) && (c <= ('A' + base - 10))) {
             *res *= base;
             *res += (c - 'A' + 10);
-        } else
-        if (('a' <= c) && (c <= ('a' + base - 10))) {
-            *res *= base;
-            *res += (c - 'a' + 10);
         } else 
-            read = false;
-
-    } while (read);
-
-    return str;
+            return str;
+        ++str;
+    } while (1);
 }
 
 const char * sscan_int(const char *str, int *res, const uint8_t base) {

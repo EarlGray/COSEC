@@ -1,4 +1,5 @@
 #include <std/string.h>
+#include <std/ctype.h>
 #include <arch/i386.h>
 #include <mm/kheap.h>
 
@@ -117,4 +118,15 @@ char *strchr(char *s, char c) {
 
 char *strrchr(char *s, char c) {
     return strnrchr(s, MAX_INT, c);
+}
+
+
+int tolower(int c) {
+    if (('A' <= c) && (c <= 'Z')) return c + 'a' - 'A';
+    return c;
+}
+
+int toupper(int c) {
+    if (('a' <= c) && (c <= 'z')) return c + 'A' - 'a';
+    return c;
 }

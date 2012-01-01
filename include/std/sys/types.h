@@ -3,19 +3,19 @@
 
 typedef  unsigned long long int  dev_t;
 
-unsigned int
+static inline unsigned int
 gnu_dev_major (dev_t __dev)
 {
       return ((__dev >> 8) & 0xfff) | ((unsigned int) (__dev >> 32) & ~0xfff);
 }
 
-unsigned int
+static inline unsigned int
 gnu_dev_minor (dev_t __dev)
 {
       return (__dev & 0xff) | ((unsigned int) (__dev >> 12) & ~0xff);
 }
 
-dev_t
+static inline dev_t
 gnu_dev_makedev (unsigned int __major, unsigned int __minor)
 {
       return ((__minor & 0xff) | ((__major & 0xfff) << 8)

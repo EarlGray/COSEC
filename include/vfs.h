@@ -29,9 +29,12 @@ typedef  struct vfs_pool_struct     vfs_pool_t;
 /** inode types **/
 #define IT_FILE     '-'
 #define IT_DIR      'd'
-#define IT_CHARDEV  'c'
+#define IT_CHRDEV   'c'
+#define IT_BLKDEV   'b'
 
 typedef char filetype_t;
+
+mode_t filetype_to_mode(filetype_t type);
 
 /*
  *  Interface for file data access,
@@ -40,6 +43,9 @@ typedef char filetype_t;
 struct index_node {
     mnode_t* mnode;
     index_t index;
+
+    mode_t mode;
+    void *typedinfo;
 
     count_t nlink;  /* reference count */
 
@@ -117,7 +123,7 @@ struct directory {
     DLINKED_LIST         /* list of directories node */
 };
 
-err_t vfs_mkdir(const char *path, uint mode);
+err_t vfs_mkdir(const char *path, mode_t mode);
 
 bool vfs_is_node(inode_t *node, uint node_type);
 
@@ -132,7 +138,7 @@ struct filesystem_struct {
 
     mnode_t* (*new_superblock)(const char *source, mount_options *opts);
 
-    inode_t* (*new_inode)(mnode_t *);
+    inode_t* (*new_inode)(mnode_t *, filetype_t);
 };
 
 filesystem_t* fs_by_name(const char *);
@@ -184,16 +190,6 @@ static inline bool is_block_device(mnode_t *superblock) {
 
 /** mount flags **/
 #define MS_DEFAULT  0
-
-/** mount errors **/
-#define EINVAL      0x8BAD
-#define ENOMEM      0xFFFF
-
-#define ENODEV      0x8001 /* fs type is not recognized */
-#define ENOENT      0x8002
-#define ENOTDIR     0x8003
-#define EEXIST      0x8004
-#define EBUSY       0x8005
 
 struct mount_options_struct {
     const char *fs_str;     /* name of file system type, e.g. "ramfs" */
