@@ -348,8 +348,15 @@ void kshell_info(const struct kshell_command *this, const char *arg) {
     if (!strcmp(arg, "cpu")) {
         print_cpu();
     } else
-    if (!strcmp(arg, "pci")) {
-        pci_setup();
+    if (!strncmp(arg, "pci", 3)) {
+        int p = 0;
+        arg += 3;
+        const char *end = get_int_opt(arg, &p, 16);
+        if (end == arg) {
+            pci_list();
+            return;
+        }
+        pci_info(p);
     } else {
         k_printf("Options: %s\n\n", this->options);
     }
