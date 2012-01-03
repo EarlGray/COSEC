@@ -21,6 +21,6 @@ int syscall(int num, ...) {
 }
 
 int printf(const char *fmt, ...) {
-    return syscall(CSC_DBG_PRINT, (void **)&fmt);
+    return syscall(CSC_DBG_PRINT, (void **)&fmt, 0, 0);
 }
 

@@ -375,6 +375,4 @@ void test_init(void) {
         (uint)main, SEL_USER_CS,
         x86_eflags() | eflags_iopl(PL_USER),
         (uint)task0_stack3 + R3_STACK_SIZE - 0x20, SEL_USER_DS);
-    
-           
 }
