@@ -16,7 +16,7 @@ cc_includes := $(addprefix -I, $(include_dir)) -include globl.h
 ### for 64bit host
 cc_flags 	+= -m32
 as_flags	+= -m32
-ld_flags	+= --oformat=elf32-i386 -melf_i386
+ld_flags	+= -melf_i386
 
 objs		:= $(src_dir)/arch/boot.S
 objs		+= $(wildcard $(src_dir)/arch/[^b]*.S)	# exclude boot.S

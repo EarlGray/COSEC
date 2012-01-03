@@ -4,6 +4,8 @@
 #include <std/list.h>
 #include <std/sys/types.h>
 
+#include <vfs.h>
+
 #define MAX_MAJOR           10
 
 #define MEM_DEVS_FAMILY     1
@@ -11,11 +13,9 @@
 
 struct devfile_driver_struct;
 struct devfile_t;
-struct inode_operations;
 
 typedef  struct devfile_driver_struct  devfile_driver_t;
 typedef  struct devfile_struct         devfile_t;
-typedef  struct inode_operations        inode_ops;
 
 struct devfile_driver_struct {
     int major;
