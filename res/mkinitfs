@@ -1,35 +1,61 @@
 #! /bin/sh
 
-IMGFILE=${1-res/initfs}
+IMGFILE=res/initfs
 MNTDIR=./initrd
 
 # must fit to 1.44M floppy
 IMG_KB_SIZE=768
 
-dd if=/dev/zero of=$IMGFILE bs=1k count=$IMG_KB_SIZE
-mke2fs -F -L initfs $IMGFILE
+img_mount () {
+    [ -d $MNTDIR ] || mkdir $MNTDIR
+    sudo mount -o loop -t ext2 $IMGFILE $MNTDIR
+}
 
-[ -d $MNTDIR ] || mkdir $MNTDIR
+img_umount () {
+    sudo umount $MNTDIR
+    sudo rmdir $MNTDIR
+}
 
-sudo mount -o loop -t ext2 $IMGFILE $MNTDIR
-cd $MNTDIR
+populate_fs () {
+    cd $MNTDIR
 
-sudo mkdir boot
-sudo cp ../build/kernel* boot/
+    sudo mkdir boot
+    sudo cp ../build/kernel* boot/
 
-sudo mkdir dev
-sudo mknod dev/mem  c 1 1
-sudo mknod dev/null c 1 3
-sudo mknod dev/port c 1 4
-sudo mknod dev/zero c 1 5
-sudo mknod dev/full c 1 7
-sudo mknod dev/rand c 1 8
+    sudo mkdir dev
+    sudo mknod dev/mem  c 1 1
+    sudo mknod dev/null c 1 3
+    sudo mknod dev/port c 1 4
+    sudo mknod dev/zero c 1 5
+    sudo mknod dev/full c 1 7
+    sudo mknod dev/rand c 1 8
 
-sudo mknod dev/initrd b 1 250
+    sudo mknod dev/initrd b 1 250
 
-sudo mknod dev/tty  c 5 0
+    sudo mknod dev/tty  c 5 0
 
-cd -
+    cd -
+}
 
-sudo umount $MNTDIR
-sudo rmdir $MNTDIR
+mkimg () {
+    dd if=/dev/zero of=$IMGFILE bs=1k count=$IMG_KB_SIZE
+    mke2fs -F -L initfs $IMGFILE
+}
+
+case $1 in
+mount) 
+    img_mount
+    ;;
+umount)
+    img_umount
+    ;;
+*) 
+    IMGFILE=$1
+    [ -f $IMGFILE ] || mkimg
+    img_mount
+    populate_fs
+    img_umount
+    ;;
+esac
+
+

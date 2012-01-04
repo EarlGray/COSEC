@@ -39,9 +39,9 @@ void kmain(uint32_t magic, struct multiboot_info *mbi) {
     kbd_setup();
 
     /* do something useful */
-    intrs_enable();
-
     tasks_setup();
+
+    intrs_enable();
     kshell_run();
 }
 

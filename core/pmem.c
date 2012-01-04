@@ -12,7 +12,6 @@
 
 #include <arch/i386.h>
 #include <arch/mboot.h>
-#include <arch/multiboot.h>
 
 #include <mm/kheap.h>
 
