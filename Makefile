@@ -28,8 +28,9 @@ objs		:= $(patsubst $(src_dir)/%.c, $(build)/%.o, $(objs))
 
 libinit		:= $(build)/usr/init.a
 kernel      := kernel
+initfs		:= res/initfs
 
-mnt_dir     := mount_point
+mnt_img     := bootfd
 image       := cosec.img
 
 fuse		:=
@@ -76,21 +77,27 @@ bochs:	install
 	bochs
 
 
-install:  $(kernel) 
+install:  $(kernel) $(initfs)
 	@make mount \
-	&& $(do_install) $(build)/$(kernel) $(mnt_dir) \
-	&& echo "\n## Kernel installed"; make umount
+		&& $(do_install) $(build)/$(kernel) $(mnt_img) \
+		&& echo "\n## Kernel installed";
+	@$(do_install) $(initfs) $(mnt_img) \
+		&& echo "## Initfs installed"; 
+	make umount
 
-$(mnt_dir):	
-	@mkdir $(mnt_dir) 
+$(initfs):
+	@res/mkinitfs $(initfs) && echo "## initfs created"
 
-mount:	$(image) $(mnt_dir)
-	@$(do_mount) $(image) $(mnt_dir) \
+$(mnt_img):	
+	@mkdir $(mnt_img) 
+
+mount:	$(image) $(mnt_img)
+	@$(do_mount) $(image) $(mnt_img) \
 	&& echo "## Image mounted"
 
 umount:	
-	@$(do_umount) $(mnt_dir) &&	echo "## Image unmounted" || true; \
-	rmdir $(mnt_dir)
+	@$(do_umount) $(mnt_img) &&	echo "## Image unmounted" || true; \
+	rmdir $(mnt_img)
 
 $(image):	 
 	@echo "\n#### Checking image"
@@ -100,8 +107,8 @@ $(image):
 		bunzip2 fd.img.bz2;	\
 		mv fd.img $(image);	\
 		make mount \
-			&& mkdir -p $(mnt_dir)/boot/grub/ \
-			&& $(do_install) res/menu.lst $(mnt_dir)/boot/grub \
+			&& mkdir -p $(mnt_img)/boot/grub/ \
+			&& $(do_install) res/menu.lst $(mnt_img)/boot/grub \
 			&& make umount;	\
 		echo -e "## ...generated\n";	\
 	fi

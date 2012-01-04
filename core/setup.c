@@ -17,7 +17,7 @@ static void print_welcome(void) {
     int i;
     for (i = 0; i < 18; ++i) k_printf("\n");
 
-    k_printf("\t\t\t[41m<<<<< Welcome to COSEC >>>>>[0m\n\n");
+    k_printf("\t\t\t<<<<< Welcome to COSEC >>>>>\n\n");
 }
 
 void kmain(uint32_t magic, struct multiboot_info *mbi) {

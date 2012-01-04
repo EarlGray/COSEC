@@ -218,7 +218,7 @@ void kshell_init() {
 const struct kshell_command main_commands[] = {
     {   .name = "init",     .handler = kshell_init,  .description = "userspace init()", .options = "just init!" },
     {   .name = "test",     .handler = kshell_test,  .description = "test utility", .options = "sprintf kbd timer serial tasks ring3 usr" },
-    {   .name = "info",     .handler = kshell_info,  .description = "various info", .options = "stack gdt pmem colors cpu pci" },
+    {   .name = "info",     .handler = kshell_info,  .description = "various info", .options = "stack gdt pmem colors cpu pci mods" },
     {   .name = "mem",      .handler = kshell_mem,   .description = "mem <start_addr> <size = 0x100>" },
     {   .name = "heap",     .handler = kshell_heap,  .description = "heap utility", .options = "info alloc free check" },
     {   .name = "vfs",      .handler = kshell_vfs,   .description = "vfs utility",  .options = "write read", },
@@ -357,6 +357,18 @@ void kshell_info(const struct kshell_command *this, const char *arg) {
             return;
         }
         pci_info(p);
+    } else 
+    if (!strncmp(arg, "mods", 4)) {
+        count_t n_mods = 0;
+        module_t *mods;
+        mboot_modules_info(&n_mods, &mods);
+        printf(" Modules loaded = %d\n", n_mods);
+        int i;
+        for_range(i, n_mods) {
+            printf("%d '%s' - [ *%x : *%x ]\n", 
+                    i, (mods[i].string ? : "<null>"), 
+                    mods[i].mod_start, mods[i].mod_end);
+        }
     } else {
         k_printf("Options: %s\n\n", this->options);
     }
