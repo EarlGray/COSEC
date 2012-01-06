@@ -3,9 +3,16 @@ export include_dir  := $(top_dir)/include
 export src_dir      := $(top_dir)
 export build        := $(top_dir)/../build/usr
 
-cc	:=gcc
-ld	:=ld
-ar	:=ar
+host_os := $(shell uname)
+
+ifeq ($(host_os),Darwin)
+gcc_home := /usr/local/gcc-4.5.2-for-linux32
+crosscompile := $(gcc_home)/bin/i586-pc-linux-
+endif
+
+cc	:=$(crosscompile)gcc
+ld	:=$(crosscompile)ld
+ar	:=$(crosscompile)ar
 
 cc_flags 	:= -ffreestanding -Wall -Wextra -O2 -MD
 cc_includes	:= -nostdlib -nostdinc -I./include 

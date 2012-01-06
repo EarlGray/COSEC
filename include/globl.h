@@ -2,9 +2,10 @@
 #ifndef __CONF_H__
 #define __CONF_H__
 
-#define VERBOSE
-#define VIRTUAL_OFFSET  (0xc0000000)
 #define PAGE_SIZE       0x1000
+
+#define KERN_OFF        0x00000000
+#define KERN_PA         0x00100000
 
 #define INTR_PROFILING  (0)
 #define MEM_DEBUG       (1)
@@ -13,7 +14,7 @@
 
 #endif // __CONF_H__
 
-#ifndef ASM
+#ifndef NOT_CC
 
 /**********************************************************/
 #ifndef __LANGEXTS__
@@ -67,4 +68,4 @@ extern int kfree(void *);
 
 #endif //__KSTDLIB_H__
 
-#endif // ASM
+#endif // NOTCC

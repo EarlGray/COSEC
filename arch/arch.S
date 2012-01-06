@@ -1,4 +1,4 @@
-#define ASM
+#define NOT_CC
 
 #include <globl.h>
 

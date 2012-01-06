@@ -3,13 +3,22 @@ export include_dir  := $(top_dir)/include
 export src_dir      := $(top_dir)
 export build        := $(top_dir)/build
 
-cc  :=  gcc
-as  :=  gcc
-ld  :=  ld
+host_os := $(shell uname)
+
+ifeq ($(host_os),Darwin)
+gcc_home := /usr/local/gcc-4.5.2-for-linux32
+crosscompile := $(gcc_home)/bin/i586-pc-linux-
+endif
+
+cc  :=  $(crosscompile)gcc
+as  :=  $(crosscompile)gcc
+ld  :=  $(crosscompile)ld
+
+lds := vmcosec.lds
 
 cc_flags    := -ffreestanding -nostdinc -nostdlib -Wall -Wextra -Winline -O2 -MD 
 as_flags    := -Wall -MD $(addprefix -I, $(include_dir))
-ld_flags    := -static -nostdlib -Tlink.ld
+ld_flags    := -static -nostdlib -T$(build)/$(lds)
 
 cc_includes := $(addprefix -I, $(include_dir)) -include globl.h 
 
@@ -33,8 +42,7 @@ initfs		:= res/initfs
 mnt_img     := bootfd
 image       := cosec.img
 
-fuse		:=
-#$(shell which fuseext2)
+fuse		:= $(shell which ext2fuse)
 
 ### Use native mount/umount for a GRUB installation, fuseext2 fails at this
 ifeq ($(strip $(fuse)),)
@@ -113,12 +121,12 @@ $(image):
 		echo -e "## ...generated\n";	\
 	fi
 
-$(kernel): $(build) $(objs) $(libinit)
+$(kernel): $(build) $(objs) $(libinit) $(build)/$(lds)
 	@echo "\n#### Linking..."
 	@echo -n "LD: "
 	$(ld) -o $(build)/$(kernel)	$(objs) $(libinit) $(ld_flags) && echo "## ...linked"
-	@if [ `which objdump 2>/dev/null` ]; then objdump -d $(build)/$(kernel) > $(objdump); fi
-	@if [ `which nm 2>/dev/null` ]; then nm $(build)/$(kernel) | sort > $(build)/$(kernel).nm; fi
+	@if [ `which $(objdump) 2>/dev/null` ]; then objdump -d $(build)/$(kernel) > $(objdump); fi
+	@if [ `which $(nm) 2>/dev/null` ]; then nm $(build)/$(kernel) | sort > $(build)/$(kernel).nm; fi
 	@if [ `which ctags 2>/dev/null ` ]; then ctags -R *; fi
 	
 $(build):
@@ -127,6 +135,10 @@ $(build):
 	@for d in * ; do		\
 		[ -d $$d ] && mkdir $(build)/$$d || true;	\
 	done
+
+$(build)/$(lds):    $(lds).S
+	@echo "CPP: "
+	$(cc) -E $< -o $@ -P -DNOT_CC $(cc_includes)
 	
 $(build)/%.o : %.c
 	@echo -n "CC: "

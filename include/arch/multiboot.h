@@ -40,7 +40,7 @@
 # define EXT_C(sym)			sym
 #endif
 
-#ifndef ASM
+#ifndef NOT_CC
 /* Do not include here in boot.S.  */
 
 /* Types.  */
@@ -116,6 +116,6 @@ typedef struct memory_map
   unsigned long type;
 } memory_map_t;
 
-#endif /* ! ASM */
+#endif /* ! NOT_CC */
 
 #endif

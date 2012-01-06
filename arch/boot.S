@@ -1,4 +1,4 @@
-#define ASM (1)
+#define NOT_CC
 /*
 #define __ELF__  
 */

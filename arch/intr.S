@@ -1,6 +1,4 @@
-#define ASM
-
-#include <globl.h>
+#define NOT_CC
 
 #define KERN_DS     0x0010
 #define KERN_CS     0x0008
