@@ -4,12 +4,6 @@
 #include <arch/i386.h>
 #include <log.h>
 
-pde_t thePageDirectory[N_PDE] __attribute__((aligned (PAGE_SIZE))) = {
-    [0] = 0x00000000 | PG_GRAN | PG_RW | PG_PRESENT,
-    [1] = 0,
-    [KERN_PA >> PDE_SHIFT] = 0x0000000 | PG_GRAN | PG_RW | PG_PRESENT,
-};
-
 int pg_fault(void) {
     print("\n#PF\n");
 

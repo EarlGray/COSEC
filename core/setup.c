@@ -32,7 +32,7 @@ void kmain(uint32_t magic, struct multiboot_info *mbi) {
     /* general setup */
     cpu_setup();
     pmem_setup();
-    //vfs_setup();
+    vfs_setup();
 
     /* devices setup */
     timer_setup();

@@ -4,7 +4,7 @@
 
 #define PAGE_SIZE       0x1000
 
-#define PAGING          (1)
+#define PAGING          (0)
 
 #define INTR_PROFILING  (0)
 #define MEM_DEBUG       (1)
@@ -45,6 +45,8 @@ typedef int32_t     err_t, off_t;
 #define MAX_UINT    (0xFFFFFFFF)
 #define MAX_INT    (0x7FFFFFFF)
 #define MAX_ULONG   (i(MAX_UINT << 32) | MAX_UINT)
+
+#define NOERR               0
 
 /*
  *  bool type

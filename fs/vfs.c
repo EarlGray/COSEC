@@ -516,9 +516,9 @@ void vfs_shell(const char *arg) {
             "\tmkdir </full/path/to>\n");
 
     /* get file path */
+    bool file_write = !strncmp("write", arg, arg_end - arg);
 
-    if (!strncmp("write", arg, arg_end - arg)
-            || !strncmp("read", arg, arg_end - arg))
+    if (file_write || !strncmp("read", arg, arg_end - arg))
     {
         skip_spaces(arg_end);
         char *fpath = arg_end;
@@ -533,10 +533,8 @@ void vfs_shell(const char *arg) {
 
         flink_t *flink = vfs_file_by_path(fpath);
 
-        if (!strncmp("read", arg, arg_end - arg))
-            file_to_stdout(flink, fpath);
-        else
-            file_from_stdin(flink, fdir, fname);
+        if (file_write) file_from_stdin(flink, fdir, fname);
+        else file_to_stdout(flink, fpath);
     }
     else if (!strncmp("mkdir", arg, arg_end - arg)) {
         skip_spaces(arg_end);

@@ -7,6 +7,7 @@
 
 #include <std/string.h>
 #include <std/stdio.h>
+#include <std/time.h>
 
 #include <kshell.h>
 #include <pmem.h>
@@ -209,6 +210,7 @@ void kshell_mem(const struct kshell_command *, const char *);
 void kshell_vfs(const struct kshell_command *, const char *);
 void kshell_ls();
 void kshell_mount();
+void kshell_time();
 void kshell_panic();
 
 void kshell_init() {
@@ -227,6 +229,7 @@ const struct kshell_command main_commands[] = {
     {   .name = "help",     .handler = kshell_help,  .description = "show this help"   },
     {   .name = "ls",       .handler = kshell_ls,    .description = "list current VFS directory"    },
     {   .name = "mount",    .handler = kshell_mount, .description = "list current mounted filesystems"  },
+    {   .name = "time",     .handler = kshell_time,  .description = "system time", .options = ""  },
     {   .name = null,       .handler = 0    }
 };
 
@@ -357,7 +360,7 @@ void kshell_info(const struct kshell_command *this, const char *arg) {
             return;
         }
         pci_info(p);
-    } else 
+    } else
     if (!strncmp(arg, "mods", 4)) {
         count_t n_mods = 0;
         module_t *mods;
@@ -365,8 +368,8 @@ void kshell_info(const struct kshell_command *this, const char *arg) {
         printf(" Modules loaded = %d\n", n_mods);
         int i;
         for_range(i, n_mods) {
-            printf("%d '%s' - [ *%x : *%x ]\n", 
-                    i, (mods[i].string ? : "<null>"), 
+            printf("%d '%s' - [ *%x : *%x ]\n",
+                    i, (mods[i].string ? : "<null>"),
                     mods[i].mod_start, mods[i].mod_end);
         }
     } else {
@@ -421,6 +424,14 @@ void kshell_test(const struct kshell_command *this, const char *cmdline) {
     k_printf("Options: %s\n\n", this->options);
 }
 
+void kshell_time() {
+    ymd_hms t;
+    time_ymd_from_rtc(&t);
+
+    printf("Date: %d/%d/%d, %d:%d:%d\n",
+            (uint)t.tm_mday, (uint)t.tm_mon, (uint)t.tm_year,
+            (uint)t.tm_hour, (uint)t.tm_min, (uint)t.tm_sec);
+}
 
 void kshell_unknown_cmd() {
     k_printf("type 'help'\n\n");
