@@ -14,6 +14,7 @@
 #include <arch/mboot.h>
 
 #include <mm/kheap.h>
+#include <mm/paging.h>
 
 #if MEM_DEBUG
 #   define mem_logf(msg, ...) logf(msg, __VA_ARGS__)
@@ -152,7 +153,7 @@ void pmem_setup(void) {
     pg_init(thePageframeMap, true);
 
     /* reserve kernel and thePageframeMap itself */
-    pages_set((uint)&_start, n_pages * sizeof(page_frame), true);
+    pages_set(__pa(&_start), n_pages * sizeof(page_frame), true);
 
     kheap_setup();
 }

@@ -5,7 +5,6 @@ OUTPUT_ARCH(i386)
 SECTIONS
 {
     . = KERN_PA + KERN_OFF;
-    _entry = .;
 
     _text = .;
     text = .;
@@ -34,4 +33,8 @@ SECTIONS
     }
     _end = .;
     end =  .;
+
+    _entry = (start - KERN_OFF);
 }
+
+ENTRY(_entry)

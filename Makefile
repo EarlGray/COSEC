@@ -47,7 +47,7 @@ fuse		:= $(shell which ext2fuse)
 ### Use native mount/umount for a GRUB installation, fuseext2 fails at this
 ifeq ($(strip $(fuse)),)
     do_mount	:= sudo mount -o loop 
-    do_umount	:= sudo umount 
+    do_umount	:= sudo umount -l
     do_install	:= sudo cp 
 else
     do_mount	:= $(fuse) -o rw+,uid=`id -u`,gid=`id -g` 
@@ -87,10 +87,10 @@ bochs:	install
 
 install:  $(kernel) $(initfs)
 	@make mount \
-		&& $(do_install) $(build)/$(kernel) $(mnt_img) \
-		&& echo "\n## Kernel installed";
-	@$(do_install) $(initfs) $(mnt_img) \
-		&& echo "## Initfs installed"; 
+		&& $(do_install) $(build)/$(kernel) $(mnt_img) 	\
+		&& echo "\n## Kernel installed";				\
+	$(do_install) $(initfs) $(mnt_img) 					\
+		&& echo "## Initfs installed"; 					\
 	make umount
 
 $(initfs):
@@ -125,8 +125,8 @@ $(kernel): $(build) $(objs) $(libinit) $(build)/$(lds)
 	@echo "\n#### Linking..."
 	@echo -n "LD: "
 	$(ld) -o $(build)/$(kernel)	$(objs) $(libinit) $(ld_flags) && echo "## ...linked"
-	@if [ `which $(objdump) 2>/dev/null` ]; then objdump -d $(build)/$(kernel) > $(objdump); fi
-	@if [ `which $(nm) 2>/dev/null` ]; then nm $(build)/$(kernel) | sort > $(build)/$(kernel).nm; fi
+	@if [ `which objdump 2>/dev/null` ]; then objdump -d $(build)/$(kernel) > $(objdump); fi
+	@if [ `which nm 2>/dev/null` ]; then nm $(build)/$(kernel) | sort > $(build)/$(kernel).nm; fi
 	@if [ `which ctags 2>/dev/null ` ]; then ctags -R *; fi
 	
 $(build):

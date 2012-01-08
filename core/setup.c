@@ -22,7 +22,7 @@ static void print_welcome(void) {
 
 void kmain(uint32_t magic, struct multiboot_info *mbi) {
     if (magic != MULTIBOOT_BOOTLOADER_MAGIC) {
-        k_printf("invalid boot");
+        k_printf("invalid boot\n\n");
         return;
     }
 
@@ -32,7 +32,7 @@ void kmain(uint32_t magic, struct multiboot_info *mbi) {
     /* general setup */
     cpu_setup();
     pmem_setup();
-    vfs_setup();
+    //vfs_setup();
 
     /* devices setup */
     timer_setup();

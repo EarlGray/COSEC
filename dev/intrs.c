@@ -173,8 +173,10 @@ void int_invalid_op(void *stack) {
     panic(buf);
 }
 
+#include <mm/paging.h>
+
 void int_page_fault(void ) {
-    intr_log("#PF");
+    pg_fault();
 }
 
 void int_segment_not_present(void) {

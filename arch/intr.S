@@ -2,9 +2,26 @@
 
 #define KERN_DS     0x0010
 #define KERN_CS     0x0008
-/* 
+/*
  *      This file contains most of assembly routines used, most of them
  *  are interrupts and exections entry points now.
+ */
+
+/*
+ *    <---- stack grows to less addresses --
+ *  Stack state during an interrupt:
+ *     args    ds  es  gs  fs edi esi ebp esp ebx edx ecx eax
+ *  -|-------|---|---|---|---|---|---|---|---|---|---|---|---| sys-info
+ *           ^
+ *      context_esp
+ *
+ *  sys-info:
+ *  1) interrupted from kernel mode:
+ *      [|---]|---|---|---|---
+ *        err  eip  cs efl
+ *  2) interrupted from user mode:
+ *      [|---]|---|---|---|---|---|----
+          err  eip  cs efl esp  ss
  */
 
 .data
@@ -22,7 +39,7 @@ intr_error:
 .long 0
 
 #if INTR_PROFILING
-start_tick: 
+start_tick:
 .long   0
 .long   0
 #endif
@@ -39,7 +56,7 @@ start_tick:
     movw %ax, dtreg
     movl 8(%esp), %eax
     movl %eax, dtreg + 2
-.endm 
+.endm
 
 .macro SHAKE_REGS
     movw $KERN_DS, %dx
@@ -56,7 +73,7 @@ gdt_load:
     DTREG_LOAD
     lgdt dtreg
 
-    SHAKE_REGS  
+    SHAKE_REGS
     ljmp $KERN_CS, $reload_gdt
 reload_gdt:
     ret
@@ -143,7 +160,7 @@ intr_start_rdtsc:
     movl %esp, context_esp
 
     /* for arguments */
-    subl $8, %esp   
+    subl $8, %esp
 .endm
 
 .macro INTR_END
@@ -162,7 +179,7 @@ intr_start_rdtsc:
     INTR_PROLOG
 
     movl %esp, (%esp)
-    call \handler 
+    call \handler
     jmp noerr_return
 .endm
 
@@ -171,7 +188,7 @@ intr_start_rdtsc:
 .global \name
 \name :
     INTR_PROLOG
-    
+
     movl 0x38(%esp), %ebx
     movl %ebx, intr_error
 
@@ -183,7 +200,7 @@ intr_start_rdtsc:
 .macro ENTRY_IRQ name, num
 .global \name
 \name :
-    INTR_PROLOG 
+    INTR_PROLOG
     INTR_PROFILING_START
 
     /* call the handler */

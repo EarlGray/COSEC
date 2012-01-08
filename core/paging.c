@@ -1,31 +1,28 @@
-//#include <core/paging.h>
+#define __DEBUG
+
+#include <mm/paging.h>
 #include <arch/i386.h>
-
-typedef  uint32_t  pde_t;
-typedef  uint32_t  pte_t;
-
-#define PG_PRESENT      0x00000001
-#define PG_RW           0x00000002
-#define PG_USR_READ     0x00000004
-#define PG_PWT          0x00000008
-#define PG_PCD          0x00000010
-#define PG_ACCESSED     0x00000020
-#define PG_DIRTY        0x00000040
-#define PG_GRAN         0x00000080  /* page size: Mb/Kb */
-#define PG_GLOBL        0x00000100
-#define PG_PAT          0x00001000
-
-#define PG31_22_MASK    0xFFC00000
-#define PG31_12_MASK    0xFFFFF000
-
-#define PDE_SHIFT       22
-#define PTE_SHIFT       12
-
-#define N_PDE           (PAGE_SIZE / sizeof(pde_t))
-#define PTE_PER_ENTRY   (PAGE_SIZE / sizeof(pte_t))
+#include <log.h>
 
 pde_t thePageDirectory[N_PDE] __attribute__((aligned (PAGE_SIZE))) = {
     [0] = 0x00000000 | PG_GRAN | PG_RW | PG_PRESENT,
     [1] = 0,
     [KERN_PA >> PDE_SHIFT] = 0x0000000 | PG_GRAN | PG_RW | PG_PRESENT,
 };
+
+int pg_fault(void) {
+    print("\n#PF\n");
+
+    ptr_t fault_addr;
+    asm volatile ("movl %%cr2, %0   \n" : "=r"(fault_addr) );
+
+    err_t fault_error = intr_err_code();
+    ptr_t context = intr_context_esp();
+
+    uint* op_addr = (uint *)(context + CONTEXT_SIZE + sizeof(uint));
+
+    printf("Fault 0x%x from %x:%x accessing *%x\n",
+            fault_error, op_addr[1], op_addr[0], fault_addr);
+
+    cpu_hang();
+}
