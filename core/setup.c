@@ -6,10 +6,11 @@
 #include <dev/timer.h>
 #include <dev/screen.h>
 
+#include <fs/vfs.h>
+
 #include <kshell.h>
 #include <pmem.h>
 #include <tasks.h>
-#include <vfs.h>
 
 static void print_welcome(void) {
     clear_screen();

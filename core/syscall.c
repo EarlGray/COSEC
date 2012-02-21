@@ -1,6 +1,6 @@
 #include <syscall.h>
 #include <arch/i386.h>
-#include <fs/fs_syscalls.h>
+#include <fs/fs_sys.h>
 
 #include <log.h>
 

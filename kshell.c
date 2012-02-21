@@ -14,7 +14,7 @@
 #include <mm/kheap.h>
 #include <misc/test.h>
 
-#include <vfs.h>
+#include <fs/vfs.h>
 #include <log.h>
 
 /***

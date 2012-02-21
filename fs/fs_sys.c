@@ -1,5 +1,5 @@
-#include <fs/fs_syscalls.h>
-#include <vfs.h>
+#include <fs/fs_sys.h>
+#include <fs/vfs.h>
 #include <log.h>
 
 int sys_mount(mount_info_t *mnt) {
