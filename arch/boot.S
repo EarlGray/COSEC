@@ -74,7 +74,7 @@ multiboot_entry:
     
     pushl   %ebx            // multiboot info structure pointer
     pushl   %eax            // magic
-    call    EXT_C(kmain)
+    call    EXT_C(kinit)
 
 hang:   hlt
     jmp hang

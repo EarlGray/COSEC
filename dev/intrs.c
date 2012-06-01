@@ -1,7 +1,7 @@
 /*
  *      This file contains high-level interupts handlers
  *  Now it also includes PIC-related code, though it would be nice to put it
- *  to its own header, but I don't wnat mupltiply files now
+ *  to its own header, but I don't want mupltiply files now
  *  TODO: separate pic.c
  *      About interrupt handling: 
  *  exceptions are handled directly by one of int_foo() functions

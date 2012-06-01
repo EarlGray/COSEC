@@ -88,7 +88,7 @@ err_t time_ymd_from_rtc(ymd_hms *ymd) {
 }
 
 time_t unix_time(void) {
-    return ETODO;
+    return -ETODO;
 }
 
 time_t time(time_t *t) {
