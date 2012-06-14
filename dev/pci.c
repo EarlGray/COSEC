@@ -36,8 +36,7 @@ uint pci_config_read_dword(uint bus, uint slot, uint func, uint offset) {
     return res;
 }
 
-void pci_info(int slot) {
-    uint bus = 0;
+void pci_info(uint bus, int slot) {
     uint id = pci_config_read_dword(bus, slot, 0, PCI_CONF_ID_OFF);
     if (0xFFFF == (uint16_t)id)
         return;
@@ -61,9 +60,8 @@ void pci_info(int slot) {
     }
 }
 
-void pci_list(void) {
+void pci_list(uint bus) {
     int slot;
-    int bus = 0;
 
     uint start_dev_id = 0;
 

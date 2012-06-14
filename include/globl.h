@@ -13,7 +13,7 @@
 
 #if PAGING
 # define KERN_OFF       0xc0000000
-#else 
+#else
 # define KERN_OFF       0x00000000
 #endif
 
@@ -64,6 +64,12 @@ typedef char bool;
 #define reinterpret_cast(t)         *(t *)&
 
 #define for_range(var, max_value)   for(var = 0; var < (max_value); ++var)
+
+/*
+ *  compiler-specific: only gcc now
+ */
+#define __pure      __attribute__((pure))
+#define __noreturn  __attribute__((noreturn))
 
 #endif // __LANGEXTS__
 
