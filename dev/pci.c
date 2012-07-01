@@ -15,11 +15,11 @@
 #define PCI_CONF_INTR_OFF       0x3c
 
 const char * pci_class_descriptions[] = {
-    "0",   "mass storage controller",   "network controller",   "display controller",       // 0x00 - 0x03
-    "multimedia controller",    "memory controller",    "bridge device",    "simple communication controllr",  // 0x04 - 0x07
-    "base system peripherals",  "input device",   "docking station",     "processor",            // 0x08-0xB
-    "serial bus controller", "wireless controller", "intelligent I/O controller",  "",
-    "enryption/decryption controller",
+    "class 0",                  "mass storage controller",  "network controller",   "display controller",       // 0x00 - 0x03
+    "multimedia controller",    "memory controller",        "bridge device",        "simple communication controllr",  // 0x04 - 0x07
+    "base system peripherals",  "input device",             "docking station",     "processor",            // 0x08-0xB
+    "serial bus controller",    "wireless controller",      "intelligent I/O controller",  "class 0xF",
+    "cryptocontroller",
 };
 
 /*
@@ -36,8 +36,7 @@ uint pci_config_read_dword(uint bus, uint slot, uint func, uint offset) {
     return res;
 }
 
-void pci_info(int slot) {
-    uint bus = 0;
+void pci_info(uint bus, int slot) {
     uint id = pci_config_read_dword(bus, slot, 0, PCI_CONF_ID_OFF);
     if (0xFFFF == (uint16_t)id)
         return;
@@ -61,9 +60,8 @@ void pci_info(int slot) {
     }
 }
 
-void pci_list(void) {
+void pci_list(uint bus) {
     int slot;
-    int bus = 0;
 
     uint start_dev_id = 0;
 

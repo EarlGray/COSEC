@@ -30,7 +30,8 @@ static const char * get_int_opt(const char *arg, int *res, uint8_t base);
   *     Panic and other print routines
  ***/
 
-void panic(const char *fatal_error) {
+void __noreturn
+panic(const char *fatal_error) {
     intrs_disable();
 
     char buf [100] = { 0 };
@@ -352,14 +353,17 @@ void kshell_info(const struct kshell_command *this, const char *arg) {
         print_cpu();
     } else
     if (!strncmp(arg, "pci", 3)) {
-        int p = 0;
+        int bus = 0, slot = -1;
         arg += 3;
-        const char *end = get_int_opt(arg, &p, 16);
-        if (end == arg) {
-            pci_list();
-            return;
+        const char *end = get_int_opt(arg, &bus, 16);
+        get_int_opt(end, &slot, 16);
+        if (*end == null) {
+            printf("bus %x\n", bus, slot);
+            pci_list(bus);
+        } else {
+            printf("bus %x, slot %x\n", bus, slot);
+            pci_info(bus, slot);
         }
-        pci_info(p);
     } else
     if (!strncmp(arg, "mods", 4)) {
         count_t n_mods = 0;
