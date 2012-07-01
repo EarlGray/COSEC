@@ -4,7 +4,7 @@
 
 #define PAGE_SIZE       0x1000
 
-#define PAGING          (0)
+#define PAGING          (1)
 
 #define INTR_PROFILING  (0)
 #define MEM_DEBUG       (1)
