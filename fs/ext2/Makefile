@@ -1,8 +1,8 @@
 exe 	:= ext2fs
 mnt 	:= mnt
 
-ifeq ($(shell uname),Linux)
 mount=./$(exe)
+ifeq ($(shell uname),Linux)
 umount=fusermount -u
 else
 ifeq ($(shell uname),Darwin)
