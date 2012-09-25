@@ -39,7 +39,7 @@ objs		:= $(patsubst $(src_dir)/%.S, $(build)/%.o, $(objs))
 objs		:= $(patsubst $(src_dir)/%.c, $(build)/%.o, $(objs))
 
 libinit		:= $(build)/usr/init.a
-kernel      := kernel
+kernel          := kernel
 initfs		:= res/initfs
 
 mnt_img     := bootfd
