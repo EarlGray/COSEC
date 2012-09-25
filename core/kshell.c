@@ -241,7 +241,6 @@ const struct kshell_subcmd  test_cmds[] = {
     { .name = "kbd",     .handler = test_kbd,       },
     { .name = "tasks",   .handler = test_tasks,     },
     { .name = "ring3",   .handler = test_userspace, },
-    { .name = "usr",     .handler = test_init,      },
     { .name = 0, .handler = 0    },
 };
 
@@ -266,7 +265,7 @@ static inline size_t strcmpsz(const char *s1, const char *s2, char endchar) {
 }
 
 #define skip_gaps(pchar) \
-    while (' ' == *(pchar)) ++(pchar)
+    do while (' ' == *(pchar)) ++(pchar); while (0)
 
 bool kshell_autocomplete(char *buf) {
     int i;

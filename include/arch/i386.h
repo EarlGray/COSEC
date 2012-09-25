@@ -105,7 +105,7 @@ typedef struct {
     } as;
 } segment_selector;
 
-#define make_selector(index, ti, pl)  (((index & 0xFFFF) << 3) + ((ti & 1) << 2) + (pl & 3))
+#define make_selector(index, ti, pl)  ((((index) & 0xFFFF) << 3) + (((ti) & 1) << 2) + ((pl) & 3))
 #define segsel_index(ss)        ((ss) >> 3)
 #define rpl(ss)                 ((ss >> 1) & 0x3)
 

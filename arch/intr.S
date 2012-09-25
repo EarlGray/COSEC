@@ -18,10 +18,10 @@
  *  sys-info:
  *  1) interrupted from kernel mode:
  *      [|---]|---|---|---|---
- *        err  eip  cs efl
+ *       [err] eip  cs efl
  *  2) interrupted from user mode:
  *      [|---]|---|---|---|---|---|----
-          err  eip  cs efl esp  ss
+         [err] eip  cs efl esp  ss
  */
 
 .data
