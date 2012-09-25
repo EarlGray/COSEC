@@ -15,7 +15,7 @@ as  :=  $(crosscompile)gcc
 ld  :=  $(crosscompile)ld
 
 nm 	:=  $(crosscompile)nm
-objdump:=$(crosscompile)objdump
+objdump :=  $(crosscompile)objdump
 
 lds := vmcosec.lds
 
@@ -59,7 +59,7 @@ else
 endif
 
 log_name	:= fail.log
-objdump     := $(build)/$(kernel).objd
+objdfile     	:= $(build)/$(kernel).objd
 pipe_file	:= pipe
 
 vbox_name   := COSEC
@@ -128,7 +128,7 @@ $(kernel): $(build) $(objs) $(libinit) $(build)/$(lds)
 	@echo "\n#### Linking..."
 	@echo -n "LD: "
 	$(ld) -o $(build)/$(kernel)	$(objs) $(libinit) $(ld_flags) && echo "## ...linked"
-	@if [ `which $(objdump) 2>/dev/null` ]; then $(objdump) -d $(build)/$(kernel) > $(objdump); fi
+	@if [ `which $(objdump) 2>/dev/null` ]; then $(objdump) -d $(build)/$(kernel) > $(objdfile); fi
 	@if [ `which $(nm) 2>/dev/null` ]; then $(nm) $(build)/$(kernel) | sort > $(build)/$(kernel).nm; fi
 	@if [ `which ctags 2>/dev/null ` ]; then ctags -R *; fi
 	
