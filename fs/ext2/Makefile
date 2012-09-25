@@ -1,4 +1,4 @@
 
 host:
-	gcc `pkg-config fuse --cflags --libs` e2fuse.c -o ext2fs 
+	gcc e2fuse.c `pkg-config fuse --cflags --libs` -o ext2fs
 	
