@@ -33,10 +33,12 @@ struct ext_info {
     (((bf) >> (bit)) & 1)
 
 void mboot_info_parse(struct multiboot_info *mbi) {
+    k_printf("multiboot_info at *%x\n", (uint)mbi);
     mboot.flags = mbi->flags;
     if (is_set(mboot.flags, 0)) {
         mboot.mem_lower = mbi->mem_lower;
         mboot.mem_upper = mbi->mem_upper;
+        k_printf("mem_lower = %d, mem_upper = %d\n", mboot.mem_lower, mboot.mem_upper);
     } else {
         mboot.mem_lower = 0;
         mboot.mem_upper = 0;
@@ -64,6 +66,8 @@ void mboot_info_parse(struct multiboot_info *mbi) {
     if (is_set(mboot.flags, 7)) {
         mboot.drives_length = mbia[13];
         mboot.drives_addr = (void *)mbia[14];
+        k_printf("drives: %d\n", mboot.drives_length);
+        k_printf("drives info at *0x%x\n", mboot.drives_addr);
     } else {
         mboot.drives_length = 0;
         mboot.drives_addr = null;

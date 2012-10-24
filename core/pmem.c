@@ -33,15 +33,15 @@
 typedef struct {
     uint used;      // reference count, 0 for a free pageframe
     uint flags;
-} page_frame;
-
+    index_t prev, next;   // for free pages: next available
+} page_frame_t;
 
 size_t available_memory = 0;
 
 size_t n_pages = 0;
 size_t n_available_pages = 0;
 
-page_frame *thePageframeMap = null;    // will be initialized in pmem_setup()
+page_frame_t *thePageframeMap = null;    // will be initialized in pmem_setup()
 index_t current_page = 0;
 
 extern void _start, _end;
@@ -72,9 +72,9 @@ static inline uint aligned(uint addr) {
 #define pg_is_used(index)       (thePageframeMap[index].used)
 #define pg_is_reserved(index)   (thePageframeMap[index].flags & PG_RESERVED)
 
-void pg_init(page_frame *pf, bool reserved) {
-    if (reserved) {
-        pf->flags |= PG_RESERVED;
+void pg_init(page_frame_t *pf, uint flags) {
+    if (flags & PG_RESERVED) {
+        pf->flags = flags;
         pf->used = PG_RESERVED_USE;
     }
     else
@@ -87,11 +87,12 @@ void pg_init(page_frame *pf, bool reserved) {
 
 #define _pg_release(index)      \
     do {                        \
-        -- thePageframeMap[index].used; \
-        if (thePageframeMap[i].used == 0) ++n_available_pages; \
-    } while 0
+        -- thePageframeMap[index].used; i                       \
+        if (thePageframeMap[i].used == 0) ++n_available_pages;  \
+    } while (0)
 
-#define _pg_free(index)      { thePageframeMap[index].used = 0; ++n_available_pages; }
+#define _pg_free(index)     \
+    do {  thePageframeMap[index].used = 0; ++n_available_pages; } while (0)
 
 void pg_free(index_t index) {
     _pg_free(index);
@@ -102,6 +103,7 @@ void pg_free(index_t index) {
  ***/
 
 void pages_set(uint addr, uint size, bool reserved) {
+    uint flags = reserved ? PG_RESERVED : 0;
     uint end_page = aligned(addr + size - 1) / PAGE_SIZE;
     if (end_page == 0) return;
 
@@ -111,10 +113,10 @@ void pages_set(uint addr, uint size, bool reserved) {
     mem_logf("%s pages from %x to %x; ", (reserved? "reserving" : "freeing  "),  i, end_page - 1);
 
     for (; i < end_page; ++i) {
-        pg_init(thePageframeMap + i, reserved);
+        pg_init(thePageframeMap + i, flags);
     }
     if (reserved) {
-        pg_init(thePageframeMap + i , reserved);
+        pg_init(thePageframeMap + i , flags);
     } else
         if (n_pages <= end_page) {
             n_pages = end_page;
@@ -125,7 +127,7 @@ void pages_set(uint addr, uint size, bool reserved) {
 }
 
 void pmem_setup(void) {
-    thePageframeMap = (page_frame *)aligned((uint)&_end);
+    thePageframeMap = (page_frame_t *)aligned((uint)&_end);
 
     struct memory_map *mapping = (struct memory_map *)mboot_mmap_addr();
 
@@ -153,7 +155,7 @@ void pmem_setup(void) {
     pg_init(thePageframeMap, true);
 
     /* reserve kernel and thePageframeMap itself */
-    pages_set(__pa(&_start), n_pages * sizeof(page_frame), true);
+    pages_set(__pa(&_start), n_pages * sizeof(page_frame_t), true);
 
     kheap_setup();
 }

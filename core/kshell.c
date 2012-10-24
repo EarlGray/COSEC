@@ -77,12 +77,18 @@ panic(const char *fatal_error) {
 
 void print_mem(const char *p, size_t count) {
     char buf[100] = { 0 };
+    char printable[0x10 + 1] = { 0 };
     char s = 0;
 
+    int printnum = 0;
     int rest = (uint)p % 0x10;
     if (rest) {
-        int indent = 10 + 3 * rest + (rest >> 2) + (rest % 4? 1 : 0);
-        while (indent-- > 0) k_printf(" ");
+        int indent = 9 + 3 * rest + (rest >> 2) + (rest % 4? 1 : 0);
+        while (indent-- > 0) {
+            k_printf(" ");
+        }
+        while (rest--)
+            printable[printnum++] = ' ';
     }
 
     size_t i;
@@ -90,10 +96,11 @@ void print_mem(const char *p, size_t count) {
 
         if (0 == (uint32_t)(p + i) % 0x10) {
             /* end of line */
-            k_printf("%s\n", buf);
+            k_printf("%s| %s\n", buf, printable);
+            printnum = 0;
 
             /* start next line */
-            s = snprintf(buf, 100, "%0.8x: ", (uint32_t)(p + i));
+            s = snprintf(buf, 100, "%0.8x:", (uint32_t)(p + i));
         }
 
         if (0 == (uint)(p + i) % 0x4) {
@@ -102,6 +109,11 @@ void print_mem(const char *p, size_t count) {
 
         int t = (uint8_t) p[i];
         s += snprintf(buf + s, 100 - s, "%0.2x ", t);
+
+        if ((0x20 <= t) && (t < 0x80)) printable[printnum] = t;
+        else if (0x80 <= t) printable[printnum] = '`';
+        else printable[printnum] = '.';
+        printnum++;
     }
     k_printf("%s\n", buf);
 }

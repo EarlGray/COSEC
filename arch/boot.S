@@ -38,6 +38,7 @@ multiboot_header:
 start:
 _start:
 multiboot_entry:
+#if PAGING
     /** initialize paging table at *INITIAL_PGDIR **/
     movl %eax, %esp         // save multiboot magic
 
@@ -59,12 +60,11 @@ multiboot_entry:
     orl  $(CR4_PSE | CR4_PGE), %eax
     movl %eax, %cr4         // enable page-size-ext and global pages
 
-#if PAGING
     movl %cr0, %eax
     orl  $(CR0_PG | CR0_WP), %eax
     movl %eax, %cr0         // enable paging and write-protection
-#endif
     movl %esp, %eax
+#endif
 
     /** initialize the stack **/
     movl $(kern_stack + STACK_SIZE), %esp
