@@ -10,5 +10,6 @@ uint32_t    boot_drives_length(void);
 
 void boot_info_parse(struct multiboot_info *mbi);
 void boot_modules_info(count_t *, module_t **);
+elf_section_header_table_t* mboot_kernel_shdr(void);
 
 #endif //__MBOOT_H__

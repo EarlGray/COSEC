@@ -15,6 +15,7 @@
 #include <misc/test.h>
 
 #include <fs/vfs.h>
+#include <elf.h>
 #include <log.h>
 
 /***
@@ -219,6 +220,7 @@ void kshell_mboot(const struct kshell_command *, const char *);
 void kshell_test(const struct kshell_command *, const char *);
 void kshell_heap(const struct kshell_command *, const char *);
 void kshell_set(const struct kshell_command *, const char *);
+void kshell_elf(const struct kshell_command *, const char *);
 void kshell_mem(const struct kshell_command *, const char *);
 void kshell_vfs(const struct kshell_command *, const char *);
 void kshell_ls();
@@ -238,6 +240,7 @@ const struct kshell_command main_commands[] = {
     {   .name = "heap",     .handler = kshell_heap,  .description = "heap utility", .options = "info alloc free check" },
     {   .name = "vfs",      .handler = kshell_vfs,   .description = "vfs utility",  .options = "write read", },
     {   .name = "set",      .handler = kshell_set,   .description = "manage global variables", .options = "color prompt" },
+    {   .name = "elf",      .handler = kshell_elf,   .description = "inspect ELF formats", .options = "sections" },
     {   .name = "panic",    .handler = kshell_panic, .description = "test The Red Screen of Death"     },
     {   .name = "help",     .handler = kshell_help,  .description = "show this help"   },
     {   .name = "ls",       .handler = kshell_ls,    .description = "list current VFS directory"    },
@@ -307,6 +310,17 @@ bool kshell_autocomplete(char *buf) {
         }
     }
     return false;
+}
+
+void kshell_elf(const struct kshell_command *this, const char *arg) {
+    if (!strncmp(arg, "sections", 8)) {
+        size_t n_shdr = 0;
+        elf_section_header_table_t *mboot_syms = mboot_kernel_shdr();
+        assertv(mboot_syms, "mboot.syms are NULL\n");
+        print_section_headers((Elf32_Shdr *)mboot_syms->addr, mboot_syms->num);
+    } else {
+        k_printf("Options: %s\n", this->options);
+    }
 }
 
 void kshell_heap(const struct kshell_command *this, const char *arg) {
