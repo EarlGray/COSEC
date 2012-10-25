@@ -57,3 +57,5 @@ void print_section_headers(Elf32_Shdr *shdr, size_t snum) {
 }
 
 Elf32_Shdr *elf_section_by_name(Elf32_Shdr *shdr, const char *sname);
+
+

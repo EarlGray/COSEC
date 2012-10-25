@@ -12,9 +12,6 @@
 #define CR4_PSE     0x00000010
 #define CR4_PGE     0x00000080
 
-#define CR0_PG      0x80000000
-#define CR0_WP      0x00010000
-
 .globl _start
 .globl start
 
@@ -63,6 +60,7 @@ multiboot_entry:
     movl %cr0, %eax
     orl  $(CR0_PG | CR0_WP), %eax
     movl %eax, %cr0         // enable paging and write-protection
+
     movl %esp, %eax
 #endif
 

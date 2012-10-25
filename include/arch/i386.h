@@ -183,6 +183,7 @@ typedef  struct i386_general_purpose_registers  i386_gp_regs;
 /***
   *     Paging
  ***/
+extern void i386_switch_pagedir(void *new_pagedir);
 
 /***
   *     Interrupts

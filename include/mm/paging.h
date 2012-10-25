@@ -26,10 +26,14 @@
 #define N_PDE           (PAGE_SIZE / PDE_SIZE)
 #define PTE_PER_ENTRY   (PAGE_SIZE / PTE_SIZE)
 
-#ifndef NOT_CC
+#define CR0_PG      0x80000000
+#define CR0_WP      0x00010000
 
-#define __pa(vaddr) ((vaddr) - KERN_OFF)
-#define __va(paddr) ((paddr) + KERN_OFF)
+#define __pa(vaddr) (void *)(((char *)vaddr) - KERN_OFF)
+#define __va(paddr) (void *)(((char *)paddr) + KERN_OFF)
+
+
+#ifndef NOT_CC
 
 typedef  uint32_t  pde_t;
 typedef  uint32_t  pte_t;
@@ -37,6 +41,8 @@ typedef  uint32_t  pte_t;
 extern pde_t thePageDirectory[N_PDE];
 
 int pg_fault(void);
+
+void paging_setup(void);
 
 typedef struct {
 

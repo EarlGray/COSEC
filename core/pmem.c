@@ -22,6 +22,8 @@
 #   define mem_logf(msg, ...)
 #endif
 
+extern void _start, _end;
+
 /***
   *     Alignment
  ***/
@@ -57,10 +59,10 @@ typedef struct pageframe {
    uint flags;                      //
    struct pageframe *next, *prev;   // in the pageframe group (reserved/free/cache/used)
    vm_area_t *vma;                  // virtual memory manager
-   index_t vm_offset;               // index in the vm
+   index_t vm_offset;               // index in vma
 } pageframe_t;
 
-#if (0)
+#if (1)
 // the global pageframe table:
 pageframe_t *the_pageframe_map = null;
 size_t      pageframe_map_len = 0;
@@ -81,7 +83,13 @@ size_t      n_reserved_pageframes = 0;
 
 void pmem_setup(void) {
     int i;
-    struct memory_map *mapping = (struct memory_map *)mboot_mmap_addr();
+    struct memory_map *mapping = (struct emory_map *)mboot_mmap_addr();
+    ptr_t pfmap = (ptr_t) aligned((ptr_t)&_end);
+
+    paging_setup();
+
+    // switch page directory to in-kernel one
+
         
     /// determine pageframe_map_len
     for (i = 0; i < mboot_mmap_length(); ++i) {
@@ -89,11 +97,20 @@ void pmem_setup(void) {
         if (m->type == 1) 
             pageframe_map_len = (m->base_addr_low + m->length_low) / PAGE_SIZE;
     }
-    mem_logf("pageframe_map_len = %d\n", pageframe_map_len);
 
     /// allocate the pageframe map
     // skip all multiboot modules
-    the_pageframe_map = (pageframe_t *) aligned((ptr_t)&_end)
+    module_t *mods = null;
+    size_t n_mods = 0;
+    mboot_modules_info(&n_mods, &mods);
+    for (i = 0; i < n_mods; ++i) {
+        if (pfmap < mods[i].mod_end) pfmap = mods[i].mod_end;
+    }
+
+    ptr_t pfmap_end = pfmap + sizeof(pageframe_t) * pageframe_map_len;
+    mem_logf("pfmap at *%x:*%x (0x%x pageframes)\n", pfmap, pfmap_end, pageframe_map_len);
+
+    the_pageframe_map = (pageframe_t *) aligned((ptr_t)pfmap);
 
     // make all reserved
     reserved_pageframes = the_pageframe_map + 0;
@@ -101,6 +118,13 @@ void pmem_setup(void) {
 
 void mark_reserved(pageframe_t *pf) {
     
+}
+
+index_t pmem_alloc(size_t pages_count) {
+    return 0;
+}
+
+void pmem_info(void) {
 }
 
 #else
@@ -122,7 +146,6 @@ size_t n_available_pages = 0;
 page_frame_t *thePageframeMap = null;    // will be initialized in pmem_setup()
 index_t current_page = 0;
 
-extern void _start, _end;
 
 
 
