@@ -44,9 +44,9 @@ panic(const char *fatal_error) {
     print_centered("Oops, kernel panic");
     k_printf("\n");
 
-    /*snprintf(buf, 100, "----> %s <-----", fatal_error);
+    snprintf(buf, 100, "--> %s <--", fatal_error);
     print_centered(buf);
-
+    /*
     k_printf("\nCPU: \n");
     print_cpu();
     k_printf("\n\nKernel stack: \n");
@@ -116,7 +116,7 @@ void print_mem(const char *p, size_t count) {
         else printable[printnum] = '.';
         printnum++;
     }
-    k_printf("%s\n", buf);
+    k_printf("%s| %s\n", buf, printable);
 }
 
 void print_intr_stack(const uint *const stack) {
