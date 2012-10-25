@@ -38,5 +38,9 @@ extern pde_t thePageDirectory[N_PDE];
 
 int pg_fault(void);
 
+typedef struct {
+
+} vm_area_t;
+
 #endif // NOT_CC
 #endif //__PAGING_H__

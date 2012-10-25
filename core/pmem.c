@@ -23,17 +23,95 @@
 #endif
 
 /***
+  *     Alignment
+ ***/
+
+/*      aligned(n*PAGE_SIZE) = n*PAGE_SIZE
+ *      aligned(n*PAGE_SIZE + 1) = (n+1)*PAGE_SIZE
+ */
+static inline uint aligned(uint addr) {
+    if (addr % PAGE_SIZE)
+        return PAGE_SIZE * (1 + addr / PAGE_SIZE);
+    return addr;
+}
+
+static inline uint aligned_back(uint addr) {
+    return addr / PAGE_SIZE;
+}
+
+/***
   *     Internal declarations
  ***/
 
-/* page_frame.flags */
-#define PG_RESERVED     1
-#define PG_RESERVED_USE MAX_UINT
 
-typedef struct {
-    uint used;      // reference count, 0 for a free pageframe
+/* page_frame.flags */
+// lowest two bits: pageframe type
+#define PF_FREE         0
+#define PF_USED         1
+#define PF_CACHE        2
+#define PF_RESERVED     3
+// flags:3 : is this cache used right now
+#define CACHE_IN_USE    0x4
+
+typedef struct pageframe {
+   uint flags;                      //
+   struct pageframe *next, *prev;   // in the pageframe group (reserved/free/cache/used)
+   vm_area_t *vma;                  // virtual memory manager
+   index_t vm_offset;               // index in the vm
+} pageframe_t;
+
+#if (0)
+// the global pageframe table:
+pageframe_t *the_pageframe_map = null;
+size_t      pageframe_map_len = 0;
+
+// list of free pageframes:
+pageframe_t *free_pageframes = null;
+size_t      n_free_pageframes = 0;
+
+// list of pageframes asssigned to virtual memory:
+pageframe_t *used_pageframes = null;
+size_t      n_used_pageframes = 0;
+
+pageframe_t *cache_pageframes = null;
+size_t      n_cache_pageframes = 0;
+
+pageframe_t *reserved_pageframes = null;
+size_t      n_reserved_pageframes = 0;
+
+void pmem_setup(void) {
+    int i;
+    struct memory_map *mapping = (struct memory_map *)mboot_mmap_addr();
+        
+    /// determine pageframe_map_len
+    for (i = 0; i < mboot_mmap_length(); ++i) {
+        struct memory_map *m = mapping + i;
+        if (m->type == 1) 
+            pageframe_map_len = (m->base_addr_low + m->length_low) / PAGE_SIZE;
+    }
+    mem_logf("pageframe_map_len = %d\n", pageframe_map_len);
+
+    /// allocate the pageframe map
+    // skip all multiboot modules
+    the_pageframe_map = (pageframe_t *) aligned((ptr_t)&_end)
+
+    // make all reserved
+    reserved_pageframes = the_pageframe_map + 0;
+}
+
+void mark_reserved(pageframe_t *pf) {
+    
+}
+
+#else
+
+#define PG_RESERVED 1
+#define PG_RESERVED_USE 0xffffffff
+
+typedef struct page_frame {
     uint flags;
     index_t prev, next;   // for free pages: next available
+    uint used;
 } page_frame_t;
 
 size_t available_memory = 0;
@@ -46,23 +124,6 @@ index_t current_page = 0;
 
 extern void _start, _end;
 
-
-/***
-  *     Alignment
- ***/
-
-static inline uint aligned_back(uint addr) {
-    return addr / PAGE_SIZE;
-}
-
-/*      aligned(n*PAGE_SIZE) = n*PAGE_SIZE
- *      aligned(n*PAGE_SIZE + 1) = (n+1)*PAGE_SIZE
- */
-static inline uint aligned(uint addr) {
-    if (addr % PAGE_SIZE)
-        return PAGE_SIZE * (1 + addr / PAGE_SIZE);
-    return addr;
-}
 
 
 /***
@@ -232,3 +293,5 @@ void pmem_info() {
             n_pages, n_available_pages, free_pages, occupied_pages, reserved_pages);
     printf("currrent page index = 0x%x\n", current_page);
 }
+
+#endif
