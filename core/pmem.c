@@ -31,12 +31,12 @@ extern void _start, _end;
 /*      aligned(n*PAGE_SIZE) = n*PAGE_SIZE
  *      aligned(n*PAGE_SIZE + 1) = (n+1)*PAGE_SIZE
  */
-static inline uint page_aligned(uint addr) {
+static inline off_t page_aligned(off_t addr) {
     if (addr % PAGE_SIZE == 0) return addr / PAGE_SIZE;
     return (1 + addr / PAGE_SIZE);
 }
 
-static inline uint page_aligned_back(uint addr) {
+static inline off_t page_aligned_back(off_t addr) {
     return (addr / PAGE_SIZE);
 }
 
@@ -59,26 +59,34 @@ typedef struct pageframe {
 /***
   *     Internal declarations
  ***/
-#define PF_LIST_INSERT(list, frame) do  \
-    (list)->head->prev->last = frame;   \
-    (frame)->prev = (list)->head->prev; \
+#define PF_LIST_INSERT(list, frame) do {\
+    (list)->head->prev->next = (frame); \
     (frame)->next = (list)->head;       \
-    (list)->head->prev = (frame);   while (0)
+    (frame)->prev = (list)->head->prev; \
+    (list)->head->prev = (frame);   \
+    (list)->count++;                \
+    } while (0)
 
-#define PF_LIST_REMOVE(list, node) do   \
+#define PF_LIST_REMOVE(list, node) do { \
     if ((list)->head == (node))         \
-        if ((list)->head->next) (list)->head = (node); \
-        else assertv("Removing from empty list");   \
+        if ((node)->next != (node)) {   \
+            (node)->next->prev = (node)->prev;  \
+            (node)->prev->next = (node)->next;  \
+            (list)->head = (node)->next;        \
+        } else panic("Removing the last node"); \
     else {  \
         (node)->prev->next = (node)->next;    \
         (node)->next->prev = (node)->prev;    \
-    } while (0)
+    }; \
+    (list)->count--; } while (0)
 
-#define PF_LIST_INIT(list, node) do     \
-    (list)->head = (node);              \
-    (list)->count = 1;                  \
-    (node)->next = (node)->prev = (node); \
-    while (0)
+#define PF_LIST_INIT(list, node) \
+    do {   \
+     (list)->head = (node); \
+     (list)->count = 1;     \
+     (node)->next = (node); \
+     (node)->prev = (node); \
+    } while (0)
 
 typedef struct pagelist {
     pageframe_t *head;
@@ -99,15 +107,17 @@ pagelist_t reserved_pageframes = { null, 0 };
 void pmem_setup(void) {
     int i;
     struct memory_map *mapping = (struct memory_map *)mboot_mmap_addr();
-    ptr_t pfmap = (ptr_t) aligned((ptr_t)&_end);
+    size_t mmap_len = mboot_mmap_length();
+    ptr_t pfmap = (ptr_t)&_end;
 
     // switch page directory to in-kernel one
     paging_setup();
         
     /// determine pfmap_len
-    for (i = 0; i < mboot_mmap_length(); ++i) {
+    for (i = 0; i < mmap_len; ++i) {
         struct memory_map *m = mapping + i;
-        if (m->type == 1)  pfmap_len = (m->base_addr_low + m->length_low) / PAGE_SIZE;
+        ptr_t map_end = page_aligned(m->base_addr_low + m->length_low);
+        if ((m->type == 1) && (map_end > pfmap_len))  pfmap_len = map_end;
     }
 
     /// allocate the pageframe map
@@ -116,10 +126,11 @@ void pmem_setup(void) {
     size_t n_mods = 0;
     mboot_modules_info(&n_mods, &mods);
     for (i = 0; i < n_mods; ++i) {
-        if (pfmap < mods[i].mod_end) pfmap = mods[i].mod_end;
+        ptr_t mod_end = __va(mods[i].mod_end);
+        if (pfmap < mod_end) pfmap = mod_end;
     }
 
-    pfmap = page_aligned((ptr_t)pfmap);
+    pfmap = PAGE_SIZE * page_aligned(pfmap);
     ptr_t pfmap_end = pfmap + sizeof(pageframe_t) * pfmap_len;
     mem_logf("pfmap at *%x:*%x (0x%x pageframes)\n", pfmap, pfmap_end, pfmap_len);
     
@@ -128,34 +139,37 @@ void pmem_setup(void) {
         panic("TODO: allocate memory for pageframe table more than 4Mb long\n");
     }
     the_pageframe_map = (pageframe_t *)pfmap;
-    memset(the_pageframe_map, 0, pfmap_len);
+    memset(the_pageframe_map, 0, pfmap_len * sizeof(pageframe_t));
 
     // consider all memory reserved first
-    PF_LIST_INIT(&reserved_pageframes, the_pageframe_map + 0);
-    reserved_pageframes->head->flags |= PF_RESERVED;
+    PF_LIST_INIT(&reserved_pageframes, &(the_pageframe_map[0]));
+    reserved_pageframes.head->flags |= PF_RESERVED;
     
-    for (i = 0; i < pfmap_len; ++i) {
+    for (i = 1; i < pfmap_len; ++i) {
+        pageframe_t *pf = the_pageframe_map + i;
         PF_LIST_INSERT(&reserved_pageframes, pf);
-        pf->flags |= PF_RESERVED;
+        pf->flags = PF_RESERVED;
     }
 
     // free the free regions
     int mbm;
-    for (mbm = 0; mbm < mboot_mmap_length(); ++mbm)
+    for (mbm = 0; mbm < mmap_len; ++mbm)
         if (mapping[mbm].type == 1) {
-            off_t start = page_aligned(mapping[mbm].base_addr_low);
-            off_t end = page_aligned_back(start + mapping[mbm].length_low);
-            mem_logf("marking free *%x:*%x\n", start, end);
-            for (i = start; i <= end; ++i) {
+            index_t start = page_aligned(mapping[mbm].base_addr_low);
+            index_t end = page_aligned(mapping[mbm].base_addr_low + mapping[mbm].length_low);
+            mem_logf("marking free [%x : %x)\n", start, end);
+            for (i = start; i < end; ++i) {
                 pageframe_t *pf = the_pageframe_map + i;
                 PF_LIST_REMOVE(&reserved_pageframes, pf);
-                PF_LIST_INSERT(&free_pageframes, pf);
+                if (free_pageframes.head)
+                    PF_LIST_INSERT(&free_pageframes, pf);
+                else PF_LIST_INIT(&free_pageframes, pf);
                 pf->flags = PF_FREE;
             }
-        }
+        } // */
 
     mem_logf("free: %x, reserved; %x\n",
-            free_pageframes->count, reserved_pageframes->count);
+            free_pageframes.count, reserved_pageframes.count);
 }
 
 
@@ -164,6 +178,19 @@ index_t pmem_alloc(size_t pages_count) {
 }
 
 void pmem_info(void) {
+    struct memory_map *mmmap = (struct memory_map *)mboot_mmap_addr();
+    uint i;
+    printf("\nMemory map [%d]\n", mboot_mmap_length());
+    for (i = 0; i < mboot_mmap_length(); ++i) {
+        if (mmmap[i].length_low == 0) continue;
+        if (mmmap[i].size > 100) continue;
+
+        printf("%d) sz=%x,bl=%x,bh=%x,ll=%x,lh=%x,t=%x\n", i, mmmap[i].size,
+        mmmap[i].base_addr_low, mmmap[i].base_addr_high,
+        mmmap[i].length_low, mmmap[i].length_high,
+        mmmap[i].type);
+    }
+
 }
 
 #else
@@ -227,7 +254,7 @@ void pg_free(index_t index) {
 
 void pages_set(uint addr, uint size, bool reserved) {
     uint flags = reserved ? PG_RESERVED : 0;
-    uint end_page = aligned(addr + size - 1) / PAGE_SIZE;
+    uint end_page = page_aligned(addr + size - 1) / PAGE_SIZE;
     if (end_page == 0) return;
 
     uint i = addr / PAGE_SIZE;
@@ -250,7 +277,7 @@ void pages_set(uint addr, uint size, bool reserved) {
 }
 
 void pmem_setup(void) {
-    thePageframeMap = (page_frame_t *)aligned((uint)&_end);
+    thePageframeMap = (page_frame_t *)page_aligned((uint)&_end);
 
     struct memory_map *mapping = (struct memory_map *)mboot_mmap_addr();
 
@@ -327,19 +354,6 @@ err_t pmem_free(index_t start_page, size_t pages_count) {
 }
 
 void pmem_info() {
-    struct memory_map *mmmap = (struct memory_map *)mboot_mmap_addr();
-    uint i;
-    printf("\nMemory map [%d]\n", mboot_mmap_length());
-    for (i = 0; i < mboot_mmap_length(); ++i) {
-        if (mmmap[i].length_low == 0) continue;
-        if (mmmap[i].size > 100) continue;
-
-        printf("%d) sz=%x,bl=%x,bh=%x,ll=%x,lh=%x,t=%x\n", i, mmmap[i].size,
-        mmmap[i].base_addr_low, mmmap[i].base_addr_high,
-        mmmap[i].length_low, mmmap[i].length_high,
-        mmmap[i].type);
-    }
-
     printf("\nKernel memory: 0x%x-0x%x\nAvailable: %d\n", (uint)&_start, (uint)&_end, available_memory);
 
     uint free_pages = 0, occupied_pages = 0, reserved_pages = 0;
