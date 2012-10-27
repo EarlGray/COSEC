@@ -1,7 +1,7 @@
 #define NOT_CC
 
 #include <globl.h>
-#include <mm/paging.h>
+#include <mem/paging.h>
 
 .text
 
@@ -42,4 +42,4 @@ i386_switch_pagedir:
     orl  $(CR0_PG | CR0_WP), %eax
     movl %eax, %cr0         // enable paging and write-protection
 
-		ret
+    ret

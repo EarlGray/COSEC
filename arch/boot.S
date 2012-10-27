@@ -4,7 +4,7 @@
 */
 
 #include <arch/multiboot.h>
-#include <mm/paging.h>
+#include <mem/paging.h>
 #include <globl.h>
 
 #define STACK_SIZE  0x00000800

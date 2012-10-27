@@ -13,6 +13,8 @@
 
 #include <dev/intrs.h>
 
+#include <mem/paging.h>
+
 #include <std/stdio.h>
 
 #include <log.h>
@@ -173,7 +175,6 @@ void int_invalid_op(void *stack) {
     panic(buf);
 }
 
-#include <mm/paging.h>
 
 void int_page_fault(void ) {
     pg_fault();

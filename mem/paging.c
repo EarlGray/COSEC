@@ -1,6 +1,6 @@
 #define __DEBUG
 
-#include <mm/paging.h>
+#include <mem/paging.h>
 #include <arch/i386.h>
 #include <log.h>
 

@@ -7,9 +7,9 @@
 #include <dev/screen.h>
 
 #include <fs/vfs.h>
+#include <mem/pmem.h>
 
 #include <kshell.h>
-#include <pmem.h>
 #include <tasks.h>
 
 static void print_welcome(void) {

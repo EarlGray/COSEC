@@ -9,14 +9,15 @@
 #include <std/stdio.h>
 #include <std/time.h>
 
-#include <kshell.h>
-#include <pmem.h>
-#include <mm/kheap.h>
+#include <mem/pmem.h>
+#include <mem/kheap.h>
 #include <misc/test.h>
 
 #include <fs/vfs.h>
-#include <elf.h>
+#include <fs/elf.h>
 #include <log.h>
+
+#include <kshell.h>
 
 /***
   *     Internal declarations

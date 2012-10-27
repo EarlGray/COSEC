@@ -1,6 +1,3 @@
-#include <pmem.h>
-#include <log.h>
-
 /*
  *   This file represents physical memory "object"
  * and its methods.
@@ -9,12 +6,15 @@
  * the kernel code: it is array of page_frame structures with
  * length n_pages;
  */
+#include <mem/pmem.h>
+
+#include <mem/kheap.h>
+#include <mem/paging.h>
 
 #include <arch/i386.h>
 #include <arch/mboot.h>
 
-#include <mm/kheap.h>
-#include <mm/paging.h>
+#include <log.h>
 
 #if MEM_DEBUG
 #   define mem_logf(msg, ...) logf(msg, __VA_ARGS__)
