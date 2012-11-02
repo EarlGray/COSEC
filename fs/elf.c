@@ -49,7 +49,7 @@ void print_section_headers(Elf32_Shdr *shdr, size_t snum) {
         k_printf((section->sh_flags & SHF_WRITE) ? "W" : "-");
         k_printf("\t");
         // 
-        k_printf("*%x\t%x\t%x\t", section->sh_addr, section->sh_size, section->sh_addralign);
+        k_printf("  *%x\t%x\t%x\t", section->sh_addr, section->sh_size, section->sh_addralign);
         k_printf("%s", shstrtab + section->sh_name);
 
         k_printf("\n");
