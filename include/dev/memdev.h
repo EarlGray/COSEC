@@ -5,5 +5,6 @@
 #include <dev/table.h>
 
 extern chrdriver_t mem_chr_drv;
+extern blkdriver_t ram_blk_drv;
 
 #endif ///__MEM_DEV_H__COSEC__

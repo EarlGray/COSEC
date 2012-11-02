@@ -2,6 +2,7 @@
 #include <arch/mboot.h>
 #include <arch/multiboot.h>
 
+#include <dev/table.h>
 #include <dev/kbd.h>
 #include <dev/timer.h>
 #include <dev/screen.h>
@@ -33,14 +34,16 @@ void kinit(uint32_t magic, struct multiboot_info *mbi) {
     /* general setup */
     cpu_setup();
     pmem_setup();
-    vfs_setup();
 
     /* devices setup */
+    dev_setup();
     timer_setup();
     kbd_setup();
 
     /* do something useful */
     tasks_setup();
+
+    vfs_setup();
 
     intrs_enable();
     kshell_run();

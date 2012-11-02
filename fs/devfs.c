@@ -17,7 +17,7 @@ static fs_ops devfs_ops = {
 pfsdriver_t devfs = {
     .fsd = {
         .name = "devfs",
-        .fs_ops = &devfs_ops,
+        .ops = &devfs_ops,
     },
 };
 

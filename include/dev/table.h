@@ -38,6 +38,7 @@ typedef struct blkdriver_t blkdriver_t;
 struct driver_t {
     majdev_t dev_family;
     const char *name;
+    void (*init)(void);
 };
 
 struct blkdriver_t {
@@ -46,8 +47,6 @@ struct blkdriver_t {
 
 struct chrdriver_t {
     driver_t drv;
-    
-    void (*init)(void);
 };
 
 typedef struct block_dev_t {
@@ -56,5 +55,7 @@ typedef struct block_dev_t {
     cache_t *cache;
     uint blksz;
 } block_dev_t;
+
+void dev_setup(void);
 
 #endif //__DRIVERS_TABLE_H__
