@@ -61,6 +61,13 @@ typedef struct pageframe {
   *     Page lists
  ***/
 
+typedef struct pagelist {
+    pageframe_t *head;
+    size_t count;
+    uint flag;
+} pagelist_t;
+
+
 #define PF_LIST_INSERT(list, frame) do {\
     (list)->head->prev->next = (frame); \
     (frame)->next = (list)->head;       \
@@ -68,6 +75,15 @@ typedef struct pageframe {
     (list)->head->prev = (frame);   \
     (list)->count++;                \
     } while (0)
+
+inline static void pf_list_insert(pagelist_t *list, pageframe_t *pf) {
+    list->head->prev->next = pf;
+    pf->next = list->head;
+    pf->prev = list->head->prev;
+    pf->flags = list->flag;
+    list->head->prev = pf;
+    list->count++;
+}
 
 #define PF_LIST_REMOVE(list, node) do { \
     if ((list)->head == (node))         \
@@ -82,6 +98,21 @@ typedef struct pageframe {
     }; \
     (list)->count--; } while (0)
 
+inline static void pf_list_remove(pagelist_t *list, pageframe_t *node) {
+    if (list->head == node)
+        if (node->next != node) {
+            node->next->prev = node->prev;
+            node->prev->next = node->next;
+            list->head = node->next;
+        } 
+        else panic("Removing the last node");
+    else {
+        node->prev->next = node->next;
+        node->next->prev = node->prev;
+    };
+    list->count--;
+}
+
 #define PF_LIST_INIT(list, node) \
     do {   \
      (list)->head = (node); \
@@ -90,10 +121,14 @@ typedef struct pageframe {
      (node)->prev = (node); \
     } while (0)
 
-typedef struct pagelist {
-    pageframe_t *head;
-    size_t count;
-} pagelist_t;
+inline static void pf_list_init(pagelist_t *list, pageframe_t *node, uint flag) {
+     list->head = node;
+     list->count = 1;
+     list->flag = flag;
+     node->next = node;
+     node->prev = node;
+     node->flags = flag;
+}
 
 
 
@@ -105,6 +140,11 @@ pagelist_t free_pageframes = { null, 0 };
 pagelist_t used_pageframes = { null, 0 };
 pagelist_t cache_pageframes = { null, 0 };
 pagelist_t reserved_pageframes = { null, 0 };
+
+
+inline static index_t pageframe_index(pageframe_t *pf) {
+    return pf - the_pageframe_map;
+}
 
 void pmem_setup(void) {
     int i;
@@ -144,13 +184,11 @@ void pmem_setup(void) {
     memset(the_pageframe_map, 0, pfmap_len * sizeof(pageframe_t));
 
     // consider all memory reserved first
-    PF_LIST_INIT(&reserved_pageframes, &(the_pageframe_map[0]));
-    reserved_pageframes.head->flags |= PF_RESERVED;
+    pf_list_init(&reserved_pageframes, &(the_pageframe_map[0]), PF_RESERVED);
 
     for (i = 1; i < pfmap_len; ++i) {
         pageframe_t *pf = the_pageframe_map + i;
-        PF_LIST_INSERT(&reserved_pageframes, pf);
-        pf->flags = PF_RESERVED;
+        pf_list_insert(&reserved_pageframes, pf);
     }
 
     // free the free regions
@@ -162,16 +200,27 @@ void pmem_setup(void) {
             mem_logf("marking free [%x : %x)\n", start, end);
             for (i = start; i < end; ++i) {
                 pageframe_t *pf = the_pageframe_map + i;
-                PF_LIST_REMOVE(&reserved_pageframes, pf);
+                pf_list_remove(&reserved_pageframes, pf);
                 if (free_pageframes.head)
-                    PF_LIST_INSERT(&free_pageframes, pf);
-                else PF_LIST_INIT(&free_pageframes, pf);
-                pf->flags = PF_FREE;
+                    pf_list_insert(&free_pageframes, pf);
+                else pf_list_init(&free_pageframes, pf, PF_FREE);
             }
         } // */
 
-    mem_logf("free: %x, reserved; %x\n",
-            free_pageframes.count, reserved_pageframes.count);
+    // mark the first page as reserved
+    mem_logf("marking reserved page %d\n", 0);
+    pageframe_t *pf = the_pageframe_map + 0;
+    pf_list_remove(&free_pageframes, pf);
+    pf_list_insert(&reserved_pageframes, pf);
+
+    // mark the last free pageframe as cache
+    pageframe_t * cpf = free_pageframes.head->prev;
+    pf_list_init(&cache_pageframes, cpf, PF_CACHE);
+    pf_list_remove(&free_pageframes, cpf);
+    mem_logf("marking cache %x\n", pageframe_index(cpf));
+
+    mem_logf("free: %x, reserved: %x, cache: %x\n",
+            free_pageframes.count, reserved_pageframes.count, cache_pageframes.count);
 }
 
 
