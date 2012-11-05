@@ -25,36 +25,41 @@
 #define BLK_RAID        9
 #define BLK_SCSI_CDROM  11
 
+typedef enum devicetype_e devicetype_e;
+enum devicetype_e {
+    DEV_CHR = 0,
+    DEV_BLK = 1,
+    DEV_NET = 2,
+};
+
 #include <std/sys/types.h>
 
-typedef uint majdev_t, mindev_t;
+typedef index_t kdev_t;
+typedef index_t majdev_t, mindev_t;
 
 typedef struct cache cache_t;
 
 typedef struct driver_t driver_t;
+typedef struct device_t device_t;
 typedef struct chrdriver_t chrdriver_t;
 typedef struct blkdriver_t blkdriver_t;
 
 struct driver_t {
-    majdev_t dev_family;
+    /* who am I */
+    devicetype_e dev_type;
+    majdev_t dev_class;
     const char *name;
-    void (*init)(void);
+
+    void (*init_devclass)(void);
+    void (*deport_devclass)(void);
 };
 
-struct blkdriver_t {
-    driver_t drv;
+struct device_t {
+    mindev_t dev_no;        // device index in the family
+    driver_t* driver;       // generic driver
+    cache_t *cache;         // null if no caching for device
+    uint blksz;             // 1 for character devices
 };
-
-struct chrdriver_t {
-    driver_t drv;
-};
-
-typedef struct block_dev_t {
-    mindev_t dev_no;
-    blkdriver_t* driver;
-    cache_t *cache;
-    uint blksz;
-} block_dev_t;
 
 void dev_setup(void);
 

@@ -4,22 +4,22 @@
 
 static void ramfs_init(void);
 
-chrdriver_t mem_chr_drv = {
-    .drv = {
-        .dev_family = CHR_MEMDEVS,
-        .name = "mem",
-    },
-    .init = null,
+driver_t mem_drv = {
+    .dev_type = DEV_CHR,
+    .dev_class = CHR_MEMDEVS,
+    .name = "mem",
+
+    .init_devclass = null,
 };
 
-blkdriver_t ram_blk_drv = {
-    .drv = {
-        .dev_family = BLK_RAM,
-        .name = "ram",
-    },
-    .init = ramfs_init,
+driver_t ram_drv = {
+    .dev_type = DEV_BLK,
+    .dev_class = BLK_RAM,
+    .name = "ram",
+
+    .init_devclass = ramfs_init,
 };
 
 static void ramfs_init(void) {
-    k_printf("Creating devices for modules");
+    k_printf("TODO: Creating devices for modules...\n");
 }

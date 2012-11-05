@@ -1,6 +1,6 @@
 #include <fs/devfs.h>
 
-#include <dev/table.h>
+#include <dev/devices.h>
 
 #include <log.h>
 

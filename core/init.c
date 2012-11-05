@@ -2,7 +2,7 @@
 #include <arch/mboot.h>
 #include <arch/multiboot.h>
 
-#include <dev/table.h>
+#include <dev/devices.h>
 #include <dev/kbd.h>
 #include <dev/timer.h>
 #include <dev/screen.h>

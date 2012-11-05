@@ -2,9 +2,9 @@
 #define __MEM_DEV_H__COSEC__
 
 #include <dev/block.h>
-#include <dev/table.h>
+#include <dev/devices.h>
 
-extern chrdriver_t mem_chr_drv;
-extern blkdriver_t ram_blk_drv;
+extern driver_t mem_drv;
+extern driver_t ram_drv;
 
 #endif ///__MEM_DEV_H__COSEC__
