@@ -241,7 +241,7 @@ const struct kshell_command main_commands[] = {
     {   .name = "heap",     .handler = kshell_heap,  .description = "heap utility", .options = "info alloc free check" },
     {   .name = "vfs",      .handler = kshell_vfs,   .description = "vfs utility",  .options = "write read", },
     {   .name = "set",      .handler = kshell_set,   .description = "manage global variables", .options = "color prompt" },
-    {   .name = "elf",      .handler = kshell_elf,   .description = "inspect ELF formats", .options = "sections" },
+    {   .name = "elf",      .handler = kshell_elf,   .description = "inspect ELF formats", .options = "sections syms" },
     {   .name = "panic",    .handler = kshell_panic, .description = "test The Red Screen of Death"     },
     {   .name = "help",     .handler = kshell_help,  .description = "show this help"   },
     {   .name = "ls",       .handler = kshell_ls,    .description = "list current VFS directory"    },
@@ -314,11 +314,21 @@ bool kshell_autocomplete(char *buf) {
 }
 
 void kshell_elf(const struct kshell_command *this, const char *arg) {
+    elf_section_header_table_t *mboot_syms = mboot_kernel_shdr();
+    assertv(mboot_syms, "mboot.syms are NULL\n");
+    Elf32_Shdr *shdrs = (Elf32_Shdr *)mboot_syms->addr;
+    size_t n_shdr = mboot_syms->num;
+
     if (!strncmp(arg, "sections", 8)) {
-        size_t n_shdr = 0;
-        elf_section_header_table_t *mboot_syms = mboot_kernel_shdr();
-        assertv(mboot_syms, "mboot.syms are NULL\n");
-        print_section_headers((Elf32_Shdr *)mboot_syms->addr, mboot_syms->num);
+        print_section_headers(shdrs, n_shdr);
+    } else if (!strncmp(arg, "syms", 4)) {
+        char *sym = arg + 4;
+        skip_gaps(sym);
+        Elf32_Shdr *symtab = elf_section_by_name(shdrs, n_shdr, ".symtab");
+        Elf32_Shdr *strsect = elf_section_by_name(shdrs, n_shdr, ".strtab");
+        char *strtab = (char *) strsect->sh_addr;
+        print_elf_syms((Elf32_Sym *)symtab->sh_addr, symtab->sh_size / sizeof(Elf32_Sym),
+                strtab, sym);
     } else {
         k_printf("Options: %s\n", this->options);
     }
