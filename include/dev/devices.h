@@ -34,7 +34,6 @@ enum devicetype_e {
 
 #include <std/sys/types.h>
 
-typedef index_t kdev_t;
 typedef index_t majdev_t, mindev_t;
 
 typedef struct cache cache_t;

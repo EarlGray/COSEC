@@ -22,6 +22,8 @@ typedef long long           int64_t;
 typedef uint32_t	size_t, ssize_t, ptr_t, index_t, count_t, mode_t;
 typedef int32_t     err_t, off_t;
 
+typedef index_t kdev_t;
+
 #define MAX_UINT    (0xFFFFFFFF)
 #define MAX_INT    (0x7FFFFFFF)
 #define MAX_ULONG   (i(MAX_UINT << 32) | MAX_UINT)
