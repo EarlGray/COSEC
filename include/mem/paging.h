@@ -44,9 +44,5 @@ int pg_fault(void);
 
 void paging_setup(void);
 
-typedef struct {
-
-} vm_area_t;
-
 #endif // NOT_CC
 #endif //__PAGING_H__

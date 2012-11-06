@@ -1,14 +1,13 @@
 #include <arch/i386.h>
 #include <arch/mboot.h>
-#include <arch/multiboot.h>
 
 #include <dev/devices.h>
 #include <dev/kbd.h>
 #include <dev/timer.h>
 #include <dev/screen.h>
 
+#include <mem/virtmem.h>
 #include <fs/vfs.h>
-#include <mem/pmem.h>
 
 #include <kshell.h>
 #include <tasks.h>
@@ -33,7 +32,7 @@ void kinit(uint32_t magic, struct multiboot_info *mbi) {
 
     /* general setup */
     cpu_setup();
-    pmem_setup();
+    memory_setup();
 
     /* devices setup */
     dev_setup();

@@ -152,9 +152,6 @@ void pmem_setup(void) {
     size_t mmap_len = mboot_mmap_length();
     ptr_t pfmap = (ptr_t)&_end;
 
-    // switch page directory to in-kernel one
-    paging_setup();
-
     /// determine pfmap_len
     for (i = 0; i < mmap_len; ++i) {
         struct memory_map *m = mapping + i;
