@@ -7,14 +7,14 @@
 
 struct vm_area {
     size_t len;         // pages count
-    size_t plen;        // used pageframes count
+    size_t n_pf;        // used pageframes count
     count_t used;       // how many processes use it
 
     uint32_t vm_flags;
 };
 
 void vmem_setup(void) {
-
+    
 }
 
 void memory_setup(void) {
