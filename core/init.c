@@ -39,7 +39,6 @@ void kinit(uint32_t magic, struct multiboot_info *mbi) {
     dev_setup();
     timer_setup();
     kbd_setup();
-    floppy_setup();
 
     /* do something useful */
     tasks_setup();
@@ -47,6 +46,8 @@ void kinit(uint32_t magic, struct multiboot_info *mbi) {
     vfs_setup();
 
     intrs_enable();
+
+    floppy_setup();   // requires IRQ6
     kshell_run();
 }
 

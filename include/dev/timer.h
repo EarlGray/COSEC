@@ -6,6 +6,9 @@
 
 typedef void (*timer_event_f)(uint);
 typedef uint timer_t;
+typedef uint useconds_t;
+
+int usleep(useconds_t usec);
 
 /*
  *  adds timer event handler
@@ -14,14 +17,13 @@ typedef uint timer_t;
  */
 timer_t timer_push_ontimer(timer_event_f ontimer);
 
-/*
- *  gets how manu ticks are done
- */
+/* gets how manu ticks are done */
 ulong timer_ticks(void);
 
-/*
- * deletes a timer event with id
- */
+/* timer frequency */
+uint timer_frequency(void);
+
+/* deletes a timer event with id */
 void timer_pop_ontimer(timer_t id);
 
 void timer_set_frequency(uint hz);

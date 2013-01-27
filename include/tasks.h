@@ -8,7 +8,6 @@
 #define TS_STOPPED    2
 
 #define TASK_KERNSTACK_SIZE   0x800
-#define TASK_DEFAULT_QUANT    0x1000
 
 typedef int task_state_t;
 

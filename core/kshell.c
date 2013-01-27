@@ -238,7 +238,7 @@ const struct kshell_command main_commands[] = {
     {   .name = "init",     .handler = kshell_init,  .description = "userspace init()",
         .options = "just init!" },
     {   .name = "test",     .handler = kshell_test,  .description = "test utility",
-        .options = "sprintf kbd timer serial tasks ring3 usr" },
+        .options = "sprintf kbd timer serial tasks ring3 usleep" },
     {   .name = "info",     .handler = kshell_info,  .description = "various info",
         .options = "stack gdt pmem colors cpu pci mods" },
     {   .name = "mem",      .handler = kshell_mem,   .description = "mem <start_addr> <size = 0x100>" },
@@ -263,6 +263,7 @@ const struct kshell_subcmd  test_cmds[] = {
     { .name = "kbd",     .handler = test_kbd,       },
     { .name = "tasks",   .handler = test_tasks,     },
     { .name = "ring3",   .handler = test_userspace, },
+    { .name = "usleep",  .handler = test_usleep,    },
     { .name = 0, .handler = 0    },
 };
 
