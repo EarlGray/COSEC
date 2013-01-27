@@ -58,6 +58,11 @@ void test_eflags(void) {
     logf("flags=0x%x\n", flags);
 }
 
+void test_usleep(void) {
+    usleep(2 * 1000000);
+    k_printf("Done\n\n");
+}
+
 
 #if INTR_PROFILING    
 volatile union {

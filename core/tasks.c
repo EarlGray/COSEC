@@ -149,9 +149,6 @@ void tasks_setup(void) {
     default_task.tss_index = gdt_alloc_entry(taskdescr);
     default_task.ldt_index = GDT_DEFAULT_LDT;
 
-    //
-    timer_set_frequency(TASK_DEFAULT_QUANT);
     timer_push_ontimer(task_timer_handler);
-    irq_mask(TIMER_IRQ, true);
 }
 
