@@ -224,6 +224,7 @@ void kshell_set(const struct kshell_command *, const char *);
 void kshell_elf(const struct kshell_command *, const char *);
 void kshell_mem(const struct kshell_command *, const char *);
 void kshell_vfs(const struct kshell_command *, const char *);
+void kshell_io(const struct kshell_command *, const char *);
 void kshell_ls();
 void kshell_mount();
 void kshell_time();
@@ -234,10 +235,15 @@ void kshell_init() {
 }
 
 const struct kshell_command main_commands[] = {
-    {   .name = "init",     .handler = kshell_init,  .description = "userspace init()", .options = "just init!" },
-    {   .name = "test",     .handler = kshell_test,  .description = "test utility", .options = "sprintf kbd timer serial tasks ring3 usr" },
-    {   .name = "info",     .handler = kshell_info,  .description = "various info", .options = "stack gdt pmem colors cpu pci mods" },
+    {   .name = "init",     .handler = kshell_init,  .description = "userspace init()",
+        .options = "just init!" },
+    {   .name = "test",     .handler = kshell_test,  .description = "test utility",
+        .options = "sprintf kbd timer serial tasks ring3 usr" },
+    {   .name = "info",     .handler = kshell_info,  .description = "various info",
+        .options = "stack gdt pmem colors cpu pci mods" },
     {   .name = "mem",      .handler = kshell_mem,   .description = "mem <start_addr> <size = 0x100>" },
+    {   .name = "io",       .handler = kshell_io,    .description = "io[bwd][rw] <port> [<value>]",
+        .options = "br/wr/dr <port> -- read port; bw/ww/dw <port> <value> - write value to port" },
     {   .name = "heap",     .handler = kshell_heap,  .description = "heap utility", .options = "info alloc free check" },
     {   .name = "vfs",      .handler = kshell_vfs,   .description = "vfs utility",  .options = "write read", },
     {   .name = "set",      .handler = kshell_set,   .description = "manage global variables", .options = "color prompt" },
@@ -417,6 +423,36 @@ void kshell_info(const struct kshell_command *this, const char *arg) {
     }
 }
 
+void kshell_io(const struct kshell_command *this, const char *arg) {
+    int port = 0;
+    int val = 0;
+    char *arg2 = get_int_opt(arg + 2, &port, 16);
+    switch (arg[1]) {
+    case 'r':
+        switch (arg[0]) {
+          case 'b': inb(port, val); break;
+          case 'w': inw(port, val); break;
+          case 'i': inl(port, val); break;
+          default: goto err;
+        }
+        printf("in(0x%x) => 0x%x\n", port, val);
+        break;
+    case 'w': {
+        get_int_opt(arg2, &val, 16);
+        printf("out(0x%x) => 0x%x\n", port, val);
+        switch (arg[0]) {
+          case 'b': outb(port, val); break;
+          case 'w': outw(port, val); break;
+          case 'i': outl(port, val); break;
+          default: goto err;
+        }
+        } break;
+    default: goto err;
+    }
+    return;
+err:
+    printf("Options:\n%s\n\n", this->options);
+}
 
 void kshell_set(const struct kshell_command *this, const char *arg) {
     if (!strncmp(arg, "color", 5)) {
@@ -494,9 +530,9 @@ void kshell_help(const struct kshell_command *this, const char *cmdline) {
             }
     }
 
-    print("Available commands ('help cmd' for more):\n\t");
+    print("Available commands ('help <cmd>' for more):\n\t");
     for (cmd = main_commands; cmd->name; ++cmd)
-        printf("%s, ", cmd->name);
+        printf("%s\t", cmd->name);
 
     print("\n\nAvailable shortcuts:\n\tCtrl-L - clear screen\n\n");
 }
