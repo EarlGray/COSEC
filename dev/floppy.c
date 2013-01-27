@@ -16,6 +16,12 @@
 #define FLOPPY_GAP3_5_14        32
 #define FLOPPY_GAP3_3_5         27
 
+typedef struct {
+    uint8_t cyl;    // 0..79
+    uint8_t head;   // 0,1
+    uint8_t sector; // 1..18
+} chs_t;
+
 /* FDC base port */
 #define FDC0    0x3f0
 #define FDC1    0x370
@@ -147,6 +153,8 @@ static inline void dma_set_count(uint ch, size_t sz) {
     outb_p(port, (sz >> 8));
 }
 
+#define FDC_CMD_MFM     0x40
+
 typedef enum {
     FDC_CMD_READ_TRACK  =   2,
     FDC_CMD_SPECIFY     =   3,
@@ -159,7 +167,11 @@ typedef enum {
     FDC_CMD_READ_ID_S   =   0xa,
     FDC_CMD_READ_DEL_S  =   0xc,
     FDC_CMD_FORMAT_TRACK =  0xd,
-    FDC_CMD_SEEK        =   0xf
+    FDC_CMD_SEEK        =   0xf,
+    FDC_CMD_VERSION     =   0x10,
+    FDC_CMD_CONFIGURE   =   0x13,
+    FDC_CMD_LOCK        =   0x14,
+    FDC_CMD_VERIFY      =   0x16
 } floppy_cmd_e;
 
 void floppy_dma_init(void) {
@@ -208,6 +220,7 @@ uint8_t floppy_read_data(int fdc) {
             return res;
         }
     k_printf("floppy_read_data(%d): failed to read data\n", fdc);
+    return 0;
 }
 
 void floppy_irq_handler(void *stack) {
@@ -218,6 +231,30 @@ void floppy_reset(int fdc) {
     outb(fdc + FDC_DOR, 0);
     usleep(50000);
     outb(fdc + FDC_DOR, FDC_ENABLE | FDC_DMA_MODE);
+}
+
+void floppy_cmd_conf(int fdc) {
+    floppy_send_cmd(fdc, FDC_CMD_CONFIGURE);
+    floppy_send_cmd(fdc, 0);
+    // Implied seek ON, FIFO ON, Polling mode OFF, threshold 8
+    floppy_send_cmd(fdc, (1<<6) | (1<<4) | 8);
+    floppy_send_cmd(fdc, 0);
+
+    /* no result bytes, no interrupt */
+}
+
+uint8_t floppy_cmd_version(int fdc) {
+    floppy_send_cmd(fdc, FDC_CMD_VERSION);
+    usleep(20000);
+    return floppy_read_data(fdc);
+}
+
+void floppy_turn_on(int fdc, int motor) {
+    outb_p(fdc + FDC_DOR, FDC_ENABLE | FDC_DMA_MODE | motor);
+}
+
+void lba_to_chs(uint lda, chs_t *chs) {
+
 }
 
 static const char * flp_cmos_type[] = {
@@ -235,9 +272,21 @@ void floppy_setup(void) {
     k_printf("Master floppy: %s\n", flp_cmos_type[flpinfo >> 4]);
     k_printf("Slave  floppy: %s\n", flp_cmos_type[flpinfo & 0x0F]);
 
+    if ((flpinfo >> 4) == 0) return;
+
     irq_set_handler(FLOPPY_IRQ, floppy_irq_handler);
     irq_mask(FLOPPY_IRQ, true);
 
+    floppy_reset(FDC0);
+
+    k_printf("floppy reset done\n");
     floppy_dma_init();
-    if (flpinfo >> 4) floppy_reset(FDC0);
+
+    floppy_cmd_conf(FDC0);
+    k_printf("floppy_cmd_conf done\n");
+
+    floppy_turn_on(FDC0, FDC_DOR_MOTOR0 | FDC_DOR_DR0);
+
+    uint8_t version = floppy_cmd_version(FDC0);
+    k_printf("FDC0 version: %x\n", (uint)version);
 }
