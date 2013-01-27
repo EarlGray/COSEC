@@ -4,7 +4,7 @@
 #include <arch/i386.h>
 #include <log.h>
 
-pde_t thePageDirectory[N_PDE] __attribute__((aligned (4096)));
+pde_t thePageDirectory[N_PDE] __attribute__((aligned (PAGE_SIZE)));
 
 int pg_fault(void) {
     print("\n#PF\n");

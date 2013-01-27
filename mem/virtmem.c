@@ -18,7 +18,9 @@ void vmem_setup(void) {
 }
 
 void memory_setup(void) {
+#if PAGING
     paging_setup();
+#endif
     pmem_setup();
     vmem_setup();
 }
