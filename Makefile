@@ -75,6 +75,9 @@ run:	install
 			echo "@@@@ Error: VirtualBox, qemu or Bochs must be installed";	\
 	else qemu $(qemu_flags) -curses;	fi
 
+krun: $(kernel)
+	qemu -kernel $(build)/$(kernel) -fda $(image)
+
 qemu:	install 
 	@if [ -S $(pipe_file) ]; 							\
 	then qemu $(qemu_flags) -serial unix:$(pipe_file) ;	\
