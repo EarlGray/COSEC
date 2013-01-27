@@ -1,5 +1,6 @@
 #include <arch/i386.h>
 #include <dev/intrs.h>
+#include <dev/cmos.h>
 
 #define FDC0    0x3f0
 #define FDC1    0x370
@@ -39,7 +40,12 @@
 #define FDC_PS2_SRB 1   /* Status Reg. B */
 #define FDC_PS2_DSR 4   /* Data Rate Select Reg */
 
-enum flpydsk_cmd_e {
+#define dma_mask_channel(ch)
+#define dma_unmask_channel(ch)
+#define dma_reset_master_flipflop()
+#define dma_set_addr(addr)
+
+typedef enum {
     FDC_CMD_READ_TRACK  =   2,
     FDC_CMD_SPECIFY     =   3,
     FDC_CMD_CHECK_STAT  =   4,
@@ -52,9 +58,7 @@ enum flpydsk_cmd_e {
     FDC_CMD_READ_DEL_S  =   0xc,
     FDC_CMD_FORMAT_TRACK =  0xd,
     FDC_CMD_SEEK        =   0xf
-}; 
-
-#define mask_dma_channel()
+} floppy_cmd_e; 
 
 void floppy_dma_init() {
     dma_mask_channel(2);
@@ -75,17 +79,32 @@ void floppy_dma_read() {
     dma_unmask_channel(2);
 }
 
-void floppy_cmd(enum floppy_cmd_e cmd) {
+void floppy_cmd(floppy_cmd_e cmd) {
+       
 }
 
 void floppy_irq_handler(void *stack) {
     k_printf("IRQ6\n");
 }
 
+static const char * flp_cmos_type[] = {
+    [0] = "none",
+    [1] = "360 KB 5.25 Drive",
+    [2] = "1.2 MB 5.25 Drive",
+    [3] = "720 KB 3.5 Drive",
+    [4] = "1.44 MB 3.5 Drive",
+    [5] = "2.88 MB 3.5 drive"
+};
+
 void floppy_setup(void) {
+    uint8_t flpinfo = read_cmos(CMOS_FLOPPY_INFO);
+
+    k_printf("Master floppy: %s\n", flp_cmos_type[flpinfo >> 4]);
+    k_printf("Slave  floppy: %s\n", flp_cmos_type[flpinfo & 0x0F]);
+
     irq_set_handler(FLOPPY_IRQ, floppy_irq_handler);
     irq_mask(FLOPPY_IRQ, true);
 
     floppy_dma_init();
-    floppy_cmd();
+    //floppy_cmd();
 }

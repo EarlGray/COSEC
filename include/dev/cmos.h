@@ -4,6 +4,8 @@
 #define CMOS_CMND_PORT  0x70
 #define CMOS_DATA_PORT  0x71
 
+#define CMOS_FLOPPY_INFO    0x10
+
 #define CMOS_REG_SECS           0x00
 #define CMOS_REG_MINS           0x02
 #define CMOS_REG_HOURS          0x04
