@@ -9,6 +9,7 @@
 #define NMI_IRQ     2
 #define COM2_IRQ    3
 #define COM1_IRQ    4
+#define FLOPPY_IRQ  6
 
 #ifndef ASM
 
