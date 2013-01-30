@@ -3,6 +3,7 @@
 #include <arch/multiboot.h>
 
 #include <dev/screen.h>
+#include <dev/floppy.h>
 #include <dev/pci.h>
 
 #include <std/string.h>
@@ -225,6 +226,7 @@ void kshell_elf(const struct kshell_command *, const char *);
 void kshell_mem(const struct kshell_command *, const char *);
 void kshell_vfs(const struct kshell_command *, const char *);
 void kshell_io(const struct kshell_command *, const char *);
+void kshell_floppy(const struct kshell_command *, const char *);
 void kshell_ls();
 void kshell_mount();
 void kshell_time();
@@ -248,6 +250,7 @@ const struct kshell_command main_commands[] = {
     {   .name = "vfs",      .handler = kshell_vfs,   .description = "vfs utility",  .options = "write read", },
     {   .name = "set",      .handler = kshell_set,   .description = "manage global variables", .options = "color prompt" },
     {   .name = "elf",      .handler = kshell_elf,   .description = "inspect ELF formats", .options = "sections syms" },
+    {   .name = "floppy",   .handler = kshell_floppy,.description = "floppy test",      .options = "seek read" },
     {   .name = "panic",    .handler = kshell_panic, .description = "test The Red Screen of Death"     },
     {   .name = "help",     .handler = kshell_help,  .description = "show this help"   },
     {   .name = "ls",       .handler = kshell_ls,    .description = "list current VFS directory"    },
@@ -336,6 +339,25 @@ void kshell_elf(const struct kshell_command *this, const char *arg) {
         char *strtab = (char *) strsect->sh_addr;
         print_elf_syms((Elf32_Sym *)symtab->sh_addr, symtab->sh_size / sizeof(Elf32_Sym),
                 strtab, sym);
+    } else {
+        k_printf("Options: %s\n", this->options);
+    }
+}
+
+void kshell_floppy(const struct kshell_command *this, const char *arg) {
+    if (!strncmp(arg, "seek", 4)) {
+        index_t track = 0;
+        arg += 4;
+        get_int_opt(arg, (int *)&track, 16);
+        int ret = floppy_seek(FDC0, track, 0);
+        k_printf("\nDone (%d)\n", ret);
+    } else
+    if (!strncmp(arg, "read", 4)) {
+        index_t track = 0;
+        arg += 4;
+        get_int_opt(arg, (int *)&track, 16);
+        int ret = floppy_read_track(FDC0, track);
+        k_printf("\nDone (%d), check mem *0x%x\n", ret, (ptr_t)FLOPPY_DMA_AREA);
     } else {
         k_printf("Options: %s\n", this->options);
     }

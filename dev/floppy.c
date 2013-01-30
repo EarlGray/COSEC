@@ -1,3 +1,10 @@
+/*
+ *  Thanks to:
+ *      http://forum.osdev.org/viewtopic.php?t=13538
+ */
+
+#include <dev/floppy.h>
+
 #include <arch/i386.h>
 #include <dev/intrs.h>
 #include <dev/timer.h>
@@ -7,7 +14,6 @@
 #include <log.h>
 
 
-#define FLOPPY_DMA_AREA     ((void *)0x90000)
 
 /* 1.44M 3.5" floppy geometry */
 #define FLP144_BYTES_PER_SECT   512
@@ -25,10 +31,6 @@ typedef struct {
 } chs_t;
 
 #define FLOPPY_REDO_ATTEMPTS    10
-
-/* FDC base port */
-#define FDC0    0x3f0
-#define FDC1    0x370
 
 /* FDC port offsets: */
 #define FDC_DOR     2   /* Digital Output Register */
@@ -263,7 +265,7 @@ void lba_to_chs(uint lba, chs_t *chs) {
 
 }
 
-static const char *st0status[] = { 0, "error", "invalid", "drive" };
+static const char *st0status[] = { 0, "unknown error", "invalid cmd", "drive not ready" };
 
 void floppy_cmd_conf(int fdc) {
     floppy_send_cmd(fdc, FDC_CMD_CONFIGURE);
@@ -342,6 +344,134 @@ int floppy_seek(int fdc, unsigned cyli, int head) {
     return -EFAULT;
 }
 
+typedef enum { FLP_READ, FLP_WRITE } flp_rw_e;
+static int floppy_track(int fdc, uint cyl, flp_rw_e rw) {
+    uint8_t cmd;
+
+    // Read is MT:MF:SK:0:0:1:1:0, write MT:MF:0:0:1:0:1
+    switch (rw) {
+      case FLP_READ: cmd = FDC_CMD_READ_SECT | FDC_CMD_MFM; break;
+      case FLP_WRITE: cmd = FDC_CMD_WRITE_SECT | FDC_CMD_MFM; break;
+      default:
+        logef("floppy_track(fdc, %d, >>> %d <<<)\n", cyl, rw);
+        return -1;
+    }
+
+    if (floppy_seek(fdc, cyl, 0)) return -EFAULT;
+
+    int i;
+    for (i = 0; i < FLOPPY_REDO_ATTEMPTS; ++i) {
+        floppy_on(fdc);
+        switch (rw) {
+            case FLP_READ:  floppy_dma_prepare_read(); break;
+            case FLP_WRITE: floppy_dma_prepare_write(); break;
+        }
+
+        usleep(50000);
+
+        floppy_send_cmd(fdc, cmd);
+        floppy_send_cmd(fdc, 0);        // 0:0:0:0:0:HD:US1:US0 = head and drive
+        floppy_send_cmd(fdc, cyl);      // cylinder
+        floppy_send_cmd(fdc, 0);        // first head
+        floppy_send_cmd(fdc, 1);        // first sector, count from 1
+        floppy_send_cmd(fdc, FLP144_SECT_PER_TRACK);    // count of sectors
+        floppy_send_cmd(fdc, FLOPPY_GAP3_3_5);          // gap
+        floppy_send_cmd(fdc, 0xff);     // data length
+
+        irq_wait(FLOPPY_IRQ);
+
+        /* Status */
+        uint8_t st0, st1, st2, rcy, rhe, rse, bps;
+        st0 = floppy_read_data(fdc);
+        st1 = floppy_read_data(fdc);
+        st2 = floppy_read_data(fdc);
+
+        rcy = floppy_read_data(fdc);
+        rhe = floppy_read_data(fdc);
+        rse = floppy_read_data(fdc);
+
+        bps = floppy_read_data(fdc);
+
+        int error = 0;
+        /* handle errors */
+        if(st0 & 0xC0) {
+            logef("floppy_track: status = %s\n", st0status[st0 >> 6]);
+            error = 1;
+        }
+        if(st1 & 0x80) {
+            loge("floppy_track: end of cylinder\n");
+            error = 1;
+        }
+        if(st0 & 0x08) {
+            loge("floppy_track: drive not ready\n");
+            error = 1;
+        }
+        if(st1 & 0x20) {
+            loge("floppy_track: CRC error\n");
+            error = 1;
+        }
+        if(st1 & 0x10) {
+            loge("floppy_track: controller timeout\n");
+            error = 1;
+        }
+        if(st1 & 0x04) {
+            loge("floppy_track: no data found\n");
+            error = 1;
+        }
+        if((st1|st2) & 0x01) {
+            loge("floppy_track: no address mark found\n");
+            error = 1;
+        }
+        if(st2 & 0x40) {
+            loge("floppy_track: deleted address mark\n");
+            error = 1;
+        }
+        if(st2 & 0x20) {
+            loge("floppy_track: CRC error in data\n");
+            error = 1;
+        }
+        if (st2 & 0x10) {
+            loge("floppy_track: wrong cylinder\n");
+            error = 1;
+        }
+        if (st2 & 0x04) {
+            loge("floppy_track: uPD765 sector not found\n");
+            error = 1;
+        }
+        if (st2 & 0x02) {
+            loge("floppy_track: bad cylinder\n");
+            error = 1;
+        }
+        if (bps != 0x2) {
+            logef("floppy_track: wanted 512B/sector, got %d\n", (1<<(bps+7)));
+            error = 1;
+        }
+        if (st1 & 0x02) {
+            loge("floppy_track: not writable\n");
+            error = 2;
+        }
+
+        if (!error) {
+            floppy_off(fdc);
+            return 0;
+        }
+        if (error > 1) {
+            loge("floppy_track: not retrying...\n");
+            floppy_off(fdc);
+            return error;
+        }
+
+        floppy_off(fdc);
+    }
+}
+
+int floppy_read_track(int fdc, index_t track) {
+    return floppy_track(fdc, track, FLP_READ);
+}
+int floppy_write_track(int fdc, index_t track) {
+    return floppy_track(fdc, track, FLP_WRITE);
+}
+
 void floppy_reset(int fdc) {
     uint8_t st0, cyl = -1;
 
@@ -360,6 +490,8 @@ void floppy_reset(int fdc) {
     floppy_cmd_specify(fdc, 0xdf, 0x02);
 
     floppy_calibrate(FDC0);
+
+    floppy_dma_init();
 }
 
 void floppy_irq_handler(void *stack) {
