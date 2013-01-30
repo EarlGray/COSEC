@@ -1,7 +1,9 @@
 #include <arch/i386.h>
 #include <dev/intrs.h>
+#include <dev/timer.h>
 #include <dev/cmos.h>
 
+#define __DEBUG
 #include <log.h>
 
 
@@ -22,6 +24,8 @@ typedef struct {
     uint8_t sector; // 1..18
 } chs_t;
 
+#define FLOPPY_REDO_ATTEMPTS    10
+
 /* FDC base port */
 #define FDC0    0x3f0
 #define FDC1    0x370
@@ -30,6 +34,7 @@ typedef struct {
 #define FDC_DOR     2   /* Digital Output Register */
 #define FDC_MSR     4   /* Main Status Register */
 #define FDC_DATA    5   /* Data Register */
+#define FDC_CCR     7
 
 /* DOR bits */
 #define FDC_DOR_DR0     0
@@ -176,7 +181,7 @@ typedef enum {
 
 void floppy_dma_init(void) {
     dma_mask_channel(DMA_FLOPPY, true);
-    dma_set_addr(DMA_FLOPPY, FLOPPY_DMA_AREA);
+    dma_set_addr(DMA_FLOPPY, (ptr_t)FLOPPY_DMA_AREA);
     dma_set_count(DMA_FLOPPY, FLP144_BYTES_PER_TRACK - 1);
     dma_mask_channel(DMA_FLOPPY, false);
 }
@@ -188,50 +193,77 @@ void floppy_dma_prepare_read(void) {
     dma_mask_channel(DMA_FLOPPY, false);
 }
 
-void floppy_dma_prepare_write(void) {
+inline void floppy_dma_prepare_write(void) {
     dma_mask_channel(DMA_FLOPPY, true);
     // single transfer, address increment, autoinit, write, channel 2:
     outb_p(DMA_SLAV_MODE_REG, 0x5a);
     dma_mask_channel(DMA_FLOPPY, false);
 }
 
-uint8_t floppy_status(int fdc) {
+inline uint8_t floppy_status(int fdc) {
     uint8_t res = 0;
     inb_p(fdc + FDC_MSR, res);
     return res;
 }
 
+inline static void floppy_turn_on(int fdc, int motor) {
+    outb_p(fdc + FDC_DOR, FDC_ENABLE | FDC_DMA_MODE | motor);
+    usleep(50000);
+}
+
+inline void floppy_on(int fdc) {
+    floppy_turn_on(fdc, FDC_DOR_MOTOR0 | FDC_DOR_MOTOR1 | FDC_DOR_MOTOR2 | FDC_DOR_MOTOR3 |
+                        FDC_DOR_DR0 | FDC_DOR_DR1 | FDC_DOR_DR2 | FDC_DOR_DR3);
+}
+
+inline void floppy_off(int fdc) {
+    floppy_turn_on(fdc, 0);
+}
 void floppy_send_cmd(int fdc, floppy_cmd_e cmd) {
     int i;
-    for (i = 0; i < 500; ++i)
+    for (i = 0; i < 1000; ++i) {
         if (floppy_status(fdc) & FDC_MSR_DATAREG_READY) {
             outb_p(FDC_DATA, cmd);
             return;
         }
-    k_printf("floppy_send_cmd(%d): failed to send cmd\n", fdc);
+        usleep(10000);
+    }
+    logf("floppy_send_cmd(%d): failed to send cmd\n", fdc);
 }
 
 uint8_t floppy_read_data(int fdc) {
     int i;
-    for (i = 0; i < 500; ++i)
+    for (i = 0; i < 1000; ++i) {
         if (floppy_status(fdc) & FDC_MSR_DATAREG_READY) {
             uint8_t res;
             inb_p(fdc + FDC_DATA, res);
             return res;
         }
-    k_printf("floppy_read_data(%d): failed to read data\n", fdc);
+        usleep(10000);
+    }
+
+    logf("floppy_read_data(%d): failed to read data\n", fdc);
     return 0;
 }
 
-void floppy_irq_handler(void *stack) {
-    k_printf("IRQ6\n");
+void floppy_cmd_specify(int fdc, uint8_t val1, uint8_t val2) {
+    floppy_send_cmd(fdc, FDC_CMD_SPECIFY);
+    floppy_send_cmd(fdc, val1);
+    floppy_send_cmd(fdc, val2);
 }
 
-void floppy_reset(int fdc) {
-    outb(fdc + FDC_DOR, 0);
-    usleep(50000);
-    outb(fdc + FDC_DOR, FDC_ENABLE | FDC_DMA_MODE);
+uint8_t floppy_cmd_version(int fdc) {
+    floppy_send_cmd(fdc, FDC_CMD_VERSION);
+    usleep(2000);
+    return floppy_read_data(fdc);
 }
+
+
+void lba_to_chs(uint lba, chs_t *chs) {
+
+}
+
+static const char *st0status[] = { 0, "error", "invalid", "drive" };
 
 void floppy_cmd_conf(int fdc) {
     floppy_send_cmd(fdc, FDC_CMD_CONFIGURE);
@@ -239,38 +271,116 @@ void floppy_cmd_conf(int fdc) {
     // Implied seek ON, FIFO ON, Polling mode OFF, threshold 8
     floppy_send_cmd(fdc, (1<<6) | (1<<4) | 8);
     floppy_send_cmd(fdc, 0);
-
     /* no result bytes, no interrupt */
 }
 
-uint8_t floppy_cmd_version(int fdc) {
-    floppy_send_cmd(fdc, FDC_CMD_VERSION);
-    usleep(20000);
-    return floppy_read_data(fdc);
+void floppy_cmd_sense(int fdc, uint8_t *st, uint8_t *cyl) {
+    floppy_send_cmd(fdc, FDC_CMD_CHECK_STAT);
+    *st = floppy_read_data(fdc);
+    *cyl = floppy_read_data(fdc);
 }
 
-void floppy_turn_on(int fdc, int motor) {
-    outb_p(fdc + FDC_DOR, FDC_ENABLE | FDC_DMA_MODE | motor);
+int floppy_calibrate(int fdc) {
+    int i;
+    uint8_t st0, cyl = -1;
+
+    floppy_on(fdc);
+    usleep(10000);
+
+#define FLOPPY_CALIBRATE_ATTEMPTS   10
+    for (i = 0; i < FLOPPY_CALIBRATE_ATTEMPTS; ++i) {
+        floppy_send_cmd(fdc, FDC_CMD_CALIBRATE);
+        floppy_send_cmd(fdc, 0);     // the drive
+
+        irq_wait(FLOPPY_IRQ);
+
+        floppy_cmd_sense(fdc, &st0, &cyl);
+        logdf("floppy_cmd_sense: st = 0x%x, cyl = 0x%x\n", (uint)st0, (uint)cyl);
+
+        if (st0 & 0xC0) {
+            logdf("floppy_calibrate() = %d", st0status[st0 >> 6]);
+            continue;
+        }
+
+        if (!cyl) {
+            floppy_off(fdc);
+            return 0;
+        }
+    }
+
+    log("floppy_calibrate: attempts exhausted\n");
+    floppy_off(fdc);
+    return -EFAULT;
 }
 
-void lba_to_chs(uint lda, chs_t *chs) {
+int floppy_seek(int fdc, unsigned cyli, int head) {
+    int i;
+    uint8_t st0, cyl = -1;
 
+    floppy_on(fdc);
+
+    for (i = 0; i < FLOPPY_REDO_ATTEMPTS; ++i) {
+        floppy_send_cmd(fdc, FDC_CMD_SEEK);
+        floppy_send_cmd(fdc, head << 2);
+        floppy_send_cmd(fdc, cyli);
+
+        irq_wait(FLOPPY_IRQ);
+        floppy_cmd_sense(fdc, &st0, &cyl);
+
+        if (st0 & 0xc0) {
+            logf("floppy_seek() = %s\n", st0status[st0 >> 6]);
+            continue;
+        }
+
+        if (cyl == cyli) {
+            floppy_off(fdc);
+            return 0;
+        }
+    }
+
+    floppy_off(fdc);
+    return -EFAULT;
 }
 
-static const char * flp_cmos_type[] = {
-    [0] = "none",
-    [1] = "360 KB 5.25 Drive",
-    [2] = "1.2 MB 5.25 Drive",
-    [3] = "720 KB 3.5 Drive",
-    [4] = "1.44 MB 3.5 Drive",
-    [5] = "2.88 MB 3.5 drive"
-};
+void floppy_reset(int fdc) {
+    uint8_t st0, cyl = -1;
+
+    outb(fdc + FDC_DOR, 0);
+    usleep(1000);
+    outb(fdc + FDC_DOR, FDC_ENABLE | FDC_DMA_MODE);
+
+    irq_wait(FLOPPY_IRQ);
+
+    floppy_cmd_sense(FDC0, &st0, &cyl);
+    logdf("floppy_cmd_sense: st = 0x%x, cyl = 0x%x\n", (uint)st0, (uint)cyl);
+
+    // set data transfer rate, default for 1.44 3.5"
+    outb(fdc + FDC_CCR, 0x00);
+
+    floppy_cmd_specify(fdc, 0xdf, 0x02);
+
+    floppy_calibrate(FDC0);
+}
+
+void floppy_irq_handler(void *stack) {
+    logd("IRQ6\n");
+}
+
 
 void floppy_setup(void) {
+    static const char * flp_cmos_type[] = {
+        [0] = "none",
+        [1] = "360 KB 5.25 Drive",
+        [2] = "1.2 MB 5.25 Drive",
+        [3] = "720 KB 3.5 Drive",
+        [4] = "1.44 MB 3.5 Drive",
+        [5] = "2.88 MB 3.5 drive"
+    };
+
     uint8_t flpinfo = read_cmos(CMOS_FLOPPY_INFO);
 
-    k_printf("Master floppy: %s\n", flp_cmos_type[flpinfo >> 4]);
-    k_printf("Slave  floppy: %s\n", flp_cmos_type[flpinfo & 0x0F]);
+    logf("Master floppy: %s\n", flp_cmos_type[flpinfo >> 4]);
+    logf("Slave  floppy: %s\n", flp_cmos_type[flpinfo & 0x0F]);
 
     if ((flpinfo >> 4) == 0) return;
 
@@ -278,15 +388,13 @@ void floppy_setup(void) {
     irq_mask(FLOPPY_IRQ, true);
 
     floppy_reset(FDC0);
-
-    k_printf("floppy reset done\n");
-    floppy_dma_init();
+    logd("floppy reset done\n");
 
     floppy_cmd_conf(FDC0);
-    k_printf("floppy_cmd_conf done\n");
-
-    floppy_turn_on(FDC0, FDC_DOR_MOTOR0 | FDC_DOR_DR0);
+    logd("floppy_cmd_conf done\n");
 
     uint8_t version = floppy_cmd_version(FDC0);
-    k_printf("FDC0 version: %x\n", (uint)version);
+    logdf("FDC0 version: %x\n", (uint)version);
+
+    //floppy_dma_init();
 }

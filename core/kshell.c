@@ -408,6 +408,9 @@ void kshell_info(const struct kshell_command *this, const char *arg) {
             pci_info(bus, slot);
         }
     } else
+    if (!strncmp(arg, "irq", 3)) {
+        k_printf("IRQ mask: %x\n", (uint)irq_is_masked() & 0xffff);
+    } else
     if (!strncmp(arg, "mods", 4)) {
         count_t n_mods = 0;
         module_t *mods;
@@ -515,8 +518,8 @@ void kshell_unknown_cmd() {
 }
 
 void kshell_panic() {
-    //panic("THIS IS JUST A TEST");
-    asm (".word 0xB9F0 \n");
+    panic("THIS IS JUST A TEST");
+    //asm (".word 0xB9F0 \n");
 }
 
 void kshell_help(const struct kshell_command *this, const char *cmdline) {

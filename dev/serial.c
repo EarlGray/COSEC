@@ -100,7 +100,7 @@ static void serial_configure(uint16_t port, uint8_t speed_divisor) {
 
 void serial_setup(void) {
     /* configure serial interface */
-    serial_configure(COM1_PORT, 1); 
+    serial_configure(COM1_PORT, 1);
 
     irq_mask(COM1_IRQ, true);
     irq_set_handler(COM1_IRQ, serial_irq);
