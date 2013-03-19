@@ -42,7 +42,7 @@ int getline(char *buf, size_t bufsize) {
             }
             break;
         default:
-            if (cur - buf < bufsize) {
+            if (cur - buf < (int)bufsize) {
                 *cur++ = c;
                 putchar(c);
                 if (c == '\n') {

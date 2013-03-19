@@ -141,6 +141,8 @@ typedef struct {
 
 #define i386_esp(p)    asm ("\t movl %%esp, %0 \n" : "=r"(p))
 
+#define i386_load_task_reg(sel) asm ("ltrw %%ax     \n\t"::"a"( sel ));
+
 extern uint i386_rdtsc(uint64_t *timestamp);
 extern void i386_snapshot(char *buf);
 
@@ -233,7 +235,8 @@ ptr_t cpu_stack(void);
 #define intrs_enable()         i386_intrs_enable()
 #define intrs_disable()        i386_intrs_disable()
 #define cpu_halt()             i386_halt()
-#define cpu_hang()             i386_hang()
+
+inline static void __noreturn cpu_hang(void)  {  i386_hang(); }
 
 #define inb(port, value)       i386_inb(port, value)    
 #define outb(port, value)      i386_outb(port, value)   

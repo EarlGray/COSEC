@@ -5,7 +5,7 @@
 
 int __pure strncmp(const char *s1, const char *s2, size_t n) {
     if (s1 == s2) return 0;
-    int i = 0;
+    index_t i = 0;
     while (i++ < n) {
         if ((*s1) != (*s2)) return ((*s2) - (*s1));
         if (0 == (*s1)) return 0;
@@ -19,10 +19,10 @@ int __pure strcmp(const char *s1, const char *s2) {
 }
 
 int __pure memcmp(const void *s1, const void *s2, size_t n) {
-    int i;
+    index_t i;
     const char *c1 = s1;
     const char *c2 = s2;
-    for (i = 0; i < (int)n; ++i) {
+    for (i = 0; i < n; ++i) {
         char diff = *c1 - *c2;
         if (diff)
             return diff;
@@ -52,7 +52,7 @@ char *strcpy(char *dest, const char *src) {
 }
 
 char *strncpy(char *dest, const char *src, size_t n) {
-    size_t i = 0;
+    index_t i = 0;
     char *d = dest;
     while ((*src) && (i++ < n))
         *d++ = *src++;
@@ -68,14 +68,14 @@ size_t __pure strlen(const char *s) {
 
 size_t __pure strnlen(const char *s, size_t maxlen) {
     const char *c = s;
-    size_t i = 0;
+    index_t i = 0;
     while ((i++ < maxlen) && *c) ++c;
     return c - s;
 }
 
 void* memcpy(void *dest, const void *src, size_t size) {
     //arch_memcpy(dest, src, size);
-    size_t i = 0;
+    index_t i = 0;
     uint8_t *d = dest;
     const uint8_t *s = src;
     while (i++ < size)
@@ -85,7 +85,7 @@ void* memcpy(void *dest, const void *src, size_t size) {
 
 void *memset(void *s, int c, size_t n) {
     char *p = (char *)s;
-    unsigned i;
+    index_t i;
     for (i = 0; i < n; ++i)
         p[i] = c;
     return s;

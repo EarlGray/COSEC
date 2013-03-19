@@ -1,6 +1,7 @@
 #include <dev/pci.h>
 
 #include <arch/i386.h>
+#include <std/stdio.h>
 
 #include <log.h>
 

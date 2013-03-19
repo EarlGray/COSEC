@@ -31,7 +31,7 @@ const char* symbinds[] = {
 
 
 Elf32_Shdr *elf_section_by_name(Elf32_Shdr *shdr, size_t snum, const char *sname) {
-    int i;
+    index_t i;
     Elf32_Shdr *section;
     const char *shstrtab = null;
 
@@ -39,13 +39,13 @@ Elf32_Shdr *elf_section_by_name(Elf32_Shdr *shdr, size_t snum, const char *sname
     for (i = 0; i < snum; ++i) {
         section = shdr + i;
         if (section->sh_type == SHT_STRTAB) {
-            shstrtab = section->sh_addr;
+            shstrtab = (void *)section->sh_addr;
             if (!strncmp(".shstrtab", shstrtab + section->sh_name, 9)) break;
             else shstrtab = null;
         }
     }
 
-    assertv(shstrtab, "shstrtab not found");
+    assert(shstrtab, null, "shstrtab not found");
 
     for (i = 0; i < snum; ++i) {
         section = shdr + i;
@@ -58,7 +58,7 @@ Elf32_Shdr *elf_section_by_name(Elf32_Shdr *shdr, size_t snum, const char *sname
 }
 
 void print_elf_syms(Elf32_Sym *syms, size_t n_syms, const char *strtab, const char *symname) {
-    int i;
+    index_t i;
     size_t symlen = strlen(symname);
     for (i = 0; i < n_syms; ++i) {
         Elf32_Sym *sym = syms + i;
@@ -77,13 +77,13 @@ void print_elf_syms(Elf32_Sym *syms, size_t n_syms, const char *strtab, const ch
 void print_section_headers(Elf32_Shdr *shdr, size_t snum) {
     Elf32_Shdr *section;
     const char *shstrtab = null;
-    int i;
+    index_t i;
 
     // find .shstrtab first
     for (i = 0; i < snum; ++i) {
         section = shdr + i;
         if (section->sh_type == SHT_STRTAB) {
-            shstrtab = section->sh_addr;
+            shstrtab = (void *)section->sh_addr;
             if (!strncmp(".shstrtab", shstrtab + section->sh_name, 9)) break;
             else shstrtab = null;
         }

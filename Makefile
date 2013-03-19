@@ -10,16 +10,16 @@ gcc_home := /usr/local/gcc-4.5.2-for-linux32
 crosscompile := $(gcc_home)/bin/i586-pc-linux-
 endif
 
-cc  :=  $(crosscompile)gcc
-as  :=  $(crosscompile)gcc
-ld  :=  $(crosscompile)ld
+cc  ?=  $(crosscompile)gcc
+as  ?=  $(crosscompile)gcc
+ld  ?=  $(crosscompile)ld
 
 nm  :=  $(crosscompile)nm
 objdump :=  $(crosscompile)objdump
 
 lds := vmcosec.lds
 
-cc_flags    := -ffreestanding -nostdinc -nostdlib -Wall -Wextra -Winline -O2 -MD 
+cc_flags    := -ffreestanding -nostdinc -nostdlib -Wall -Wextra -Winline -Wno-unused -O2 -MD 
 as_flags    := -Wall -MD $(addprefix -I, $(include_dir))
 ld_flags    := -static -nostdlib -T$(build)/$(lds)
 

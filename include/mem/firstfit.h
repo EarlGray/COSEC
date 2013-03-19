@@ -27,6 +27,7 @@ void *firstfit_malloc(struct firstfit_allocator *this, unsigned size);
  ***/
 void firstfit_free(struct firstfit_allocator *this, void *p);
 
+void *firstfit_corruption(struct firstfit_allocator *this);
 void heap_info(struct firstfit_allocator *this);
 
 #endif // __FIRSTFIT_H__
