@@ -10,7 +10,7 @@
 #include <dev/timer.h>
 #include <dev/cmos.h>
 
-#define __DEBUG
+//#define __DEBUG
 #include <log.h>
 
 
