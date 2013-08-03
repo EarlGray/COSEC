@@ -2,6 +2,7 @@
 #define __KERN_LOG_H__
 
 #include <dev/screen.h>
+#include <std/sys/errno.h>
 
 #define print(msg) k_printf(msg)
 #define printf(msg, ...) k_printf(msg, __VA_ARGS__)

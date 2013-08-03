@@ -1,7 +1,7 @@
 #include <std/string.h>
 #include <std/ctype.h>
 #include <arch/i386.h>
-#include <mm/kheap.h>
+#include <mem/kheap.h>
 
 int __pure strncmp(const char *s1, const char *s2, size_t n) {
     if (s1 == s2) return 0;

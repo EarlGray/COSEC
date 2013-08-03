@@ -1,7 +1,7 @@
 /*
  *      This file contains high-level interupts handlers
  *  Now it also includes PIC-related code, though it would be nice to put it
- *  to its own header, but I don't wnat mupltiply files now
+ *  to its own header, but I don't want mupltiply files now
  *  TODO: separate pic.c
  *      About interrupt handling: 
  *  exceptions are handled directly by one of int_foo() functions
@@ -12,6 +12,8 @@
 #include <arch/i386.h>
 
 #include <dev/intrs.h>
+
+#include <mem/paging.h>
 
 #include <std/stdio.h>
 
@@ -50,6 +52,8 @@
  */
 // IRQ handlers
 intr_handler_f irq[16];
+
+volatile bool irq_happened[16] = { 0 };
 
 // interrupt handlers
 void int_dummy();
@@ -94,7 +98,7 @@ irq_remap(uint8_t master, uint8_t slave) {
     outb(PIC2_DATA_PORT, slave_mask);
 }
 
-void irq_mask(uint8_t irq_num, bool set) {
+void irq_mask(irqnum_t irq_num, bool set) {
     uint8_t mask;
     uint16_t port = PIC1_DATA_PORT;
     if (irq_num >= 8) {
@@ -109,12 +113,22 @@ void irq_mask(uint8_t irq_num, bool set) {
 
 uint16_t irq_get_mask(void) {
     uint16_t res = 0;
-    uint8_t mask;
+    uint8_t mask = 0;
     inb(PIC1_DATA_PORT, mask);
     res = mask;
+    mask = 0;
     inb(PIC2_DATA_PORT, mask);
     res |= (mask << 8);
     return res;
+}
+
+bool irq_is_masked(uint irqnum) {
+    assertf(irqnum < 16, -EINVAL, "Invalid IRQ number: %d", irqnum);
+    uint16_t mask = irq_get_mask();
+    if (irqnum < 8) {
+        
+    }
+    k_printf("IRQ mask: %x\n", (uint)mask);
 }
 
 inline void irq_eoi(void) {
@@ -122,12 +136,13 @@ inline void irq_eoi(void) {
 }
 
 void irq_handler(uint32_t irq_num) {
+    irq_happened[irq_num] = true;
     intr_handler_f callee = irq[irq_num];
     callee((void *)cpu_stack());
     irq_eoi();
 }
 
-inline void irq_set_handler(uint8_t irq_num, intr_handler_f handler) {
+inline void irq_set_handler(irqnum_t irq_num, intr_handler_f handler) {
     irq[irq_num] = handler;
 }
 
@@ -173,7 +188,6 @@ void int_invalid_op(void *stack) {
     panic(buf);
 }
 
-#include <mm/paging.h>
 
 void int_page_fault(void ) {
     pg_fault();
@@ -229,4 +243,12 @@ void intrs_setup(void) {
         irq_mask(i, false);
         irq[i] = irq_slave;
     }
+}
+
+int irq_wait(irqnum_t irqnum) {
+    assert(irqnum < 16, "Wrong IRQ number", -EINVAL);
+
+    irq_happened[irqnum] = false;
+    do cpu_halt();
+    while (irq_happened[irqnum]);
 }

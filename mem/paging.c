@@ -1,8 +1,10 @@
 #define __DEBUG
 
-#include <mm/paging.h>
+#include <mem/paging.h>
 #include <arch/i386.h>
 #include <log.h>
+
+pde_t thePageDirectory[N_PDE] __attribute__((aligned (PAGE_SIZE)));
 
 int pg_fault(void) {
     print("\n#PF\n");
@@ -19,4 +21,13 @@ int pg_fault(void) {
             fault_error, op_addr[1], op_addr[0], fault_addr);
 
     cpu_hang();
+}
+
+void paging_setup(void) {
+    void * phy_pagedir = __pa(&thePageDirectory);
+    // prepare thePageDirectory
+    memcpy(thePageDirectory, (void *)INITIAL_PGDIR, N_PDE * sizeof(pde_t));
+    // switch
+    k_printf("switching page directory to *0x%x\n", phy_pagedir);
+    i386_switch_pagedir(phy_pagedir);
 }

@@ -3,19 +3,22 @@
 #include <arch/multiboot.h>
 
 #include <dev/screen.h>
+#include <dev/floppy.h>
 #include <dev/pci.h>
 
 #include <std/string.h>
 #include <std/stdio.h>
 #include <std/time.h>
 
-#include <kshell.h>
-#include <pmem.h>
-#include <mm/kheap.h>
+#include <mem/pmem.h>
+#include <mem/kheap.h>
 #include <misc/test.h>
 
 #include <fs/vfs.h>
+#include <fs/elf.h>
 #include <log.h>
+
+#include <kshell.h>
 
 /***
   *     Internal declarations
@@ -43,9 +46,9 @@ panic(const char *fatal_error) {
     print_centered("Oops, kernel panic");
     k_printf("\n");
 
-    /*snprintf(buf, 100, "----> %s <-----", fatal_error);
+    snprintf(buf, 100, "--> %s <--", fatal_error);
     print_centered(buf);
-
+    /*
     k_printf("\nCPU: \n");
     print_cpu();
     k_printf("\n\nKernel stack: \n");
@@ -77,12 +80,18 @@ panic(const char *fatal_error) {
 
 void print_mem(const char *p, size_t count) {
     char buf[100] = { 0 };
+    char printable[0x10 + 1] = { 0 };
     char s = 0;
 
+    int printnum = 0;
     int rest = (uint)p % 0x10;
     if (rest) {
-        int indent = 10 + 3 * rest + (rest >> 2) + (rest % 4? 1 : 0);
-        while (indent-- > 0) k_printf(" ");
+        int indent = 9 + 3 * rest + (rest >> 2) + (rest % 4? 1 : 0);
+        while (indent-- > 0) {
+            k_printf(" ");
+        }
+        while (rest--)
+            printable[printnum++] = ' ';
     }
 
     size_t i;
@@ -90,10 +99,11 @@ void print_mem(const char *p, size_t count) {
 
         if (0 == (uint32_t)(p + i) % 0x10) {
             /* end of line */
-            k_printf("%s\n", buf);
+            k_printf("%s| %s\n", buf, printable);
+            printnum = 0;
 
             /* start next line */
-            s = snprintf(buf, 100, "%0.8x: ", (uint32_t)(p + i));
+            s = snprintf(buf, 100, "%0.8x:", (uint32_t)(p + i));
         }
 
         if (0 == (uint)(p + i) % 0x4) {
@@ -102,8 +112,13 @@ void print_mem(const char *p, size_t count) {
 
         int t = (uint8_t) p[i];
         s += snprintf(buf + s, 100 - s, "%0.2x ", t);
+
+        if ((0x20 <= t) && (t < 0x80)) printable[printnum] = t;
+        else if (0x80 <= t) printable[printnum] = '`';
+        else printable[printnum] = '.';
+        printnum++;
     }
-    k_printf("%s\n", buf);
+    k_printf("%s| %s\n", buf, printable);
 }
 
 void print_intr_stack(const uint *const stack) {
@@ -207,8 +222,11 @@ void kshell_mboot(const struct kshell_command *, const char *);
 void kshell_test(const struct kshell_command *, const char *);
 void kshell_heap(const struct kshell_command *, const char *);
 void kshell_set(const struct kshell_command *, const char *);
+void kshell_elf(const struct kshell_command *, const char *);
 void kshell_mem(const struct kshell_command *, const char *);
 void kshell_vfs(const struct kshell_command *, const char *);
+void kshell_io(const struct kshell_command *, const char *);
+void kshell_floppy(const struct kshell_command *, const char *);
 void kshell_ls();
 void kshell_mount();
 void kshell_time();
@@ -219,13 +237,20 @@ void kshell_init() {
 }
 
 const struct kshell_command main_commands[] = {
-    {   .name = "init",     .handler = kshell_init,  .description = "userspace init()", .options = "just init!" },
-    {   .name = "test",     .handler = kshell_test,  .description = "test utility", .options = "sprintf kbd timer serial tasks ring3 usr" },
-    {   .name = "info",     .handler = kshell_info,  .description = "various info", .options = "stack gdt pmem colors cpu pci mods" },
+    {   .name = "init",     .handler = kshell_init,  .description = "userspace init()",
+        .options = "just init!" },
+    {   .name = "test",     .handler = kshell_test,  .description = "test utility",
+        .options = "sprintf kbd timer serial tasks ring3 usleep" },
+    {   .name = "info",     .handler = kshell_info,  .description = "various info",
+        .options = "stack gdt pmem colors cpu pci mods" },
     {   .name = "mem",      .handler = kshell_mem,   .description = "mem <start_addr> <size = 0x100>" },
+    {   .name = "io",       .handler = kshell_io,    .description = "io[bwd][rw] <port> [<value>]",
+        .options = "br/wr/dr <port> -- read port; bw/ww/dw <port> <value> - write value to port" },
     {   .name = "heap",     .handler = kshell_heap,  .description = "heap utility", .options = "info alloc free check" },
     {   .name = "vfs",      .handler = kshell_vfs,   .description = "vfs utility",  .options = "write read", },
     {   .name = "set",      .handler = kshell_set,   .description = "manage global variables", .options = "color prompt" },
+    {   .name = "elf",      .handler = kshell_elf,   .description = "inspect ELF formats", .options = "sections syms" },
+    {   .name = "floppy",   .handler = kshell_floppy,.description = "floppy test",      .options = "seek read" },
     {   .name = "panic",    .handler = kshell_panic, .description = "test The Red Screen of Death"     },
     {   .name = "help",     .handler = kshell_help,  .description = "show this help"   },
     {   .name = "ls",       .handler = kshell_ls,    .description = "list current VFS directory"    },
@@ -241,7 +266,7 @@ const struct kshell_subcmd  test_cmds[] = {
     { .name = "kbd",     .handler = test_kbd,       },
     { .name = "tasks",   .handler = test_tasks,     },
     { .name = "ring3",   .handler = test_userspace, },
-    { .name = "usr",     .handler = test_init,      },
+    { .name = "usleep",  .handler = test_usleep,    },
     { .name = 0, .handler = 0    },
 };
 
@@ -266,7 +291,7 @@ static inline size_t strcmpsz(const char *s1, const char *s2, char endchar) {
 }
 
 #define skip_gaps(pchar) \
-    while (' ' == *(pchar)) ++(pchar)
+    do while (' ' == *(pchar)) ++(pchar); while (0)
 
 bool kshell_autocomplete(char *buf) {
     int i;
@@ -296,6 +321,46 @@ bool kshell_autocomplete(char *buf) {
         }
     }
     return false;
+}
+
+void kshell_elf(const struct kshell_command *this, const char *arg) {
+    elf_section_header_table_t *mboot_syms = mboot_kernel_shdr();
+    assertv(mboot_syms, "mboot.syms are NULL\n");
+    Elf32_Shdr *shdrs = (Elf32_Shdr *)mboot_syms->addr;
+    size_t n_shdr = mboot_syms->num;
+
+    if (!strncmp(arg, "sections", 8)) {
+        print_section_headers(shdrs, n_shdr);
+    } else if (!strncmp(arg, "syms", 4)) {
+        char *sym = arg + 4;
+        skip_gaps(sym);
+        Elf32_Shdr *symtab = elf_section_by_name(shdrs, n_shdr, ".symtab");
+        Elf32_Shdr *strsect = elf_section_by_name(shdrs, n_shdr, ".strtab");
+        char *strtab = (char *) strsect->sh_addr;
+        print_elf_syms((Elf32_Sym *)symtab->sh_addr, symtab->sh_size / sizeof(Elf32_Sym),
+                strtab, sym);
+    } else {
+        k_printf("Options: %s\n", this->options);
+    }
+}
+
+void kshell_floppy(const struct kshell_command *this, const char *arg) {
+    if (!strncmp(arg, "seek", 4)) {
+        index_t track = 0;
+        arg += 4;
+        get_int_opt(arg, (int *)&track, 16);
+        int ret = floppy_seek(FDC0, track, 0);
+        k_printf("\nDone (%d)\n", ret);
+    } else
+    if (!strncmp(arg, "read", 4)) {
+        index_t track = 0;
+        arg += 4;
+        get_int_opt(arg, (int *)&track, 16);
+        int ret = floppy_read_track(FDC0, track);
+        k_printf("\nDone (%d), check mem *0x%x\n", ret, (ptr_t)FLOPPY_DMA_AREA);
+    } else {
+        k_printf("Options: %s\n", this->options);
+    }
 }
 
 void kshell_heap(const struct kshell_command *this, const char *arg) {
@@ -365,6 +430,9 @@ void kshell_info(const struct kshell_command *this, const char *arg) {
             pci_info(bus, slot);
         }
     } else
+    if (!strncmp(arg, "irq", 3)) {
+        k_printf("IRQ mask: %x\n", (uint)irq_is_masked() & 0xffff);
+    } else
     if (!strncmp(arg, "mods", 4)) {
         count_t n_mods = 0;
         module_t *mods;
@@ -381,6 +449,36 @@ void kshell_info(const struct kshell_command *this, const char *arg) {
     }
 }
 
+void kshell_io(const struct kshell_command *this, const char *arg) {
+    int port = 0;
+    int val = 0;
+    char *arg2 = get_int_opt(arg + 2, &port, 16);
+    switch (arg[1]) {
+    case 'r':
+        switch (arg[0]) {
+          case 'b': inb(port, val); break;
+          case 'w': inw(port, val); break;
+          case 'i': inl(port, val); break;
+          default: goto err;
+        }
+        printf("in(0x%x) => 0x%x\n", port, val);
+        break;
+    case 'w': {
+        get_int_opt(arg2, &val, 16);
+        printf("out(0x%x) => 0x%x\n", port, val);
+        switch (arg[0]) {
+          case 'b': outb(port, val); break;
+          case 'w': outw(port, val); break;
+          case 'i': outl(port, val); break;
+          default: goto err;
+        }
+        } break;
+    default: goto err;
+    }
+    return;
+err:
+    printf("Options:\n%s\n\n", this->options);
+}
 
 void kshell_set(const struct kshell_command *this, const char *arg) {
     if (!strncmp(arg, "color", 5)) {
@@ -442,8 +540,8 @@ void kshell_unknown_cmd() {
 }
 
 void kshell_panic() {
-    //panic("THIS IS JUST A TEST");
-    asm (".word 0xB9F0 \n");
+    panic("THIS IS JUST A TEST");
+    //asm (".word 0xB9F0 \n");
 }
 
 void kshell_help(const struct kshell_command *this, const char *cmdline) {
@@ -458,9 +556,9 @@ void kshell_help(const struct kshell_command *this, const char *cmdline) {
             }
     }
 
-    print("Available commands ('help cmd' for more):\n\t");
+    print("Available commands ('help <cmd>' for more):\n\t");
     for (cmd = main_commands; cmd->name; ++cmd)
-        printf("%s, ", cmd->name);
+        printf("%s\t", cmd->name);
 
     print("\n\nAvailable shortcuts:\n\tCtrl-L - clear screen\n\n");
 }

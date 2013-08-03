@@ -58,6 +58,11 @@ void test_eflags(void) {
     logf("flags=0x%x\n", flags);
 }
 
+void test_usleep(void) {
+    usleep(2 * 1000000);
+    k_printf("Done\n\n");
+}
+
 
 #if INTR_PROFILING    
 volatile union {
@@ -207,8 +212,8 @@ uint8_t task1_stack[TASK_KERNSTACK_SIZE];
 
 #define R0_STACK_SIZE       0x400
 #define R3_STACK_SIZE       0x1000
-uint8_t task0_stack3[R3_STACK_SIZE];
-uint8_t task1_stack3[R3_STACK_SIZE];
+uint8_t task0_usr_stack[R3_STACK_SIZE];
+uint8_t task1_usr_stack[R3_STACK_SIZE];
 
 task_struct task0;
 task_struct task1; 
@@ -267,28 +272,28 @@ void test_tasks(void) {
             (void *)((ptr_t)task0_stack + TASK_KERNSTACK_SIZE - 0x20));
     task_kthread_init(&task1, (void *)do_task1, 
             (void *)((ptr_t)task1_stack + TASK_KERNSTACK_SIZE - 0x20));
-    /*/
+    // */
     const segment_selector ucs = { .as.word = SEL_USER_CS };
     const segment_selector uds = { .as.word = SEL_USER_DS };
     task_init(&task0, (void *)do_task0, 
-            (void *)((ptr_t)task0_stack + TASK_KERNSTACK_SIZE - 0x20), 
-            (void *)((ptr_t)task0_stack3 + R3_STACK_SIZE - 0x20),
+            (void *)((ptr_t)task0_stack + TASK_KERNSTACK_SIZE), 
+            (void *)((ptr_t)task0_usr_stack + R3_STACK_SIZE),
             ucs, uds);
 
     task_init(&task1, (void *)do_task1, 
-            (void *)((ptr_t)task1_stack + TASK_KERNSTACK_SIZE - 0x20), 
-            (void *)((ptr_t)task1_stack3 + R3_STACK_SIZE - 0x20),
+            (void *)((ptr_t)task1_stack + TASK_KERNSTACK_SIZE), 
+            (void *)((ptr_t)task1_usr_stack + R3_STACK_SIZE),
             ucs, uds);
  
     task0.tss.eflags |= eflags_iopl(PL_USER);
     task1.tss.eflags |= eflags_iopl(PL_USER);   //*/
 
     quit = false;
-    kbd_set_onpress((kbd_event_f)key_press); 
+    kbd_set_onpress((kbd_event_f)key_press);
     task_set_scheduler(next_task);
 
     /* wait for first timer tick, when execution will be transferred to do_task0 */
-    cpu_halt(); 
+    cpu_halt();
     
     kbd_set_onpress(null);
     task_set_scheduler(null);
@@ -339,7 +344,7 @@ void test_userspace(void) {
     start_userspace(
         (uint)run_userspace, SEL_USER_CS,
         x86_eflags() | eflags_iopl(PL_USER),
-        (uint)task0_stack3 + R3_STACK_SIZE - 0x20, SEL_USER_DS);
+        (uint)task0_usr_stack + R3_STACK_SIZE - 0x20, SEL_USER_DS);
 }
 
 extern int main(int, char **);
@@ -374,5 +379,5 @@ void test_init(void) {
     start_userspace(
         (uint)main, SEL_USER_CS,
         x86_eflags() | eflags_iopl(PL_USER),
-        (uint)task0_stack3 + R3_STACK_SIZE - 0x20, SEL_USER_DS);
+        (uint)task0_usr_stack + R3_STACK_SIZE - 0x20, SEL_USER_DS);
 }

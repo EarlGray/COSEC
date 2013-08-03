@@ -1,7 +1,9 @@
 #include <fs/vfs.h>
 #include <std/sys/errno.h>
 
-err_t vfs_mount(const char *source, const char *target, const mount_opts *opts) {
+psuperblock_t *theSuperblocks;
+
+err_t vfs_mount(const char *source, const char *target, const mount_opts_t *opts) {
     return ETODO;
 }
 

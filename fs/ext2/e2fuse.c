@@ -10,6 +10,34 @@
 #include <fuse.h>
 #include "ext2.h"
 
+typedef struct file_block_device {
+    block_device blkdev;
+    FILE *file;
+} file_block_device;
+
+static struct ext2fs fs;
+
+/*
+ *  Emulate a block device from file
+ */
+static int read_file_blkdev(block_device* dev, index_t index, char *buffer) {
+    file_block_device *this = (file_block_device *)dev;
+    
+    return fread(buffer, dev->blksz, 1, this->file);
+}
+
+static int write_file_blkdev(block_device* dev, index_t index, const char *buffer) {
+    return -ETODO;
+}
+
+const block_ops fb_ops = {
+    .read_block = read_file_blkdev,
+    .write_block = write_file_blkdev,
+}
+
+/*
+ *  FUSE structure and methods
+ */
 static void * fuse_ext2_init(struct fuse_conn_info *);
 static void   fuse_ext2_destroy(void *);
 

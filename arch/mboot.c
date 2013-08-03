@@ -18,7 +18,7 @@ struct ext_info {
     const char *cmdline;
     size_t mods_count;
     module_t* mods_addr;
-    void *syms;
+    elf_section_header_table_t* syms;
     uint mmap_length;
     void * mmap_addr;
     uint drives_length;
@@ -33,24 +33,26 @@ struct ext_info {
     (((bf) >> (bit)) & 1)
 
 void mboot_info_parse(struct multiboot_info *mbi) {
+    k_printf("multiboot_info at *%x\n", (uint)mbi);
     mboot.flags = mbi->flags;
     if (is_set(mboot.flags, 0)) {
         mboot.mem_lower = mbi->mem_lower;
         mboot.mem_upper = mbi->mem_upper;
+        k_printf("mem_lower = %d Kb, mem_upper = %d Kb\n", mboot.mem_lower, mboot.mem_upper);
     } else {
         mboot.mem_lower = 0;
         mboot.mem_upper = 0;
     }
     mboot.boot_device = is_set(mboot.flags, 1) ? mbi->boot_device : 0;
-    mboot.cmdline = is_set(mboot.flags, 2) ? (const char *)mbi->cmdline : null;
+    mboot.cmdline = (is_set(mboot.flags, 2)) ? (const char *)mbi->cmdline : null;
     if (is_set(mboot.flags, 3)) {
         mboot.mods_count = mbi->mods_count;
-        mboot.mods_addr = mbi->mods_addr;
+        mboot.mods_addr = (module_t *)mbi->mods_addr;
     } else {
         mboot.mods_count = 0;
         mboot.mods_addr = 0;
     }
-    mboot.syms = (is_set(mboot.flags, 4) || is_set(mboot.flags, 5))? &(mbi->u) : null;
+    mboot.syms = (elf_section_header_table_t *)(is_set(mboot.flags, 5))? &(mbi->u) : null;
     if (is_set(mboot.flags, 6)) {
         mboot.mmap_length = mbi->mmap_length;
         mboot.mmap_addr = (void *)(mbi->mmap_addr);
@@ -64,6 +66,7 @@ void mboot_info_parse(struct multiboot_info *mbi) {
     if (is_set(mboot.flags, 7)) {
         mboot.drives_length = mbia[13];
         mboot.drives_addr = (void *)mbia[14];
+        k_printf("drives: %d (info at *0x%x)\n", mboot.drives_length, mboot.drives_addr);
     } else {
         mboot.drives_length = 0;
         mboot.drives_addr = null;
@@ -79,7 +82,11 @@ uint32_t    mboot_mmap_length(void) {   return mboot.mmap_length;   }
 void *      mboot_mmap_addr(void)   { return mboot.mmap_addr;   }
 uint32_t    moot_drives_length(void)    { return mboot.drives_length;   }
 
-void        mboot_modules_info(count_t *count, module_t **modules) {
+elf_section_header_table_t* mboot_kernel_shdr(void) {
+    return mboot.syms;
+}
+
+void mboot_modules_info(count_t *count, module_t **modules) {
     *count = is_set(mboot.flags, 3) ? mboot.mods_count : 0;
     *modules = mboot.mods_addr;
 }

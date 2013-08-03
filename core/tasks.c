@@ -1,11 +1,11 @@
-/* 
+/*
  *  This file will is a temporary task training ground
  *
  *      Note on terminology:
  *  Stack during an interrupt:
  * -task -> <--- cpu ----> <--- intr data --
  *    -----|----|----|----|-------
- *           flg  cs  eip  
+ *           flg  cs  eip
  *                        ^
  *          point of support for the interrupt
  */
@@ -28,8 +28,12 @@ task_struct *current = &default_task;
 
 task_next_f         task_next           = null;
 
+inline static int task_sysinfo_size(task_struct *task) {
+    return (task->tss.cs == SEL_KERN_CS) ? 3 : 5;
+}
+
 /***
-  *     Task switching 
+  *     Task switching
  ***/
 
 /* this routine is normally called from within interrupt! */
@@ -40,14 +44,14 @@ static void task_save_context(task_struct *task) {
     uint *context = (uint *)intr_context_esp();
     assertv(context, "task_save_context: intr_ret is cleared!");
 
-    task->tss.esp0 = (uint)context + CONTEXT_SIZE + 5*sizeof(uint);
+    task->tss.esp0 = (uint)context + CONTEXT_SIZE + task_sysinfo_size(task)*sizeof(uint);
 
     logdf("\n| save cntxt=%x |", (uint)context);
 }
 
 /* this routine is normally called from within interrupt! */
 static void task_push_context(task_struct *task) {
-    uint context = task->tss.esp0 - CONTEXT_SIZE - 5*sizeof(uint);
+    uint context = task->tss.esp0 - CONTEXT_SIZE - task_sysinfo_size(task)*sizeof(uint);
     intr_set_context_esp(context);
 
     logdf(" push cntxt=%x |\n", context);
@@ -84,9 +88,9 @@ inline void task_set_scheduler(task_next_f next) {
     task_next = next;
 }
 
-void task_init(task_struct *task, void *entry, 
-        void *esp0, void *esp3, 
-        segment_selector cs, segment_selector ds) 
+void task_init(task_struct *task, void *entry,
+        void *esp0, void *esp3,
+        segment_selector cs, segment_selector ds)
 {
     tss_t *tss = &(task->tss);
 
@@ -114,10 +118,10 @@ void task_init(task_struct *task, void *entry,
     }
 
     uint *context = stack - CONTEXT_SIZE/sizeof(uint);
-    context[0] = tss->gs;
-    context[1] = tss->fs;
-    context[2] = tss->es;
-    context[3] = tss->ds;
+    context[0] = tss->ds;
+    context[1] = tss->es;
+    context[2] = tss->fs;
+    context[3] = tss->gs;
 
     /* register task TSS in GDT */
     segment_descriptor taskdescr;
@@ -139,8 +143,12 @@ inline void task_kthread_init(task_struct *ktask, void *entry, void *k_esp) {
 
 
 void tasks_setup(void) {
-    timer_set_frequency(TASK_DEFAULT_QUANT);
+    // initialize default task
+    segment_descriptor taskdescr;
+    segdescr_taskstate_init(taskdescr, (uint)&default_task.tss, PL_KERN);
+    default_task.tss_index = gdt_alloc_entry(taskdescr);
+    default_task.ldt_index = GDT_DEFAULT_LDT;
+
     timer_push_ontimer(task_timer_handler);
-    irq_mask(TIMER_IRQ, true);
 }
 

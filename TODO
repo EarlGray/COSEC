@@ -1,24 +1,29 @@
 CURRENT TASKS
+- virtual memory area
+- global cache
+- inode cache?
+- inodes storage
+- ext2 and /dev/ram0
 
+TASKS
+- good page frames allocation
+- vsnprintf and va_arg
+
+- /dev/ram0
+- VFS, FAT, ext2;
 - devfs: /dev/mem, /dev/serial/, /dev/vcs, /dev/stdin, /dev/ps2/kbd
-- syscalls (open/read/close, fork/exec, ...), userspace headers
+- fs syscalls (open/read/close, ...), userspace headers
 - userspace; tty;
-- paging
-- tasks:
-    scheduler
-    kernfs: /sys/<pid>, /sys/
-- basic harddrive drivers for VFS, FAT, ext2;
+- tasks: scheduler  kernfs: /proc/<pid> , fork(), exec()
+- basic harddrive drivers
 - ELF loader
 - sh/vi/gcc;
 - Network stack (stub through COM, over SLIP?);
 - Network stack with simplest Ethernet driver;
 
-- Lisp version of userspace instead of sh?
-
 DELAYED TASKS
-- good page frames allocation
-- more robust kernel heap
-- vsnprintf and va_arg
+
+- Lisp version of userspace instead of sh?
 
 AIMS
 

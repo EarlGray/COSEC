@@ -1,7 +1,7 @@
-#include <pmem.h>
 #include <log.h>
-#include <mm/kheap.h>
-#include <mm/firstfit.h>
+#include <mem/pmem.h>
+#include <mem/kheap.h>
+#include <mem/firstfit.h>
 
 #include <arch/i386.h>
 

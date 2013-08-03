@@ -1,4 +1,4 @@
-export top_dir		:= .
+export top_dir      := .
 export include_dir  := $(top_dir)/include
 export src_dir      := $(top_dir)
 export build        := $(top_dir)/build
@@ -14,8 +14,8 @@ cc  :=  $(crosscompile)gcc
 as  :=  $(crosscompile)gcc
 ld  :=  $(crosscompile)ld
 
-nm 	:=  $(crosscompile)nm
-objdump:=$(crosscompile)objdump
+nm  :=  $(crosscompile)nm
+objdump :=  $(crosscompile)objdump
 
 lds := vmcosec.lds
 
@@ -26,26 +26,26 @@ ld_flags    := -static -nostdlib -T$(build)/$(lds)
 cc_includes := $(addprefix -I, $(include_dir)) -include globl.h 
 
 ### for 64bit host
-cc_flags 	+= -m32
-as_flags	+= -m32
-ld_flags	+= -melf_i386
+cc_flags  += -m32
+as_flags  += -m32
+ld_flags  += -melf_i386
 
-objs		:= $(src_dir)/arch/boot.S
-objs		+= $(wildcard $(src_dir)/arch/[^b]*.S)	# exclude boot.S
-objs		+= $(wildcard $(src_dir)/[^u]*/*.c)		# exclude usr/ folder
-objs		+= $(wildcard $(src_dir)/*.c)			
+objs    := $(src_dir)/arch/boot.S
+objs    += $(wildcard $(src_dir)/arch/[^b]*.S) # exclude boot.S
+objs    += $(wildcard $(src_dir)/[^u]*/*.c) # exclude usr/ folder
+objs    += $(wildcard $(src_dir)/*.c)
 
-objs		:= $(patsubst $(src_dir)/%.S, $(build)/%.o, $(objs))
-objs		:= $(patsubst $(src_dir)/%.c, $(build)/%.o, $(objs))
+objs    := $(patsubst $(src_dir)/%.S, $(build)/%.o, $(objs))
+objs    := $(patsubst $(src_dir)/%.c, $(build)/%.o, $(objs))
 
-libinit		:= $(build)/usr/init.a
-kernel      := kernel
-initfs		:= res/initfs
+libinit   := $(build)/usr/init.a
+kernel    := kernel
+initfs    := res/initfs
 
 mnt_img     := bootfd
 image       := cosec.img
 
-fuse		:= $(shell which ext2fuse)
+fuse    := $(shell which ext2fuse)
 
 ### Use native mount/umount for a GRUB installation, fuseext2 fails at this
 ifeq ($(strip $(fuse)),)
@@ -58,12 +58,12 @@ else
     do_install	:= cp
 endif
 
-log_name	:= fail.log
-objdump     := $(build)/$(kernel).objd
-pipe_file	:= pipe
+log_name      := fail.log
+objdfile      := $(build)/$(kernel).objd
+pipe_file     := pipe
 
 vbox_name   := COSEC
-qemu_flags	:= -fda $(image) -boot a -m 64 -net nic,model=rtl8139 -serial stdio
+qemu_flags  := -fda $(image) -boot a -m 64 -net nic,model=rtl8139
 
 .PHONY: run install mount umount clean
 .PHONY: qemu vbox bochs
@@ -75,10 +75,13 @@ run:	install
 			echo "@@@@ Error: VirtualBox, qemu or Bochs must be installed";	\
 	else qemu $(qemu_flags) -curses;	fi
 
+krun: $(kernel)
+	qemu -kernel $(build)/$(kernel) -fda $(image)
+
 qemu:	install 
 	@if [ -S $(pipe_file) ]; 							\
 	then qemu $(qemu_flags) -serial unix:$(pipe_file) ;	\
-	else qemu $(qemu_flags) ;							\
+	else qemu $(qemu_flags) -serial stdio ;							\
 	fi 
 
 vbox:	install

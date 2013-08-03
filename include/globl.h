@@ -1,25 +1,5 @@
 /**********************************************************/
-#ifndef __CONF_H__
-#define __CONF_H__
-
-#define PAGE_SIZE       0x1000
-
-#define PAGING          (1)
-
-#define INTR_PROFILING  (0)
-#define MEM_DEBUG       (1)
-#define TASK_DEBUG      (0)
-#define INTR_DEBUG      (1)
-
-#if PAGING
-# define KERN_OFF       0xc0000000
-#else
-# define KERN_OFF       0x00000000
-#endif
-
-#define KERN_PA         0x00100000
-
-#endif // __CONF_H__
+#include <conf.h>
 
 #ifndef NOT_CC
 
@@ -41,6 +21,8 @@ typedef long long           int64_t;
 
 typedef uint32_t	size_t, ssize_t, ptr_t, index_t, count_t, mode_t;
 typedef int32_t     err_t, off_t;
+
+typedef index_t kdev_t;
 
 #define MAX_UINT    (0xFFFFFFFF)
 #define MAX_INT    (0x7FFFFFFF)

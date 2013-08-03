@@ -1,15 +1,16 @@
 #include <arch/i386.h>
 #include <arch/mboot.h>
-#include <arch/multiboot.h>
 
+#include <dev/devices.h>
 #include <dev/kbd.h>
 #include <dev/timer.h>
 #include <dev/screen.h>
+#include <dev/floppy.h>
 
+#include <mem/virtmem.h>
 #include <fs/vfs.h>
 
 #include <kshell.h>
-#include <pmem.h>
 #include <tasks.h>
 
 static void print_welcome(void) {
@@ -21,7 +22,7 @@ static void print_welcome(void) {
     k_printf("\t\t\t<<<<< Welcome to COSEC >>>>>\n\n");
 }
 
-void kmain(uint32_t magic, struct multiboot_info *mbi) {
+void kinit(uint32_t magic, struct multiboot_info *mbi) {
     if (magic != MULTIBOOT_BOOTLOADER_MAGIC) {
         k_printf("invalid boot\n\n");
         return;
@@ -32,17 +33,21 @@ void kmain(uint32_t magic, struct multiboot_info *mbi) {
 
     /* general setup */
     cpu_setup();
-    pmem_setup();
-    vfs_setup();
+    memory_setup();
 
     /* devices setup */
+    dev_setup();
     timer_setup();
     kbd_setup();
 
     /* do something useful */
     tasks_setup();
 
+    vfs_setup();
+
     intrs_enable();
+
+    floppy_setup();   // requires IRQ6
     kshell_run();
 }
 
