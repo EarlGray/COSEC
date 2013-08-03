@@ -128,9 +128,9 @@ $(kernel): $(build) $(objs) $(libinit) $(build)/$(lds)
 	@echo "\n#### Linking..."
 	@echo -n "LD: "
 	$(ld) -o $(build)/$(kernel)	$(objs) $(libinit) $(ld_flags) && echo "## ...linked"
-	@if [ `which $(objdump) 2>/dev/null` ]; then $(objdump) -d $(build)/$(kernel) > $(objdump); fi
-	@if [ `which $(nm) 2>/dev/null` ]; then $(nm) $(build)/$(kernel) | sort > $(build)/$(kernel).nm; fi
-	@if [ `which ctags 2>/dev/null ` ]; then ctags -R *; fi
+	@[ `which $(objdump) 2>/dev/null` ] && $(objdump) -d $(build)/$(kernel) > $(kernel).objd || true
+	@[ `which $(nm) 2>/dev/null` ] && $(nm) $(build)/$(kernel) | sort > $(build)/$(kernel).nm || true
+	@[ `which ctags 2>/dev/null ` ] && ctags -R * || true
 	
 $(build):
 	@echo "\n#### Compiling"
