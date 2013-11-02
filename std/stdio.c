@@ -10,6 +10,7 @@
 #include <log.h>
 
 struct FILE_struct {
+   off_t offset;
 };
 
 FILE f_stdin = {
@@ -361,8 +362,13 @@ int sprintf(char *str, const char *format, ...) {
 
 
 FILE * fopen(const char *path, const char *mode) {
-    /* TODO: open file */
-    return null;
+    FILE *f = (FILE *) malloc(sizeof(FILE_struct));
+    f->offset = 0;
+    return f;
+}
+
+int fclose(FILE *fp) {
+    return -ETODO;
 }
 
 int fgetc(FILE *f) {

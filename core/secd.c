@@ -1778,19 +1778,14 @@ void run_secd(secd_t *secd) {
 
 secd_t __attribute__((aligned(1 << SECD_ALIGN))) secd;
 
-int main(int argc, char *argv[]) {
+int secd_main(FILE *f) {
     init_secd(&secd);
 
     fill_global_env(&secd);
     if (ENVDEBUG) print_env(&secd);
 
-    FILE *op_in = NULL;
-    if (argc == 2) {
-        op_in = fopen(argv[1], "r");
-    }
-
     envdebugf(">>>>>\n");
-    cell_t *inp = read_secd(&secd, op_in);
+    cell_t *inp = read_secd(&secd, f);
 
     asserti(inp, "read_secd failed");
     if (is_nil(inp)) {

@@ -114,3 +114,12 @@ void print_section_headers(Elf32_Shdr *shdr, size_t snum) {
     }
 }
 
+/*
+ *  This is a simple file system which uses data embedded into the kernel 
+ *  with GNU ld with options "-r -b binary"
+ *  Every such file (e.g.: /path/to/file.dat):
+ *       starts at a symbol "_binary_path_to_file_dat_start
+ *       ends at a symbol "_binary_path_to_file_dat_end
+ *       its size is stored in symbol "_binary_path_to_file_dat_size
+ */
+

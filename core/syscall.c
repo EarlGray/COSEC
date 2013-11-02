@@ -14,6 +14,11 @@ const syscall_handler syscalls[] = {
     [SYS_MKDIR] = sys_mkdir,
     [SYS_LSDIR] = sys_lsdir,
 
+    /*
+    [SYS_PREAD] = sys_pread,
+    [SYS_PWRITE] = sys_pwrite,
+    */
+
     [N_SYSCALLS - 1] = sys_print,
 };
 
