@@ -1,6 +1,8 @@
 /**********************************************************/
 #include <conf.h>
 
+#define COSEC 1
+
 #ifndef NOT_CC
 
 /**********************************************************/
@@ -24,16 +26,19 @@ typedef int32_t     err_t, off_t;
 
 typedef index_t kdev_t;
 
-#define MAX_UINT    (0xFFFFFFFF)
 #define MAX_INT     (0x7FFFFFFF)
+#define MAX_UINT    (0xFFFFFFFF)
 #define MAX_ULONG   ((MAX_UINT << 32) | MAX_UINT)
+#define UCHAR_MAX   0xFF
+
+#define INTPTR_MAX  MAX_UINT
 
 #define NOERR       0
 
 /*
  *  bool type
  */
-typedef char bool;
+typedef enum { false, true } bool;
 #define true 1
 #define false 0
 #define not(b) (1-(b))

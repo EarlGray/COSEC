@@ -3,6 +3,15 @@
 
 #include <std/stdarg.h>
 
+#define EOF     0xdeade0f
+
+typedef struct FILE_struct  FILE;
+
+extern FILE *stdin, *stdout;
+int fgetc(FILE *stream);
+
+FILE *fopen(const char *path, const char *mode);
+
 int getchar(void);
 int putchar(int);
 

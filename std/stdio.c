@@ -1,3 +1,5 @@
+#include <std/stdio.h>
+
 #include <dev/screen.h>
 #include <dev/kbd.h>
 
@@ -6,6 +8,18 @@
 #include <std/stdarg.h>
 #include <std/ctype.h>
 #include <log.h>
+
+struct FILE_struct {
+};
+
+FILE f_stdin = {
+};
+
+FILE f_stdout = {
+};
+
+FILE *stdin = &f_stdin;
+FILE *stdout = &f_stdout;
 
 volatile char c = 0;
 
@@ -345,4 +359,18 @@ int sprintf(char *str, const char *format, ...) {
     return res;
 }
 
+
+FILE * fopen(const char *path, const char *mode) {
+    /* TODO: open file */
+    return null;
+}
+
+int fgetc(FILE *f) {
+    if (!f) return EOF;
+
+    if (f == stdin)
+        return getchar();
+
+    return EOF;
+}
 
