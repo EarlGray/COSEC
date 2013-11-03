@@ -402,11 +402,11 @@ void kshell_info(const struct kshell_command *this, const char *arg) {
         int bus = 0, slot = -1;
         arg += 3;
         const char *end = get_int_opt(arg, &bus, 16);
-        get_int_opt(end, &slot, 16);
-        if (*end == null) {
-            printf("bus %x\n", bus, slot);
+        if (*end == '\0') {
+            printf("bus %x\n", bus);
             pci_list(bus);
         } else {
+            get_int_opt(end, &slot, 16);
             printf("bus %x, slot %x\n", bus, slot);
             pci_info(bus, slot);
         }

@@ -36,17 +36,11 @@
 #define assertq(assertion, retval) \
     if (!(assertion)) { return (retval); }
 
-#define assert(assertion, retval, msg) \
-    if (!(assertion)) { logd(msg); return (retval); }
+#define assert(assertion, retval, ...)    \
+    if (!(assertion)) { logef(__VA_ARGS__); return (retval); }
 
-#define assertf(assertion, retval, fmt, ...)    \
-    if (!(assertion)) { logdf((fmt), __VA_ARGS__); return (retval); }
-
-#define assertv(assertion, fmt)    \
-    if (!(assertion)) { logd(fmt); return; }
-
-#define assertvf(assertion, fmt, ...)    \
-    if (!(assertion)) { logdf((fmt), __VA_ARGS__); return; }
+#define assertv(assertion, ...)    \
+    if (!(assertion)) { logef(__VA_ARGS__); return; }
 
 
 extern void panic(const char *fatal_error);

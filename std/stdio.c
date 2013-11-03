@@ -362,9 +362,12 @@ int sprintf(char *str, const char *format, ...) {
 
 
 FILE * fopen(const char *path, const char *mode) {
-    FILE *f = (FILE *) malloc(sizeof(FILE_struct));
+    return null;
+    /*
+    FILE *f = (FILE *) malloc(sizeof(FILE));
     f->offset = 0;
     return f;
+    */
 }
 
 int fclose(FILE *fp) {

@@ -40,6 +40,10 @@ struct inode_ops {
     int (*truncate)(inode_t *, size_t);
 };
 
+struct mount_opts_t {
+
+};
+
 inode_t * vfs_get_inode(superblock_t *, index_t);
 int vfs_put_inode(inode_t *ino);
 int vfs_release_inode(inode_t *ino);
@@ -58,8 +62,8 @@ typedef struct pfsdriver {
 } pfsdriver_t;  // padded fsdriver
 
 struct fs_ops {
-    inode_t * (*new_inode);             // create an inode
-    int (*del_inode);                   // delete an inode
+    inode_t * (*new_inode)(superblock_t *); // create an inode
+    int (*del_inode)();                   // delete an inode
 
     int (*get_inode)(inode_t *);        // fills the inode_t structure
     int (*put_inode)(inode_t *);        // updates the inode by data in inode_t 
