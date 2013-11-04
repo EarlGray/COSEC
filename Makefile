@@ -37,6 +37,7 @@ objs    += $(wildcard $(src_dir)/*.c)
 
 objs    := $(patsubst $(src_dir)/%.S, $(build)/%.o, $(objs))
 objs    := $(patsubst $(src_dir)/%.c, $(build)/%.o, $(objs))
+objs 	+= $(build)/core/scm2secd.o
 
 libinit   := $(build)/usr/init.a
 kernel    := kernel
@@ -145,8 +146,12 @@ $(build):
 $(build)/$(lds):    $(lds).S
 	@echo "CPP: "
 	$(cc) -E $< -o $@ -P -DNOT_CC $(cc_includes)
+
+$(build)/%.o: $(src_dir)/%.secd
+	@echo -n "LD: "
+	ld -melf_i386 -r -b binary -o $@ $<
 	
-$(build)/%.o : %.c
+$(build)/%.o : $(src_dir)/%.c
 	@echo -n "CC: "
 	$(cc) -c $< -o $@ $(cc_includes) $(cc_flags) -MT $(subst .d,.c,$@) 
 
@@ -175,4 +180,4 @@ help:
 	echo "	make fuse=";	echo
 
 include $(wildcard $(addprefix /*.d, $(build)))
-
+$(build)/core/scm2secd.o: $(src_dir)/core/scm2secd.secd

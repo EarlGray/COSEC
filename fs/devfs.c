@@ -23,7 +23,6 @@ pfsdriver_t devfs = {
 
 static int devfs_get_inode(inode_t *ino) {
     // fill inode for device with dev_id == ino->no;
-    
 }
 
 static int devfs_put_inode(inode_t *ino) {

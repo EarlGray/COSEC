@@ -3,9 +3,40 @@
 #include <arch/i386.h>
 #include <mem/kheap.h>
 
+/* misc from stdlib.h */
+int atoi(const char *nptr) {
+    int res = 0;
+    while (isdigit(nptr)) {
+        res *= 10;
+        res += (*nptr) - '0';
+    }
+    return res;
+}
+
+/* 
+ * stdlib-like memory management using the global heap: stdlib.h
+ */
+void *malloc(size_t size) {
+    return kmalloc(size);
+}
+
+void *calloc(size_t nmemb, size_t size) {
+    size_t sz = nmemb * size;
+    char *p = kmalloc(sz);
+    memset(p, 0x00, sz);
+    return p;
+}
+
+void free(void *ptr) {
+    kfree(ptr);
+}
+
+/*
+ *  string operations from string.h
+ */
 int __pure strncmp(const char *s1, const char *s2, size_t n) {
     if (s1 == s2) return 0;
-    index_t i = 0;
+    size_t i = 0;
     while (i++ < n) {
         if ((*s1) != (*s2)) return ((*s2) - (*s1));
         if (0 == (*s1)) return 0;
@@ -15,6 +46,21 @@ int __pure strncmp(const char *s1, const char *s2, size_t n) {
 }
 
 int __pure strcmp(const char *s1, const char *s2) {
+    return strncmp(s1, s2, MAX_UINT);
+}
+
+int __pure strncasecmp(const char *s1, const char *s2, size_t n) {
+    if (s1 == s2) return 0;
+    size_t i = 0;
+    while (i++ < n) {
+        if (tolower(*s1) != tolower(*s2)) return ((*s2) - (*s1));
+        if (0 == (*s1)) return 0;
+        ++s1, ++s2;
+    }
+    return 0;
+}
+
+int __pure strcasecmp(const char *s1, const char *s2) {
     return strncmp(s1, s2, MAX_UINT);
 }
 
@@ -120,7 +166,9 @@ char *strrchr(char *s, char c) {
     return strnrchr(s, MAX_INT, c);
 }
 
-
+/*
+ *  char operations from ctype.h
+ */
 int tolower(int c) {
     if (('A' <= c) && (c <= 'Z')) return c + 'a' - 'A';
     return c;
@@ -129,4 +177,16 @@ int tolower(int c) {
 int toupper(int c) {
     if (('a' <= c) && (c <= 'z')) return c + 'A' - 'a';
     return c;
+}
+
+int isspace(int c) {
+    switch (c) {
+      case ' ': case '\t': return true;
+      default: return false;
+    }
+}
+
+int isdigit(int c) {
+    if ('0' <= c && c <= '9') return true;
+    return false;
 }

@@ -2,8 +2,8 @@
 #include <arch/mboot.h>
 #include <arch/multiboot.h>
 
+#include <dev/intrs.h>
 #include <dev/screen.h>
-#include <dev/floppy.h>
 #include <dev/pci.h>
 
 #include <std/string.h>
@@ -226,10 +226,10 @@ void kshell_elf(const struct kshell_command *, const char *);
 void kshell_mem(const struct kshell_command *, const char *);
 void kshell_vfs(const struct kshell_command *, const char *);
 void kshell_io(const struct kshell_command *, const char *);
-void kshell_floppy(const struct kshell_command *, const char *);
 void kshell_ls();
 void kshell_mount();
 void kshell_time();
+void kshell_secd();
 void kshell_panic();
 
 void kshell_init() {
@@ -250,12 +250,12 @@ const struct kshell_command main_commands[] = {
     {   .name = "vfs",      .handler = kshell_vfs,   .description = "vfs utility",  .options = "write read", },
     {   .name = "set",      .handler = kshell_set,   .description = "manage global variables", .options = "color prompt" },
     {   .name = "elf",      .handler = kshell_elf,   .description = "inspect ELF formats", .options = "sections syms" },
-    {   .name = "floppy",   .handler = kshell_floppy,.description = "floppy test",      .options = "seek read" },
     {   .name = "panic",    .handler = kshell_panic, .description = "test The Red Screen of Death"     },
     {   .name = "help",     .handler = kshell_help,  .description = "show this help"   },
     {   .name = "ls",       .handler = kshell_ls,    .description = "list current VFS directory"    },
     {   .name = "mount",    .handler = kshell_mount, .description = "list current mounted filesystems"  },
     {   .name = "time",     .handler = kshell_time,  .description = "system time", .options = ""  },
+    {   .name = "lisp",     .handler = kshell_secd,  .description = "a simple Lisp REPL", .options = "" },
     {   .name = null,       .handler = 0    }
 };
 
@@ -344,25 +344,6 @@ void kshell_elf(const struct kshell_command *this, const char *arg) {
     }
 }
 
-void kshell_floppy(const struct kshell_command *this, const char *arg) {
-    if (!strncmp(arg, "seek", 4)) {
-        index_t track = 0;
-        arg += 4;
-        get_int_opt(arg, (int *)&track, 16);
-        int ret = floppy_seek(FDC0, track, 0);
-        k_printf("\nDone (%d)\n", ret);
-    } else
-    if (!strncmp(arg, "read", 4)) {
-        index_t track = 0;
-        arg += 4;
-        get_int_opt(arg, (int *)&track, 16);
-        int ret = floppy_read_track(FDC0, track);
-        k_printf("\nDone (%d), check mem *0x%x\n", ret, (ptr_t)FLOPPY_DMA_AREA);
-    } else {
-        k_printf("Options: %s\n", this->options);
-    }
-}
-
 void kshell_heap(const struct kshell_command *this, const char *arg) {
     if (!strncmp(arg, "info", 4))
         kheap_info();
@@ -421,17 +402,17 @@ void kshell_info(const struct kshell_command *this, const char *arg) {
         int bus = 0, slot = -1;
         arg += 3;
         const char *end = get_int_opt(arg, &bus, 16);
-        get_int_opt(end, &slot, 16);
-        if (*end == null) {
-            printf("bus %x\n", bus, slot);
+        if (*end == '\0') {
+            printf("bus %x\n", bus);
             pci_list(bus);
         } else {
+            get_int_opt(end, &slot, 16);
             printf("bus %x, slot %x\n", bus, slot);
             pci_info(bus, slot);
         }
     } else
     if (!strncmp(arg, "irq", 3)) {
-        k_printf("IRQ mask: %x\n", (uint)irq_is_masked() & 0xffff);
+        k_printf("IRQ mask: %x\n", (uint)irq_get_mask() & 0xffff);
     } else
     if (!strncmp(arg, "mods", 4)) {
         count_t n_mods = 0;
@@ -533,6 +514,20 @@ void kshell_time() {
     printf("Date: %d/%d/%d, %d:%d:%d\n",
             (uint)t.tm_mday, (uint)t.tm_mon, (uint)t.tm_year,
             (uint)t.tm_hour, (uint)t.tm_min, (uint)t.tm_sec);
+}
+
+void kshell_secd() {
+    FILE *repl = fopen("core_scm2secd_secd", "r");
+    if (!repl) {
+        logef("fopen('scm2secd.secd') failed\n");
+        return;
+    }
+
+    int ret;
+    ret = secd_main(repl);
+    if (ret != 0)
+        logef("SECD REPL exited with code %d\n", ret);
+    fclose(repl);
 }
 
 void kshell_unknown_cmd() {

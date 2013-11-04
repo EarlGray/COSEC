@@ -14,6 +14,11 @@ const syscall_handler syscalls[] = {
     [SYS_MKDIR] = sys_mkdir,
     [SYS_LSDIR] = sys_lsdir,
 
+    /*
+    [SYS_PREAD] = sys_pread,
+    [SYS_PWRITE] = sys_pwrite,
+    */
+
     [N_SYSCALLS - 1] = sys_print,
 };
 
@@ -27,11 +32,11 @@ void int_syscall() {
     logdf("\n#syscall(%d, 0x%x, 0x%x, 0x%x)\n",
             intr_num, arg1, arg2, arg3);
 
-    assertvf( intr_num < N_SYSCALLS,
+    assertv( intr_num < N_SYSCALLS,
             "#SYS: invalid syscall 0x%x\n", intr_num);
 
     const syscall_handler callee = syscalls[intr_num];
-    assertvf(callee, "#SYS: invalid handler for syscall[0x%x]\n", intr_num);
+    assertv(callee, "#SYS: invalid handler for syscall[0x%x]\n", intr_num);
 
     logdf("callee *%x will be called...\n", (uint)callee);
     callee(arg1, arg2, arg3);

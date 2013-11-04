@@ -5,20 +5,20 @@
 #include <std/sys/errno.h>
 
 #define print(msg) k_printf(msg)
-#define printf(msg, ...) k_printf(msg, __VA_ARGS__)
+#define printf(...) k_printf(__VA_ARGS__)
 
 #define log(msg) k_printf(msg)
-#define logf(msg, ...) k_printf((msg), __VA_ARGS__)
+#define logf(...) k_printf(__VA_ARGS__)
 
 #define loge(msg) logf("Error: %s", (msg))
-#define logef(fmt, ...) do { log("Error: "); logf((fmt), __VA_ARGS__); } while (0)
+#define logef(...) do { log("Error: "); logf(__VA_ARGS__); } while (0)
 
 #ifdef __DEBUG
 #   define logd(msg) log(msg)
-#   define logdf(fmt, ...) logf((fmt), __VA_ARGS__)
+#   define logdf(...) logf(__VA_ARGS__)
 #else
 #   define logd(msg)
-#   define logdf(fmt, ...)
+#   define logdf(...)
 #endif
 
 #define return_if_eq(expr1, ret_expr) \
@@ -36,17 +36,11 @@
 #define assertq(assertion, retval) \
     if (!(assertion)) { return (retval); }
 
-#define assert(assertion, retval, msg) \
-    if (!(assertion)) { logd(msg); return (retval); }
+#define assert(assertion, retval, ...)    \
+    if (!(assertion)) { logef(__VA_ARGS__); return (retval); }
 
-#define assertf(assertion, retval, fmt, ...)    \
-    if (!(assertion)) { logdf((fmt), __VA_ARGS__); return (retval); }
-
-#define assertv(assertion, fmt)    \
-    if (!(assertion)) { logd(fmt); return; }
-
-#define assertvf(assertion, fmt, ...)    \
-    if (!(assertion)) { logdf((fmt), __VA_ARGS__); return; }
+#define assertv(assertion, ...)    \
+    if (!(assertion)) { logef(__VA_ARGS__); return; }
 
 
 extern void panic(const char *fatal_error);

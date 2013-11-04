@@ -66,7 +66,7 @@ void pci_list(uint bus) {
 
     uint start_dev_id = 0;
 
-    for (slot = 0; ; ++slot) {
+    for (slot = 0; slot < 32; ++slot) {
         uint id = pci_config_read_dword(bus, slot, 0, PCI_CONF_ID_OFF);
 
         if (0xFFFF == (uint16_t)id)
