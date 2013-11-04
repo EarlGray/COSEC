@@ -26,4 +26,6 @@ char *strdup(const char *s);
 char *strnchr(char *s, size_t n, char c);
 char *strnrchr(char *s, size_t n, char c);
 
+uint32_t strhash(const char *key, size_t len);
+
 #endif //__STRING_H__
