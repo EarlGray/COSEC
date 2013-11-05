@@ -517,17 +517,10 @@ void kshell_time() {
 }
 
 void kshell_secd() {
-    FILE *repl = fopen("core_scm2secd_secd", "r");
-    if (!repl) {
-        logef("fopen('scm2secd.secd') failed\n");
-        return;
-    }
-
     int ret;
-    ret = secd_main(repl);
+    ret = run_lisp();
     if (ret != 0)
         logef("SECD REPL exited with code %d\n", ret);
-    fclose(repl);
 }
 
 void kshell_unknown_cmd() {

@@ -48,6 +48,8 @@
 
 #if COSEC
 typedef ptr_t intptr_t;
+typedef struct DATA DATA;
+
 # include <log.h>
 # undef assert
 # undef asserti
@@ -164,7 +166,7 @@ cell_t *free_cell(cell_t *c);
 
 void print_env(secd_t *secd);
 cell_t *lookup_env(secd_t *secd, const char *symname);
-cell_t *sexp_parse(secd_t *secd, FILE *f);
+cell_t *sexp_parse(secd_t *secd, DATA *f);
 
 
 /*
@@ -1508,7 +1510,7 @@ const char not_symbol_chars[] = " ();\n";
 
 struct secd_parser {
     token_t token;
-    FILE *f;
+    DATA *f;
 
     /* lexer guts */
     int lc;
@@ -1521,7 +1523,7 @@ struct secd_parser {
 
 cell_t *sexp_read(secd_t *secd, secd_parser_t *p);
 
-secd_parser_t *init_parser(secd_parser_t *p, FILE *f) {
+secd_parser_t *init_parser(secd_parser_t *p, DATA *f) {
     p->lc = ' ';
     p->f = (f ? f : stdin);
     p->nested = 0;
@@ -1534,14 +1536,14 @@ secd_parser_t *init_parser(secd_parser_t *p, FILE *f) {
     return p;
 }
 
-secd_parser_t *new_parser(FILE *f) {
+secd_parser_t *new_parser(DATA *f) {
     secd_parser_t *p = (secd_parser_t *)calloc(1, sizeof(secd_parser_t));
     return init_parser(p, f);
 }
 
 inline static int nextchar(secd_parser_t *p) {
     //printf("nextchar\n");
-    return p->lc = fgetc(p->f);
+    return p->lc = dgetc(p->f);
 }
 
 token_t lexnext(secd_parser_t *p) {
@@ -1704,13 +1706,13 @@ cell_t *sexp_read(secd_t *secd, secd_parser_t *p) {
     return inp;
 }
 
-cell_t *sexp_parse(secd_t *secd, FILE *f) {
+cell_t *sexp_parse(secd_t *secd, DATA *f) {
     secd_parser_t p;
     init_parser(&p, f);
     return sexp_read(secd, &p);
 }
 
-cell_t *read_secd(secd_t *secd, FILE *f) {
+cell_t *read_secd(secd_t *secd, DATA *f) {
     secd_parser_t p;
     init_parser(&p, f);
 
@@ -1778,7 +1780,7 @@ void run_secd(secd_t *secd) {
 
 secd_t __attribute__((aligned(1 << SECD_ALIGN))) secd;
 
-int secd_main(FILE *f) {
+int secd_main(DATA *f) {
     init_secd(&secd);
 
     fill_global_env(&secd);
@@ -1811,3 +1813,33 @@ int secd_main(FILE *f) {
     }
     return 0;
 }
+
+#if COSEC
+/*
+ *  Data: simple file emulation to fetch scm2secd.secd to the machine
+ */
+
+struct DATA {
+    uint8_t *pos;
+};
+
+extern void _binary_core_scm2secd_secd_start;
+extern void _binary_core_scm2secd_secd_end;
+extern size_t _binary_core_scm2secd_secd_size;
+
+int dgetc(DATA *d) {
+    if (d->pos == (uint8_t *)&_binary_core_scm2secd_secd_end) 
+        return EOF;
+
+    uint8_t c = *(d->pos);
+    ++ d->pos;
+    return (int)c;
+}
+
+void run_lisp(void) {
+    DATA d = { .pos = &_binary_core_scm2secd_secd_start };
+
+    secd_main(&d);
+}
+
+#endif
