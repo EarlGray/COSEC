@@ -166,6 +166,24 @@ char *strrchr(char *s, char c) {
     return strnrchr(s, MAX_INT, c);
 }
 
+/* Source: http://en.wikipedia.org/wiki/Jenkins_hash_function */
+static uint32_t jenkins_one_at_a_time_hash(const char *key, size_t len) {
+    uint32_t hash, i;
+    for (hash = i = 0; i < len; ++i) {
+        hash += key[i];
+        hash += (hash << 10);
+        hash ^= (hash >> 6);
+    }
+    hash += (hash << 3);
+    hash += (hash >> 11);
+    hash += (hash << 15);
+    return hash;
+}
+
+uint32_t strhash(const char *key, size_t len) {
+    return jenkins_one_at_a_time_hash(key, len);
+}
+
 /*
  *  char operations from ctype.h
  */
