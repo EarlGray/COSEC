@@ -1,0 +1,28 @@
+#!/bin/sh
+
+BLDDIR=build
+CD_IMG=cosec.iso
+CD_DIR=$BLDDIR/iso
+
+GRUB_DIR=$CD_DIR/boot/grub
+SRC_DIR=$CD_DIR/src
+
+die () {
+    echo "Error: $@" >&2
+    exit 1
+}
+
+[ -d $BLDDIR ] || die "Build directory not found at $BLDDIR"
+which grub-mkrescue >/dev/null || die "grub-mkrescue not available"
+
+mkdir -p $GRUB_DIR
+cp res/grubcd.cfg $GRUB_DIR/grub.cfg 
+
+cp $BLDDIR/kernel $CD_DIR \
+    || die "$BLDDIR/kernel not found"
+
+mkdir -p $SRC_DIR
+cp -R include/ arch/ core/ dev/ fs/ mem/ std/ usr/ res/ $SRC_DIR
+cp README INSTALL TODO Makefile $SRC_DIR
+
+grub-mkrescue -o $CD_IMG $CD_DIR
