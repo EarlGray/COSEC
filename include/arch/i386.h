@@ -117,6 +117,14 @@ typedef struct {
     "rep movsb          \n" \
     : : "m"(dst),"m"(src),"r"(size) )
 
+#define n_insw(port, buf, count) \
+    asm(                   \
+    "movw %0, %%cx      \n"\
+    "movl %1, %%edi     \n"\
+    "movw %2, %%dx      \n"\
+    "rep insw           \n"\
+    :: "n"(count), "r"(buf), "m"(port))
+
 #define i386_hang()   asm volatile ("cli \n1: hlt\n\tjmp 1b\n" ::)
         
 #define io_wait()       asm ("\tjmp 1f\n1:\tjmp 1f\n1:") 
@@ -251,7 +259,6 @@ inline static void __noreturn cpu_hang(void)  {  i386_hang(); }
 #define outw_p(port, value)    i386_outw_p(port, value)
 #define inl_p(port, value)     i386_inl_p(port, value) 
 #define outl_p(port, value)    i386_outl_p(port, value)
-
 
 #define arch_strncpy(dst, src, n)   i386_strncpy(dst, src, n)
 #define arch_memcpy(dst, src, size) i386_memcpy(dst, src, size) 
