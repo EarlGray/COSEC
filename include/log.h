@@ -10,8 +10,8 @@
 #define log(msg) k_printf(msg)
 #define logf(...) k_printf(__VA_ARGS__)
 
-#define loge(msg) logf("Error: %s", (msg))
-#define logef(...) do { log("Error: "); logf(__VA_ARGS__); } while (0)
+#define loge(...) do { log("Error: "); logf(__VA_ARGS__); log("\n"); } while (0)
+#define logef(...)  loge(__VA_ARGS__)
 
 #ifdef __DEBUG
 #   define logd(msg) log(msg)

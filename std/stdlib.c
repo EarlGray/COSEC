@@ -53,7 +53,9 @@ int __pure strncasecmp(const char *s1, const char *s2, size_t n) {
     if (s1 == s2) return 0;
     size_t i = 0;
     while (i++ < n) {
-        if (tolower(*s1) != tolower(*s2)) return ((*s2) - (*s1));
+        int lc1 = tolower(*s1);
+        int lc2 = tolower(*s2);
+        if (lc1 != lc2) return (lc2 - lc1);
         if (0 == (*s1)) return 0;
         ++s1, ++s2;
     }
@@ -61,7 +63,7 @@ int __pure strncasecmp(const char *s1, const char *s2, size_t n) {
 }
 
 int __pure strcasecmp(const char *s1, const char *s2) {
-    return strncmp(s1, s2, MAX_UINT);
+    return strncasecmp(s1, s2, MAX_UINT);
 }
 
 int __pure memcmp(const void *s1, const void *s2, size_t n) {
@@ -199,7 +201,9 @@ int toupper(int c) {
 
 int isspace(int c) {
     switch (c) {
-      case ' ': case '\t': return true;
+      case ' ': case '\t':      /* see 'man isspace' */
+      case '\n': case '\r':
+      case '\v': case '\f': return true;
       default: return false;
     }
 }
