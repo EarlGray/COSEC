@@ -1,5 +1,5 @@
-    the Coolest Operating System Ever Created
-    -----------------------------------------
+the Coolest Operating System Ever Created
+-----------------------------------------
 
 I'm kidding :) 
 Seriously, it's just my first effort in writing OS for protected mode of x86.
