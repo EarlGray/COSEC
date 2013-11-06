@@ -20,6 +20,14 @@ void test_strs(void) {
     printf("'ABC' 'abc %d\n", strcasecmp("ABC", "abc"));
     printf("'aa' 'AAA' %d\n", strcasecmp("aa", "AAA"));
     printf("'' 'a' %d\n", strcasecmp("", "a"));
+
+    printf("atoi('0') = %d\n", atoi("0"));
+    printf("atoi('1') = %d\n", atoi("1"));
+    printf("atoi('-1') = %d\n", atoi("-1"));
+    printf("atoi('42meaning') = %d\n", atoi("42meaning"));
+    printf("atoi('123456') = %d\n", atoi("123456"));
+    printf("atoi('what?') = %d\n", atoi("what?"));
+    printf("atoi('') = %d\n", atoi(""));
 }
 
 static void test_vsprint(const char *fmt, ...) {

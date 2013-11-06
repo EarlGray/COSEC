@@ -404,6 +404,7 @@ cell_t *new_symbol(secd_t *secd, const char *sym) {
     cell->as.atom.type = ATOM_SYM;
     cell->as.atom.as.sym.size = strlen(sym);
     cell->as.atom.as.sym.data = strdup(sym);
+    //printf("new_symbol: '%s'\n", cell->as.atom.as.sym.data);
     return cell;
 }
 
@@ -492,6 +493,16 @@ cell_t *pop_stack(secd_t *secd) {
 cell_t *set_control(secd_t *secd, cell_t *opcons) {
     assert(is_cons(opcons),
            "set_control: failed, not a cons at [%ld]\n", cell_index(opcons));
+    // debug
+    cell_t *c = opcons;
+    int i = 0;
+    for (i = 0; i < 10; ++i) {
+        printf("*%x->", (ptr_t)c); 
+        print_cell(list_head(c)); printf("  ");
+        c = list_next(c);
+    }
+    printf("\n");
+    // end debug
     if (! is_control_compiled(opcons)) {
         opcons = compile_control_path(secd, opcons);
         assert(opcons, "set_control: failed to compile control path");
@@ -1544,7 +1555,9 @@ secd_parser_t *new_parser(DATA *f) {
 
 inline static int nextchar(secd_parser_t *p) {
     //printf("nextchar\n");
-    return p->lc = dgetc(p->f);
+    p->lc = dgetc(p->f);
+    //printf("dgetc='%c'(%x) ", p->lc, p->lc);
+    return p->lc;
 }
 
 token_t lexnext(secd_parser_t *p) {
@@ -1615,6 +1628,18 @@ static const char * special_form_for(int token) {
     return NULL;
 }
 
+static void print_token(int tok, secd_parser_t *p) {
+    switch (tok) {
+       case TOK_STR: printf("TOK_STR: '%s'\n", p->strtok); break;
+       case TOK_NUM: printf("TOK_NUM: %d\n", p->numtok); break;
+       case TOK_EOF: printf("TOK_EOF\n"); break;
+       case TOK_QUOTE: printf("TOK_Q\n"); break;
+       case TOK_QQ: printf("TOK_QQ\n"); break;
+       case TOK_UQ: printf("TOK_UQ\n"); break;
+       default: printf("Token: %c\n", tok);
+    }
+}
+
 cell_t *read_list(secd_t *secd, secd_parser_t *p) {
     cell_t *head = secd->nil, *tail = secd->nil;
     cell_t *newtail, *val;
@@ -1655,7 +1680,7 @@ cell_t *read_list(secd_t *secd, secd_parser_t *p) {
               } break;
 
            default:
-              errorf("Unknown token: %1$d ('%1$c')", tok);
+              errorf("Unknown token: 0x%x ('%1$c')", tok);
               free_cell(head);
               return NULL;
         }
@@ -1701,7 +1726,7 @@ cell_t *sexp_read(secd_t *secd, secd_parser_t *p) {
         } break;
 
       default:
-        errorf("Unknown token: %1$d ('%1$c')", tok);
+        errorf("Unknown token: 0x%x ('%1$c')", tok);
         return NULL;
     }
     return inp;
@@ -1832,22 +1857,44 @@ extern uint8_t _binary_core_repl_secd_end;
 extern size_t _binary_core_repl_secd_size;
 
 #define CONSOLE_BUFFER 256
+#define DBUF_SIZE      (CONSOLE_BUFFER * 2)
 struct {
-    int cur;
-    char buf[CONSOLE_BUFFER];
+    // circular buffer:
+    int getpos;     // left border of data, to output with dgetc()
+    int inppos;     // right border of data, to append new data
+    char buf[DBUF_SIZE];
 } dstdin = {
-    .cur = 0,
+    .getpos = 0,
+    .inppos = 0,
 };
 
+char dbuf[CONSOLE_BUFFER];
+
 int dgetc(DATA *d) {
-    if (!d) {    /* not so simple, line bufferization required */
-        //return getchar();
-        if (dstdin.buf[dstdin.cur] == '\0') {
-            console_readline(dstdin.buf, CONSOLE_BUFFER);
-            dstdin.cur == 0;
-            return '\n';
+    if (!d) { 
+        /* not so simple, line bufferization required */
+        if (dstdin.getpos == dstdin.inppos) {
+            console_readline(dbuf, CONSOLE_BUFFER);
+            //printf("console_read: '%s'\n", dbuf);
+
+            char *src = dbuf;
+            char *dst = dstdin.buf + dstdin.inppos;
+            while (*src) {
+                *dst = *src;
+                ++src; ++dst;
+                if (dst >= (dstdin.buf + DBUF_SIZE))
+                   dst = dstdin.buf;
+            }
+            *dst = '\n';
+            ++dst; if (dst >= (dstdin.buf + DBUF_SIZE)) dst = dstdin.buf;
+            dstdin.inppos = dst - dstdin.buf;
+            return dstdin.buf[ dstdin.getpos ++];
         } else {
-            return dstdin.buf[dstdin.cur ++];
+            char c = dstdin.buf[ dstdin.getpos ];
+            ++dstdin.getpos;
+            if (dstdin.getpos >= DBUF_SIZE)
+                dstdin.getpos = 0;
+            return (int) c;
         }
     }
 
@@ -1859,12 +1906,9 @@ int dgetc(DATA *d) {
     return (int)c;
 }
 
-void run_lisp(void) {
+int run_lisp(void) {
     DATA d = { .pos = &_binary_core_repl_secd_start };
-
-    printf("SECD machine starting...\n");
-    secd_main(&d);
-    printf("SECD machine shut down.\n\n");
+    return secd_main(&d);
 }
 
 #endif
