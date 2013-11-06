@@ -5,9 +5,9 @@
 
 #include <arch/i386.h>
 
-#define KHEAP_INITIAL_SIZE  0x100000
+#define KHEAP_INITIAL_SIZE  (256 * PAGE_SIZE)
 
-#if MEM_DEBUG && 0
+#if MEM_DEBUG & 0
 #   define mem_logf(msg, ...) logf(msg, __VA_ARGS__)
 #else 
 #   define mem_logf(msg, ...)
@@ -16,9 +16,9 @@
 struct firstfit_allocator *theHeap;
 
 void kheap_setup(void) {
-    void *start_heap_addr = (void *)( pmem_alloc(KHEAP_INITIAL_SIZE / PAGE_SIZE + 1) * PAGE_SIZE );
+    void *start_heap_addr = pmem_alloc(KHEAP_INITIAL_SIZE / PAGE_SIZE + 1);
     if (0 == start_heap_addr) {
-        log("theHeap allocation failed\n");
+        k_printf("theHeap allocation failed\n");
         return;
     }
 
@@ -27,8 +27,9 @@ void kheap_setup(void) {
 }
 
 void *kmalloc(size_t size) {
-    mem_logf("kmalloc(0x%x)\n", size);
-    return firstfit_malloc(theHeap, size);
+    void * ptr = firstfit_malloc(theHeap, size);
+    mem_logf("kmalloc(0x%x) -> *0x%x\n", size, ptr);
+    return ptr;
 }
 
 int kfree(void *p) {

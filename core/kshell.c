@@ -259,6 +259,7 @@ const struct kshell_command main_commands[] = {
     {   .name = null,       .handler = 0    }
 };
 
+void test_strs(void);
 const struct kshell_subcmd  test_cmds[] = {
     { .name = "sprintf", .handler = test_sprintf    },
     { .name = "timer",   .handler = test_timer,     },
@@ -267,6 +268,7 @@ const struct kshell_subcmd  test_cmds[] = {
     { .name = "tasks",   .handler = test_tasks,     },
     { .name = "ring3",   .handler = test_userspace, },
     { .name = "usleep",  .handler = test_usleep,    },
+    { .name = "str",     .handler = test_strs,      },
     { .name = 0, .handler = 0    },
 };
 

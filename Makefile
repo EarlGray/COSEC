@@ -37,7 +37,7 @@ objs    += $(wildcard $(src_dir)/*.c)
 
 objs    := $(patsubst $(src_dir)/%.S, $(build)/%.o, $(objs))
 objs    := $(patsubst $(src_dir)/%.c, $(build)/%.o, $(objs))
-objs 	+= $(build)/core/scm2secd.o
+objs 	+= $(build)/core/repl.o
 
 libinit   := $(build)/usr/init.a
 kernel    := kernel
@@ -180,4 +180,4 @@ help:
 	echo "	make fuse=";	echo
 
 include $(wildcard $(addprefix /*.d, $(build)))
-$(build)/core/scm2secd.o: $(src_dir)/core/scm2secd.secd
+$(build)/core/repl.o: $(src_dir)/core/repl.secd

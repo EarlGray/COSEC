@@ -6,7 +6,7 @@
 #include <dev/timer.h>
 #include <dev/screen.h>
 
-#include <mem/virtmem.h>
+#include <mem/pmem.h>
 #include <fs/vfs.h>
 
 #include <kshell.h>

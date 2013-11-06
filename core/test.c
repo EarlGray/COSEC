@@ -15,6 +15,13 @@
 
 volatile bool poll_exit = false;
 
+void test_strs(void) {
+    printf("'abc' 'ABC %d\n", strcasecmp("abc", "ABC"));
+    printf("'ABC' 'abc %d\n", strcasecmp("ABC", "abc"));
+    printf("'aa' 'AAA' %d\n", strcasecmp("aa", "AAA"));
+    printf("'' 'a' %d\n", strcasecmp("", "a"));
+}
+
 static void test_vsprint(const char *fmt, ...) {
 #define buf_size    200
     char buf[buf_size];

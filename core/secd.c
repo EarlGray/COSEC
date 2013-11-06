@@ -49,6 +49,7 @@
 #if COSEC
 typedef ptr_t intptr_t;
 typedef struct DATA DATA;
+int dgetc(DATA *d);
 
 # include <log.h>
 # undef assert
@@ -62,19 +63,19 @@ typedef  long  index_t;
 
 #define errorf(...) logef(__VA_ARGS__)
 #define assert_or_continue(cond, ...) \
-    if (!(cond)) { errorf(__VA_ARGS__); loge("\n"); continue; }
+    if (!(cond)) { errorf(__VA_ARGS__); continue; }
 #define assert(cond, ...) \
-    if (!(cond)) { errorf(__VA_ARGS__); loge("\n"); return NULL; }
+    if (!(cond)) { errorf(__VA_ARGS__); return NULL; }
 #define asserti(cond, ...) \
-    if (!(cond)) { errorf(__VA_ARGS__); loge("\n"); return 0; }
+    if (!(cond)) { errorf(__VA_ARGS__); return 0; }
 #define assertv(cond, ...) \
-    if (!(cond)) { errorf(__VA_ARGS__); loge("\n"); return; }
+    if (!(cond)) { errorf(__VA_ARGS__); return; }
 
 #define EOF_OBJ     "#<eof>"
 
 #define DONT_FREE_THIS  INTPTR_MAX/2
 
-#define N_CELLS     256 * 1024
+#define N_CELLS     20 * 1024
 #define SECD_ALIGN  4
 
 typedef  struct secd    secd_t;
@@ -335,7 +336,7 @@ inline static cell_t *share_cell(cell_t *c) {
     return c;
 }
 
-inline static cell_t *drop_cell(cell_t *c) {
+static cell_t *drop_cell(cell_t *c) {
     if (is_nil(c)) {
         memdebugf("drop [NIL]\n");
         return NULL;
@@ -354,7 +355,7 @@ inline static cell_t *drop_cell(cell_t *c) {
  *  Cell memory management
  */
 
-index_t search_opcode_table(cell_t *sym);
+int search_opcode_table(cell_t *sym);
 bool is_control_compiled(cell_t *control);
 cell_t *compile_control_path(secd_t *secd, cell_t *control);
 
@@ -506,7 +507,7 @@ cell_t *pop_control(secd_t *secd) {
 cell_t *push_dump(secd_t *secd, cell_t *cell) {
     cell_t *top = push(secd, &secd->dump, cell);
     memdebugf("PUSH D[%ld] (%ld, %ld)\n", cell_index(top),
-            cell_index(get_car(top), get_cdr(top)));
+            cell_index(get_car(top)), cell_index(get_cdr(top)));
     return top;
 }
 
@@ -1221,15 +1222,15 @@ const struct {
     { NULL,         NULL,       0}
 };
 
-index_t search_opcode_table(cell_t *sym) {
-    index_t a = 0;
-    index_t b = 0;
+int search_opcode_table(cell_t *sym) {
+    int a = 0;
+    int b = 0;
     while (opcode_table[b].sym) ++b;
-    while (a != b) {
-        index_t c = (a + b) / 2;
+    while (a + 1 < b) {
+        int c = (a + b) / 2;
         int ord = str_cmp( symname(sym), symname(opcode_table[c].sym));
         if (ord == 0) return c;
-        if (ord < 0) b = c;
+        if (ord > 0) b = c;
         else a = c;
     }
     return -1;
@@ -1249,7 +1250,7 @@ cell_t *compile_control_path(secd_t *secd, cell_t *control) {
             return NULL;
         }
 
-        index_t opind = search_opcode_table(opcode);
+        int opind = search_opcode_table(opcode);
         assert(opind != -1, "Opcode not found: %s", symname(opcode))
 
         cell_t *new_cmd = new_clone(secd, opcode_table[opind].val);
@@ -1525,7 +1526,7 @@ cell_t *sexp_read(secd_t *secd, secd_parser_t *p);
 
 secd_parser_t *init_parser(secd_parser_t *p, DATA *f) {
     p->lc = ' ';
-    p->f = (f ? f : stdin);
+    p->f = f;  // (f ? f : stdin);
     p->nested = 0;
 
     memset(p->issymbc, false, 0x20);
@@ -1737,6 +1738,7 @@ cell_t *read_secd(secd_t *secd, DATA *f) {
 secd_t * init_secd(secd_t *secd) {
     /* allocate memory chunk */
     secd->data = (cell_t *)calloc(N_CELLS, sizeof(cell_t));
+    if (!secd->data) return null;
 
     /* mark up a list of free cells */
     int i;
@@ -1781,7 +1783,8 @@ void run_secd(secd_t *secd) {
 secd_t __attribute__((aligned(1 << SECD_ALIGN))) secd;
 
 int secd_main(DATA *f) {
-    init_secd(&secd);
+    if (!init_secd(&secd))
+        return 1;
 
     fill_global_env(&secd);
     if (ENVDEBUG) print_env(&secd);
@@ -1811,6 +1814,7 @@ int secd_main(DATA *f) {
     } else {
         envdebugf("Stack is empty\n");
     }
+    free(secd.data);
     return 0;
 }
 
@@ -1823,12 +1827,31 @@ struct DATA {
     uint8_t *pos;
 };
 
-extern void _binary_core_scm2secd_secd_start;
-extern void _binary_core_scm2secd_secd_end;
-extern size_t _binary_core_scm2secd_secd_size;
+extern uint8_t _binary_core_repl_secd_start;
+extern uint8_t _binary_core_repl_secd_end;
+extern size_t _binary_core_repl_secd_size;
+
+#define CONSOLE_BUFFER 256
+struct {
+    int cur;
+    char buf[CONSOLE_BUFFER];
+} dstdin = {
+    .cur = 0,
+};
 
 int dgetc(DATA *d) {
-    if (d->pos == (uint8_t *)&_binary_core_scm2secd_secd_end) 
+    if (!d) {    /* not so simple, line bufferization required */
+        //return getchar();
+        if (dstdin.buf[dstdin.cur] == '\0') {
+            console_readline(dstdin.buf, CONSOLE_BUFFER);
+            dstdin.cur == 0;
+            return '\n';
+        } else {
+            return dstdin.buf[dstdin.cur ++];
+        }
+    }
+
+    if (d->pos >= &_binary_core_repl_secd_end) 
         return EOF;
 
     uint8_t c = *(d->pos);
@@ -1837,9 +1860,11 @@ int dgetc(DATA *d) {
 }
 
 void run_lisp(void) {
-    DATA d = { .pos = &_binary_core_scm2secd_secd_start };
+    DATA d = { .pos = &_binary_core_repl_secd_start };
 
+    printf("SECD machine starting...\n");
     secd_main(&d);
+    printf("SECD machine shut down.\n\n");
 }
 
 #endif
