@@ -3,15 +3,29 @@
 #include <arch/i386.h>
 #include <mem/kheap.h>
 
+#include <log.h>
 /* misc from stdlib.h */
 int atoi(const char *nptr) {
+    while (isspace(*nptr)) ++nptr;
+
     int res = 0;
-    while (isdigit(nptr)) {
+    int sign = 1;
+    switch (*nptr) {
+      case '+': nptr++; break;
+      case '-': nptr++; sign = -1; break;
+    }
+    while (isdigit(*nptr)) {
         res *= 10;
         res += (*nptr) - '0';
+        ++nptr;
     }
-    return res;
+    return sign * res;
 }
+
+/*
+long strtol(const char *nptr, char **endptr, int base) {
+}
+*/
 
 /* 
  * stdlib-like memory management using the global heap: stdlib.h
@@ -84,6 +98,7 @@ char *strndup(const char *s, size_t n) {
     size_t len = strlen(s) + 1;
     if (len > n) len = n;
     char *d = (char *) kmalloc(len);
+    if (!d) logef("strndup: kmalloc failed!\n");
     return strncpy(d, s, n);
 }
 
@@ -104,7 +119,8 @@ char *strncpy(char *dest, const char *src, size_t n) {
     char *d = dest;
     while ((*src) && (i++ < n))
         *d++ = *src++;
-    /*while (i++ < n)  *d++ = '\0'; // Sorry: POSIX requires this */
+    *d = '\0';
+    /* while (i++ < n)  *d++ = '\0'; // Sorry: POSIX requires this */
     return dest;
 }
 
