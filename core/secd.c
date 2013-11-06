@@ -493,16 +493,6 @@ cell_t *pop_stack(secd_t *secd) {
 cell_t *set_control(secd_t *secd, cell_t *opcons) {
     assert(is_cons(opcons),
            "set_control: failed, not a cons at [%ld]\n", cell_index(opcons));
-    // debug
-    cell_t *c = opcons;
-    int i = 0;
-    for (i = 0; i < 10; ++i) {
-        printf("*%x->", (ptr_t)c); 
-        print_cell(list_head(c)); printf("  ");
-        c = list_next(c);
-    }
-    printf("\n");
-    // end debug
     if (! is_control_compiled(opcons)) {
         opcons = compile_control_path(secd, opcons);
         assert(opcons, "set_control: failed to compile control path");
@@ -1072,7 +1062,7 @@ cell_t *secdf_ctl(secd_t *secd, cell_t *args) {
 
     if (atom_type(arg1) == ATOM_SYM) {
         if (str_eq(symname(arg1), "free")) {
-            printf("SECDCTL: Available cells: %lu\n", secd->free_cells);
+            printf("SECDCTL: Available cells: %d\n", secd->free_cells);
         } else if (str_eq(symname(arg1), "env")) {
             print_env(secd);
         } else if (str_eq(symname(arg1), "help")) {
@@ -1237,7 +1227,8 @@ int search_opcode_table(cell_t *sym) {
     int a = 0;
     int b = 0;
     while (opcode_table[b].sym) ++b;
-    while (a + 1 < b) {
+    while (a < b) {
+        //printf("a = %d, b = %d\n", a, b);
         int c = (a + b) / 2;
         int ord = str_cmp( symname(sym), symname(opcode_table[c].sym));
         if (ord == 0) return c;
