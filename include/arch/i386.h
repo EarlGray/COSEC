@@ -117,6 +117,14 @@ typedef struct {
     "rep movsb          \n" \
     : : "m"(dst),"m"(src),"r"(size) )
 
+#define n_insw(port, buf, count) \
+    asm(                   \
+    "movw %0, %%cx      \n"\
+    "movl %1, %%edi     \n"\
+    "movw %2, %%dx      \n"\
+    "rep insw           \n"\
+    :: "n"(count), "r"(buf), "m"(port))
+
 #define i386_hang()   asm volatile ("cli \n1: hlt\n\tjmp 1b\n" ::)
         
 #define io_wait()       asm ("\tjmp 1f\n1:\tjmp 1f\n1:") 
@@ -140,6 +148,8 @@ typedef struct {
 #define i386_halt()      asm ("\t hlt \n")
 
 #define i386_esp(p)    asm ("\t movl %%esp, %0 \n" : "=r"(p))
+
+#define i386_load_task_reg(sel) asm ("ltrw %%ax     \n\t"::"a"( sel ));
 
 extern uint i386_rdtsc(uint64_t *timestamp);
 extern void i386_snapshot(char *buf);
@@ -233,7 +243,8 @@ ptr_t cpu_stack(void);
 #define intrs_enable()         i386_intrs_enable()
 #define intrs_disable()        i386_intrs_disable()
 #define cpu_halt()             i386_halt()
-#define cpu_hang()             i386_hang()
+
+inline static void __noreturn cpu_hang(void)  {  i386_hang(); }
 
 #define inb(port, value)       i386_inb(port, value)    
 #define outb(port, value)      i386_outb(port, value)   
@@ -248,7 +259,6 @@ ptr_t cpu_stack(void);
 #define outw_p(port, value)    i386_outw_p(port, value)
 #define inl_p(port, value)     i386_inl_p(port, value) 
 #define outl_p(port, value)    i386_outl_p(port, value)
-
 
 #define arch_strncpy(dst, src, n)   i386_strncpy(dst, src, n)
 #define arch_memcpy(dst, src, size) i386_memcpy(dst, src, size) 

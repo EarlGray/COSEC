@@ -185,7 +185,7 @@ void * firstfit_malloc(struct firstfit_allocator *this, uint size) {
 
         chunk = next(chunk);
         if (! check_sum(chunk)) {
-            log("Heap corruption");
+            logef("Heap corruption at *0x%x ", (ptr_t)chunk);
             try_to_repair(chunk);
             return null;
         }

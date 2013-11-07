@@ -2,7 +2,7 @@
  *   This file represents physical memory "object"
  * and its methods.
  *   Physical memory is treated as a heap of pageframes.
- *   This is reflected in thePageframeMap, which resides right after
+ *   This is reflected in the_pageframe_map, which resides right after
  * the kernel code: it is array of page_frame structures with
  * length n_pages;
  */
@@ -31,12 +31,12 @@ extern void _start, _end;
 /*      aligned(n*PAGE_SIZE) = n*PAGE_SIZE
  *      aligned(n*PAGE_SIZE + 1) = (n+1)*PAGE_SIZE
  */
-static inline off_t page_aligned(off_t addr) {
+static inline index_t page_aligned(ptr_t addr) {
     if (addr % PAGE_SIZE == 0) return addr / PAGE_SIZE;
     return (1 + addr / PAGE_SIZE);
 }
 
-static inline off_t page_aligned_back(off_t addr) {
+static inline index_t page_aligned_back(ptr_t addr) {
     return (addr / PAGE_SIZE);
 }
 
@@ -134,20 +134,41 @@ inline static void pf_list_init(pagelist_t *list, pageframe_t *node, uint flag) 
 
 // the global pageframe table:
 pageframe_t *the_pageframe_map = null;
-size_t      pfmap_len = 0;
+size_t      pfmap_len = 0;      // in pageframe_t
 
-pagelist_t free_pageframes = { null, 0 };
-pagelist_t used_pageframes = { null, 0 };
-pagelist_t cache_pageframes = { null, 0 };
-pagelist_t reserved_pageframes = { null, 0 };
+pagelist_t free_pageframes;
+pagelist_t used_pageframes;
+pagelist_t cache_pageframes;
+pagelist_t reserved_pageframes;
 
 
 inline static index_t pageframe_index(pageframe_t *pf) {
     return pf - the_pageframe_map;
 }
 
+void * pageframe_addr(pageframe_t *pf) {
+    return (void *)(PAGE_SIZE * pageframe_index(pf));
+}
+
+static void mark_used(void *p1, void *p2) {
+    index_t pft1 = page_aligned_back((ptr_t)p1);
+    index_t pft2 = page_aligned((ptr_t)p2);
+    index_t i;
+    for (i = pft1; i < pft2; ++i) {
+        pageframe_t *pf = the_pageframe_map + i;
+        if (pf->flags != PF_FREE) {
+            logef("pmem_init: trying to mark page #%x as used, its flags are %d\n",
+                    i, pf->flags);
+            return;
+        }
+
+        pf_list_remove(&free_pageframes, pf);
+        pf_list_insert(&used_pageframes, pf);
+    }
+}
+
 void pmem_setup(void) {
-    int i;
+    index_t i;
     struct memory_map *mapping = (struct memory_map *)mboot_mmap_addr();
     size_t mmap_len = mboot_mmap_length();
     ptr_t pfmap = (ptr_t)&_end;
@@ -155,7 +176,7 @@ void pmem_setup(void) {
     /// determine pfmap_len
     for (i = 0; i < mmap_len; ++i) {
         struct memory_map *m = mapping + i;
-        ptr_t map_end = page_aligned(m->base_addr_low + m->length_low);
+        index_t map_end = page_aligned(m->base_addr_low + m->length_low);
         if ((m->type == 1) && (map_end > pfmap_len))  pfmap_len = map_end;
     }
 
@@ -165,8 +186,9 @@ void pmem_setup(void) {
     size_t n_mods = 0;
     mboot_modules_info(&n_mods, &mods);
     for (i = 0; i < n_mods; ++i) {
-        ptr_t mod_end = __va(mods[i].mod_end);
-        if (pfmap < mod_end) pfmap = mod_end;
+        ptr_t mod_end = (ptr_t)__va(mods[i].mod_end);
+        if (pfmap < mod_end) 
+            pfmap = mod_end;
     }
 
     pfmap = PAGE_SIZE * page_aligned(pfmap);
@@ -174,8 +196,8 @@ void pmem_setup(void) {
     mem_logf("pfmap at *%x:*%x (0x%x pageframes)\n", pfmap, pfmap_end, pfmap_len);
 
     // allocate virtual 4M pages
-    if (pfmap_end > (ptr_t)__va(0x400000)) {
-        panic("TODO: allocate memory for pageframe table more than 4Mb long\n");
+    if (pfmap_end > (ptr_t)__va(0x800000)) {
+        panic("TODO: allocate memory for pageframe table more than 8Mb long\n");
     }
     the_pageframe_map = (pageframe_t *)pfmap;
     memset(the_pageframe_map, 0, pfmap_len * sizeof(pageframe_t));
@@ -216,13 +238,65 @@ void pmem_setup(void) {
     pf_list_remove(&free_pageframes, cpf);
     mem_logf("marking cache %x\n", pageframe_index(cpf));
 
+    // mark kernel code&data space as used
+    pf = the_pageframe_map + (page_aligned_back(&_start));
+    pf_list_init(&used_pageframes, pf, PF_USED);
+    mark_used(pageframe_addr(++pf), &_end);
+
+    // mark the multiboot modules memory as used
+    for (i = 0; i < n_mods; ++i) {
+        mark_used(__va(mods[i].mod_start), __va(mods[i].mod_end));
+    }
+
+    // mark the pageframe table memory as used
+    mark_used(the_pageframe_map, the_pageframe_map + pfmap_len);
+
     mem_logf("free: %x, reserved: %x, cache: %x\n",
             free_pageframes.count, reserved_pageframes.count, cache_pageframes.count);
 }
 
 
-index_t pmem_alloc(size_t pages_count) {
-    return 0;
+void * pmem_alloc(size_t pages_count) {
+    if (free_pageframes.count == 0)
+        return 0;
+
+    /* TODO: the algorithm is stupid and unreliable, rewrite to buddy allocator */
+    pageframe_t *startp = free_pageframes.head;
+    pageframe_t *currentp = startp;
+
+    while (true) {
+        bool available = true;
+        int i;
+        for (i = 0; i < pages_count; ++i) {
+            currentp = startp + i;
+
+            if (pageframe_index(currentp) >= pfmap_len)
+                return 0;
+
+            if (currentp->flags != PF_FREE) {
+                available = false;
+                break;
+            }
+        }
+
+        if (available) {
+            /* mark those pages used and return */
+            for (i = 0; i < pages_count; ++i) {
+                pf_list_remove(&free_pageframes, startp + i);
+                pf_list_insert(&used_pageframes, startp + i);
+            }
+            return pageframe_addr(startp);
+        }
+
+        // find next free pageframe
+        startp = startp + i;
+        while (startp->flags != PF_FREE) {
+            startp++;
+
+            if (pageframe_index(startp) >= pfmap_len)
+                return 0;
+        }
+    }
 }
 
 void pmem_info(void) {
@@ -242,3 +316,16 @@ void pmem_info(void) {
     }
 }
 
+
+void vmem_setup(void) {
+    
+}
+
+void memory_setup(void) {
+#if PAGING
+    paging_setup();
+#endif
+    pmem_setup();
+    vmem_setup();
+    kheap_setup();
+}

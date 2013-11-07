@@ -123,7 +123,7 @@ uint16_t irq_get_mask(void) {
 }
 
 bool irq_is_masked(uint irqnum) {
-    assertf(irqnum < 16, -EINVAL, "Invalid IRQ number: %d", irqnum);
+    assert(irqnum < 16, -EINVAL, "Invalid IRQ number: %d", irqnum);
     uint16_t mask = irq_get_mask();
     if (irqnum < 8) {
         

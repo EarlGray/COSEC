@@ -64,7 +64,7 @@ static inline void task_cpu_load(task_struct *task) {
 
     /* load next task */
     segment_selector tss_sel = { .as.word = make_selector(task->tss_index, 0, PL_USER) };
-    asm ("ltrw %%ax     \n\t"::"a"( tss_sel ));
+    i386_load_task_reg( tss_sel );
 }
 
 static void task_timer_handler(uint tick) {

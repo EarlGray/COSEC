@@ -5,9 +5,8 @@
 #include <dev/kbd.h>
 #include <dev/timer.h>
 #include <dev/screen.h>
-#include <dev/floppy.h>
 
-#include <mem/virtmem.h>
+#include <mem/pmem.h>
 #include <fs/vfs.h>
 
 #include <kshell.h>
@@ -39,6 +38,7 @@ void kinit(uint32_t magic, struct multiboot_info *mbi) {
     dev_setup();
     timer_setup();
     kbd_setup();
+    ide_setup();
 
     /* do something useful */
     tasks_setup();
@@ -47,7 +47,6 @@ void kinit(uint32_t magic, struct multiboot_info *mbi) {
 
     intrs_enable();
 
-    floppy_setup();   // requires IRQ6
     kshell_run();
 }
 

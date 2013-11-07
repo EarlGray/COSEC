@@ -1,6 +1,8 @@
 /**********************************************************/
 #include <conf.h>
 
+#define COSEC 1
+
 #ifndef NOT_CC
 
 /**********************************************************/
@@ -24,16 +26,19 @@ typedef int32_t     err_t, off_t;
 
 typedef index_t kdev_t;
 
+#define MAX_INT     (0x7FFFFFFF)
 #define MAX_UINT    (0xFFFFFFFF)
-#define MAX_INT    (0x7FFFFFFF)
-#define MAX_ULONG   (i(MAX_UINT << 32) | MAX_UINT)
+#define MAX_ULONG   ((MAX_UINT << 32) | MAX_UINT)
+#define UCHAR_MAX   0xFF
 
-#define NOERR               0
+#define INTPTR_MAX  MAX_UINT
+
+#define NOERR       0
 
 /*
  *  bool type
  */
-typedef char bool;
+typedef enum { false, true } bool;
 #define true 1
 #define false 0
 #define not(b) (1-(b))
@@ -50,8 +55,19 @@ typedef char bool;
 /*
  *  compiler-specific: only gcc now
  */
-#define __pure      __attribute__((pure))
-#define __noreturn  __attribute__((noreturn))
+#define GCC
+#ifdef GCC
+# define __constf    __attribute__((const))
+# define __pure      __attribute__((pure))
+# define __noreturn  __attribute__((noreturn))
+# define __alloc     __attribute__((malloc))
+
+# define __align(x)  __attribute__((align(x)))
+# define __packed    __attribute__((packed))
+
+# define likely(x)   __builtin_expect(!!(x), 1)
+# define unlikely(x) __builtin_expect(!!(x), 0)
+#endif
 
 #endif // __LANGEXTS__
 

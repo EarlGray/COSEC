@@ -7,7 +7,7 @@
 #include <mem/paging.h>
 #include <globl.h>
 
-#define STACK_SIZE  0x00000800
+#define STACK_SIZE  0x0000f000
 
 #define CR4_PSE     0x00000010
 #define CR4_PGE     0x00000080

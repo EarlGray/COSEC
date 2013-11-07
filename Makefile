@@ -10,16 +10,16 @@ gcc_home := /usr/local/gcc-4.5.2-for-linux32
 crosscompile := $(gcc_home)/bin/i586-pc-linux-
 endif
 
-cc  :=  $(crosscompile)gcc
-as  :=  $(crosscompile)gcc
-ld  :=  $(crosscompile)ld
+cc  ?=  $(crosscompile)gcc
+as  ?=  $(crosscompile)gcc
+ld  ?=  $(crosscompile)ld
 
 nm  :=  $(crosscompile)nm
 objdump :=  $(crosscompile)objdump
 
 lds := vmcosec.lds
 
-cc_flags    := -ffreestanding -nostdinc -nostdlib -Wall -Wextra -Winline -O2 -MD 
+cc_flags    := -ffreestanding -nostdinc -nostdlib -Wall -Wextra -Winline -Wno-unused -O2 -MD 
 as_flags    := -Wall -MD $(addprefix -I, $(include_dir))
 ld_flags    := -static -nostdlib -T$(build)/$(lds)
 
@@ -37,6 +37,7 @@ objs    += $(wildcard $(src_dir)/*.c)
 
 objs    := $(patsubst $(src_dir)/%.S, $(build)/%.o, $(objs))
 objs    := $(patsubst $(src_dir)/%.c, $(build)/%.o, $(objs))
+objs 	+= $(build)/core/repl.o
 
 libinit   := $(build)/usr/init.a
 kernel    := kernel
@@ -145,8 +146,12 @@ $(build):
 $(build)/$(lds):    $(lds).S
 	@echo "CPP: "
 	$(cc) -E $< -o $@ -P -DNOT_CC $(cc_includes)
+
+$(build)/%.o: $(src_dir)/%.secd
+	@echo -n "LD: "
+	ld -melf_i386 -r -b binary -o $@ $<
 	
-$(build)/%.o : %.c
+$(build)/%.o : $(src_dir)/%.c
 	@echo -n "CC: "
 	$(cc) -c $< -o $@ $(cc_includes) $(cc_flags) -MT $(subst .d,.c,$@) 
 
@@ -175,4 +180,4 @@ help:
 	echo "	make fuse=";	echo
 
 include $(wildcard $(addprefix /*.d, $(build)))
-
+$(build)/core/repl.o: $(src_dir)/core/repl.secd

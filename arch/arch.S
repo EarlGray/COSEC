@@ -43,3 +43,14 @@ i386_switch_pagedir:
     movl %eax, %cr0         // enable paging and write-protection
 
     ret
+
+.global _temp_delete_me_asm
+_temp_delete_me_asm:
+    movl %eax, (,%ebp)
+    movl %eax, 0x42(,%ebp)
+    movl %eax, (,%edx)
+    movl %eax, 0x42(,%edx)
+    movl %eax, (,%ebp,2)
+    movl %eax, 0x42(,%ebp,2)
+    movl %eax, (,%edx,2)
+    movl %eax, 0x42(,%edx,2)

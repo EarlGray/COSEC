@@ -268,6 +268,7 @@ void k_printf(const char *fmt, ...) {
 		switch (*s) {
 		case '%':
 			++s;
+            if (*s == 'l') ++s;
 			switch (*s) {
 			case 'd':
 	  			print_int(va_arg(args, int), 10);
