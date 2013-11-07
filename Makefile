@@ -149,7 +149,7 @@ $(build)/$(lds):    $(lds).S
 
 $(build)/%.o: $(src_dir)/%.secd
 	@echo -n "LD: "
-	ld -melf_i386 -r -b binary -o $@ $<
+	$(ld) -melf_i386 -r -b binary -o $@ $<
 	
 $(build)/%.o : $(src_dir)/%.c
 	@echo -n "CC: "
