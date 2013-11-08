@@ -45,6 +45,7 @@ initfs    := res/initfs
 
 mnt_img     := bootfd
 image       := cosec.img
+cd_img		:= cosec.iso
 
 fuse    := $(shell which ext2fuse)
 
@@ -91,6 +92,9 @@ vbox:	install
 bochs:	install
 	bochs
 
+$(cd_img): kernel
+	@echo "Creating a LiveCD..."
+	@res/mkcd
 
 install:  $(kernel) $(initfs)
 	@make mount \
@@ -132,7 +136,7 @@ $(kernel): $(build) $(objs) $(libinit) $(build)/$(lds)
 	@echo "\n#### Linking..."
 	@echo -n "LD: "
 	$(ld) -o $(build)/$(kernel)	$(objs) $(libinit) $(ld_flags) && echo "## ...linked"
-	@[ `which $(objdump) 2>/dev/null` ] && $(objdump) -d $(build)/$(kernel) > $(kernel).objd || true
+	@[ `which $(objdump) 2>/dev/null` ] && $(objdump) -d $(build)/$(kernel) > $(objdfile) || true
 	@[ `which $(nm) 2>/dev/null` ] && $(nm) $(build)/$(kernel) | sort > $(build)/$(kernel).nm || true
 	@[ `which ctags 2>/dev/null ` ] && ctags -R * || true
 	
