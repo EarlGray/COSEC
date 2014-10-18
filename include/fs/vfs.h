@@ -1,8 +1,9 @@
 #ifndef __VFS_H__
 #define __VFS_H__
 
-#include <std/sys/stat.h>
-#include <std/sys/types.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <sys/stat.h>
 
 typedef uint16_t uid_t, gid_t;
 

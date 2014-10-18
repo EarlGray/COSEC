@@ -4,6 +4,8 @@
 #include <arch/i386.h>
 #include <log.h>
 
+#include <stdlib.h>
+
 #define IER_OFFSET      1   /* Interrupt Enable Register */
 #define IIFCR_OFFSET    2   /* Interrupt identification and FIFO control register */
 #define LCR_OFFSET      3   /* Line Control Register */

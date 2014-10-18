@@ -1,6 +1,8 @@
 #ifndef __FILESYSTEM_SYSCALLS_H__
 #define __FILESYSTEM_SYSCALLS_H__
 
+#include <stdint.h>
+
 #define N_SYSCALLS      0x100
 
 #define SYS_MOUNT       0x18

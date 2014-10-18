@@ -1,7 +1,11 @@
-#include <dev/kbd.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdint.h>
+
 #include <dev/intrs.h>
 #include <arch/i386.h>
-#include <std/string.h>
+
+#include <dev/kbd.h>
 
 #define KEY_COUNT   	128
 

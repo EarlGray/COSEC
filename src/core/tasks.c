@@ -14,6 +14,7 @@
 #   define __DEBUG
 #endif
 
+#include <stdlib.h>
 
 #include <tasks.h>
 

@@ -1,6 +1,9 @@
 #ifndef __SERIAL_H__
 #define __SERIAL_H__
 
+#include <stdint.h>
+#include <stdbool.h>
+
 #define COM1_PORT   0x03F8
 #define COM2_PORT   0x02F8
 #define COM3_PORT   0x03E8 

@@ -1,13 +1,9 @@
 #include <mem/firstfit.h>
 #include <log.h>
 
-#ifndef __LANGEXTS__
-typedef unsigned uint, size_t;
-typedef char bool;
-#define true    1
-#define false   0
-#define null ((void *)0)
-#endif // __LANGEXTS__
+#include <stdlib.h>
+#include <stdbool.h>
+#include <limits.h>
 
 /***
  *          Memory allocator with first-fit algorithm

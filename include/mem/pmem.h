@@ -1,6 +1,8 @@
 #ifndef __PHYS_MEM_H__
 #define __PHYS_MEM_H__
 
+#include <stdint.h>
+
 #define VIRTUAL_ADDRESS 0xc0100000
 
 /** allocate a page **/

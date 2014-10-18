@@ -1,7 +1,9 @@
-#include <std/stdio.h>
-#include <std/stdlib.h>
-#include <std/string.h>
-#include <std/ctype.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdbool.h>
+#include <string.h>
+#include <ctype.h>
+#include <limits.h>
 
 #define MEMDEBUG    0
 #define MEMTRACE    0
@@ -55,7 +57,6 @@ int dgetc(DATA *d);
 # undef assert
 # undef asserti
 # undef assertv
-# define NULL null
 #else
 typedef enum { false, true } bool;
 typedef  long  index_t;

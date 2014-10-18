@@ -1,6 +1,8 @@
 #ifndef __TIMER_H__
 #define __TIMER_H__
 
+#include <stdint.h>
+
 #define N_TIMERS        20
 #define PIT_MAX_FREQ    1193180
 

@@ -1,6 +1,8 @@
 #ifndef __PCI_H__
 #define __PCI_H__
 
+#include <stdint.h>
+
 void pci_list(uint bus);
 void pci_info(uint bus, int slot);
 

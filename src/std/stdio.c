@@ -1,12 +1,15 @@
-#include <std/stdio.h>
+#include <stdio.h>
+
+#include <stdlib.h>
+#include <stdbool.h>
+#include <stdarg.h>
+#include <ctype.h>
 
 #include <dev/screen.h>
 #include <dev/kbd.h>
 
 #include <arch/i386.h>
 
-#include <std/stdarg.h>
-#include <std/ctype.h>
 #include <log.h>
 
 struct FILE_struct {

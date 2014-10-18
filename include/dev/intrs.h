@@ -1,6 +1,9 @@
 #ifndef __INTRS_H
 #define __INTRS_H
 
+#include <stdbool.h>
+#include <stdint.h>
+
 #define I8259A_BASE 0x20
 #define SYS_INT     0x80
 

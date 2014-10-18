@@ -1,3 +1,5 @@
+#include <stdlib.h>
+
 #include <arch/multiboot.h>
 #include <arch/mboot.h>
 

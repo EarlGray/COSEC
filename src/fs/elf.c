@@ -1,5 +1,7 @@
-#include <std/string.h>
-#include <std/sys/elf.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include <linux/elf.h>
 #include <log.h>
 
 const char* str_shdr_type[] = {

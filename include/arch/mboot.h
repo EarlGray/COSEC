@@ -1,6 +1,7 @@
 #ifndef __MBOOT_H__
 #define __MBOOT_H__
 
+#include <stdint.h>
 #include <arch/multiboot.h>
 
 const char *mboot_cmdline(void); 

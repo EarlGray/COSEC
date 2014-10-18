@@ -14,6 +14,9 @@
 #include <arch/i386.h>
 #include <arch/mboot.h>
 
+#include <string.h>
+#include <stdbool.h>
+
 #include <log.h>
 
 #if MEM_DEBUG

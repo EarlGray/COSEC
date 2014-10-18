@@ -5,7 +5,6 @@
 
 #include <arch/multiboot.h>
 #include <mem/paging.h>
-#include <globl.h>
 
 #define STACK_SIZE  0x0000f000
 

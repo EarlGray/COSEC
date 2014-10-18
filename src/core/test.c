@@ -4,12 +4,16 @@
  */
 
 #include <misc/test.h>
-#include <std/string.h>
-#include <std/stdarg.h>
-#include <std/stdio.h>
+
+#include <stdlib.h>
+#include <string.h>
+#include <stdarg.h>
+#include <stdio.h>
+
 #include <dev/timer.h>
 #include <dev/kbd.h>
 #include <arch/i386.h>
+
 #include <kshell.h>
 #include <log.h>
 

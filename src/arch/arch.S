@@ -1,6 +1,5 @@
 #define NOT_CC
 
-#include <globl.h>
 #include <mem/paging.h>
 
 .text

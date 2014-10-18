@@ -1,6 +1,8 @@
 #ifndef __DRIVERS_TABLE_H__
 #define __DRIVERS_TABLE_H__
 
+#include <stdint.h>
+
 #define N_CHR           30
 #define N_BLK           12
 #define N_NET           0
@@ -31,8 +33,6 @@ enum devicetype_e {
     DEV_BLK = 1,
     DEV_NET = 2,
 };
-
-#include <std/sys/types.h>
 
 typedef index_t majdev_t, mindev_t;
 

@@ -1,6 +1,16 @@
 #ifndef __COSEC_TYPES_H__
 #define __COSEC_TYPES_H__
 
+/*
+ *  primitive types
+ */
+
+#define NOERR       0
+
+typedef  unsigned int  size_t;
+typedef  int           ptrdiff_t;
+typedef  int           off_t;
+
 typedef  unsigned long long int  dev_t;
 
 static inline unsigned int

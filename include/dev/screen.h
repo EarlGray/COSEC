@@ -1,6 +1,8 @@
 #ifndef __SYS_CONSOLE_H__
 #define __SYS_CONSOLE_H__
 
+#include <stdint.h>
+
 #define VIDEO_MEM	0x000B8000
 #define SCR_WIDTH	80
 #define SCR_HEIGHT	25

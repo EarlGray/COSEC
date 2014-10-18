@@ -19,11 +19,11 @@ objdump :=  $(crosscompile)objdump
 
 lds := vmcosec.lds
 
-cc_flags    := -ffreestanding -nostdinc -nostdlib -Wall -Wextra -Winline -Wno-unused -O2 -MD 
+cc_flags    := -ffreestanding -nostdinc -Wall -Wextra -Winline -Wno-unused -O2 -MD -DCOSEC=1
 as_flags    := -Wall -MD $(addprefix -I, $(include_dir))
 ld_flags    := -static -nostdlib -T$(build)/$(lds)
 
-cc_includes := $(addprefix -I, $(include_dir)) -include globl.h 
+cc_includes := $(addprefix -I, $(include_dir) lib/c/include)
 
 ### for 64bit host
 cc_flags  += -m32

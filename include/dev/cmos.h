@@ -1,6 +1,8 @@
 #ifndef __CMOS_H__
 #define __CMOS_H__
 
+#include <stdbool.h>
+
 #define CMOS_CMND_PORT  0x70
 #define CMOS_DATA_PORT  0x71
 

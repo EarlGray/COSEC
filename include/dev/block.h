@@ -1,7 +1,7 @@
 #ifndef __BLOCK_DEV_H__
 #define __BLOCK_DEV_H__
 
-#include <std/sys/types.h>
+#include <sys/types.h>
 #include <dev/devices.h>
 
 typedef struct block_ops {

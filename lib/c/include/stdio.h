@@ -1,7 +1,8 @@
 #ifndef __STDIO_H__
 #define __STDIO_H__
 
-#include <std/stdarg.h>
+#include <stdarg.h>
+#include <stdint.h>
 
 #define EOF     0xdeade0f
 

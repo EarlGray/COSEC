@@ -2,9 +2,10 @@
 
 #include <arch/i386.h>
 
-#include <std/string.h>
-#include <std/stdarg.h>
-#include <std/stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdarg.h>
+#include <stdio.h>
 
 
 /***

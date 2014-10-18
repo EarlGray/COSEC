@@ -1,5 +1,7 @@
 #include <dev/memdev.h>
 
+#include <stdlib.h>
+
 #include <log.h>
 
 static void ramfs_init(void);

@@ -2,7 +2,9 @@
 
 #include <dev/intrs.h>
 #include <arch/i386.h>
-#include <std/string.h>
+
+#include <stdlib.h>
+#include <string.h>
 
 #define PIT_CH0_PORT    0x40
 #define PIT_CH1_PORT    0x41
@@ -57,7 +59,7 @@ void timer_irq() {
     ++ ticks;
 
     int i;
-    for_range (i, N_TIMERS)
+    for(i = 0; i < N_TIMERS; ++i)
         if (timers[i])
             timers[i](ticks);
 }

@@ -1,5 +1,8 @@
 #define __DEBUG
 
+#include <stdint.h>
+#include <string.h>
+
 #include <mem/paging.h>
 #include <arch/i386.h>
 #include <log.h>

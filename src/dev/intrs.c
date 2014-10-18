@@ -15,7 +15,7 @@
 
 #include <mem/paging.h>
 
-#include <std/stdio.h>
+#include <stdio.h>
 
 #include <log.h>
 

@@ -1,5 +1,10 @@
-#include <std/string.h>
-#include <std/ctype.h>
+#include <stdlib.h>
+
+#include <string.h>
+#include <stdbool.h>
+#include <ctype.h>
+#include <limits.h>
+
 #include <arch/i386.h>
 #include <mem/kheap.h>
 

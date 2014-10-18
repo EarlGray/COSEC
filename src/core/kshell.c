@@ -6,9 +6,10 @@
 #include <dev/screen.h>
 #include <dev/pci.h>
 
-#include <std/string.h>
-#include <std/stdio.h>
-#include <std/time.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <time.h>
 
 #include <mem/pmem.h>
 #include <mem/kheap.h>
@@ -27,6 +28,7 @@
 bool kshell_autocomplete(char *buf);
 static char * get_args(char *command);
 static const char * get_int_opt(const char *arg, int *res, uint8_t base);
+int run_lisp(void);
 
 
 /***
@@ -276,12 +278,12 @@ const struct kshell_subcmd  test_cmds[] = {
     { .name = 0, .handler = 0    },
 };
 
-void kshell_ls(const struct kshell_command *this, const char *arg) {
+void kshell_ls(const struct kshell_command __unused *this, const char *arg) {
     while (*arg && (*arg == ' ')) ++arg;
     print_ls(arg);
 }
 
-void kshell_vfs(const struct kshell_command *this, const char *arg) {
+void kshell_vfs(const struct kshell_command __unused *this, const char *arg) {
     vfs_shell(arg);
 }
 
@@ -300,7 +302,7 @@ static inline size_t strcmpsz(const char *s1, const char *s2, char endchar) {
     do while (' ' == *(pchar)) ++(pchar); while (0)
 
 bool kshell_autocomplete(char *buf) {
-    int i;
+    size_t i;
     const struct kshell_command *cmd;
 
     // search for commands
@@ -338,7 +340,7 @@ void kshell_elf(const struct kshell_command *this, const char *arg) {
     if (!strncmp(arg, "sections", 8)) {
         print_section_headers(shdrs, n_shdr);
     } else if (!strncmp(arg, "syms", 4)) {
-        char *sym = arg + 4;
+        const char *sym = arg + 4;
         skip_gaps(sym);
         Elf32_Shdr *symtab = elf_section_by_name(shdrs, n_shdr, ".symtab");
         Elf32_Shdr *strsect = elf_section_by_name(shdrs, n_shdr, ".strtab");
@@ -425,10 +427,10 @@ void kshell_info(const struct kshell_command *this, const char *arg) {
         module_t *mods;
         mboot_modules_info(&n_mods, &mods);
         printf(" Modules loaded = %d\n", n_mods);
-        int i;
-        for_range(i, n_mods) {
+        size_t i;
+        for(i = 0; i < n_mods; ++i) {
             printf("%d '%s' - [ *%x : *%x ]\n",
-                    i, (mods[i].string ? : "<null>"),
+                    i, (mods[i].string ? mods[i].string : "<null>"),
                     mods[i].mod_start, mods[i].mod_end);
         }
     } else {
@@ -439,7 +441,7 @@ void kshell_info(const struct kshell_command *this, const char *arg) {
 void kshell_io(const struct kshell_command *this, const char *arg) {
     int port = 0;
     int val = 0;
-    char *arg2 = get_int_opt(arg + 2, &port, 16);
+    const char *arg2 = get_int_opt(arg + 2, &port, 16);
     switch (arg[1]) {
     case 'r':
         switch (arg[0]) {
@@ -538,7 +540,7 @@ void kshell_panic() {
     //asm (".word 0xB9F0 \n");
 }
 
-void kshell_help(const struct kshell_command *this, const char *cmdline) {
+void kshell_help(const struct kshell_command __unused *this, const char *cmdline) {
     const struct kshell_command *cmd;
     if (*cmdline) {
         for (cmd = main_commands; cmd->name; ++cmd)

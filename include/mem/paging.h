@@ -1,6 +1,8 @@
 #ifndef __PAGING_H__
 #define __PAGING_H__
 
+#include <conf.h>
+
 #define INITIAL_PGDIR   0x00001000
 
 #define PG_PRESENT      0x00000001
@@ -29,11 +31,14 @@
 #define CR0_PG      0x80000000
 #define CR0_WP      0x00010000
 
-#define __pa(vaddr) (void *)(((char *)vaddr) - KERN_OFF)
-#define __va(paddr) (void *)(((char *)paddr) + KERN_OFF)
-
 
 #ifndef NOT_CC
+
+#include <stdlib.h>
+#include <stdint.h>
+
+#define __pa(vaddr) (void *)(((char *)vaddr) - KERN_OFF)
+#define __va(paddr) (void *)(((char *)paddr) + KERN_OFF)
 
 typedef  uint32_t  pde_t;
 typedef  uint32_t  pte_t;

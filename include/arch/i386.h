@@ -1,6 +1,9 @@
 #ifndef __CPU_H__
 #define __CPU_H__
 
+#include <stdint.h>
+#include <attrs.h>
+
 typedef enum {
     PL_KERN = 0,
     PL_USER = 3
