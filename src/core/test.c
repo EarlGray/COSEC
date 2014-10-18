@@ -362,6 +362,7 @@ void test_userspace(void) {
         (uint)task0_usr_stack + R3_STACK_SIZE - 0x20, SEL_USER_DS);
 }
 
+#ifdef TEST_USERSPACE
 extern int main(int, char **);
 
 void test_init(void) {
@@ -396,3 +397,4 @@ void test_init(void) {
         x86_eflags() | eflags_iopl(PL_USER),
         (uint)task0_usr_stack + R3_STACK_SIZE - 0x20, SEL_USER_DS);
 }
+#endif

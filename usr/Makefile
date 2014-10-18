@@ -34,7 +34,7 @@ $(build)/%.o : $(src_dir)/%.c
 	@echo -n "CCu: "
 	$(cc) -c $< -o $@ $(cc_includes) $(cc_flags) -MT $(subst .d,.c,$@) 
 
-$(build)/init.a: $(init_objs)	
+$(build)/init.a: $(init_objs)
 	@echo "ARu: "
 	$(ar) crT $(build)/init.a $(init_objs)
 

@@ -1843,9 +1843,9 @@ struct DATA {
     uint8_t *pos;
 };
 
-extern uint8_t _binary_core_repl_secd_start;
-extern uint8_t _binary_core_repl_secd_end;
-extern size_t _binary_core_repl_secd_size;
+extern uint8_t _binary_src_core_repl_secd_start;
+extern uint8_t _binary_src_core_repl_secd_end;
+extern size_t _binary_src_core_repl_secd_size;
 
 #define CONSOLE_BUFFER 256
 #define DBUF_SIZE      (CONSOLE_BUFFER * 2)
@@ -1889,7 +1889,7 @@ int dgetc(DATA *d) {
         }
     }
 
-    if (d->pos >= &_binary_core_repl_secd_end) 
+    if (d->pos >= &_binary_src_core_repl_secd_end) 
         return EOF;
 
     uint8_t c = *(d->pos);
@@ -1898,7 +1898,7 @@ int dgetc(DATA *d) {
 }
 
 int run_lisp(void) {
-    DATA d = { .pos = &_binary_core_repl_secd_start };
+    DATA d = { .pos = &_binary_src_core_repl_secd_start };
     return secd_main(&d);
 }
 

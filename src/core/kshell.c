@@ -233,7 +233,11 @@ void kshell_secd();
 void kshell_panic();
 
 void kshell_init() {
+#ifdef TEST_USERSPACE
     test_init();
+#else
+    printf("test init not implemented\n");
+#endif
 }
 
 const struct kshell_command main_commands[] = {

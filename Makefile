@@ -1,6 +1,6 @@
 export top_dir      := .
 export include_dir  := $(top_dir)/include
-export src_dir      := $(top_dir)
+export src_dir      := $(top_dir)/src
 export build        := $(top_dir)/build
 
 host_os := $(shell uname)
@@ -32,8 +32,7 @@ ld_flags  += -melf_i386
 
 objs    := $(src_dir)/arch/boot.S
 objs    += $(wildcard $(src_dir)/arch/[^b]*.S) # exclude boot.S
-objs    += $(wildcard $(src_dir)/[^u]*/*.c) # exclude usr/ folder
-objs    += $(wildcard $(src_dir)/*.c)
+objs    += $(wildcard $(src_dir)/*/*.c)
 
 objs    := $(patsubst $(src_dir)/%.S, $(build)/%.o, $(objs))
 objs    := $(patsubst $(src_dir)/%.c, $(build)/%.o, $(objs))
@@ -132,10 +131,10 @@ $(image):
 		echo -e "## ...generated\n";	\
 	fi
 
-$(kernel): $(build) $(objs) $(libinit) $(build)/$(lds)
+$(kernel): $(build) $(objs) $(build)/$(lds)
 	@echo "\n#### Linking..."
 	@echo -n "LD: "
-	$(ld) -o $(build)/$(kernel)	$(objs) $(libinit) $(ld_flags) && echo "## ...linked"
+	$(ld) -o $(build)/$(kernel)	$(objs) $(ld_flags) && echo "## ...linked"
 	@[ `which $(objdump) 2>/dev/null` ] && $(objdump) -d $(build)/$(kernel) > $(objdfile) || true
 	@[ `which $(nm) 2>/dev/null` ] && $(nm) $(build)/$(kernel) | sort > $(build)/$(kernel).nm || true
 	@[ `which ctags 2>/dev/null ` ] && ctags -R * || true
@@ -143,11 +142,11 @@ $(kernel): $(build) $(objs) $(libinit) $(build)/$(lds)
 $(build):
 	@echo "\n#### Compiling"
 	@mkdir -p $(build)
-	@for d in * ; do		\
-		[ -d $$d ] && mkdir $(build)/$$d || true;	\
+	@for d in $(src_dir)/* ; do		\
+		[ -d $$d ] && mkdir $(build)/$${d#$(src_dir)/} || true;	\
 	done
 
-$(build)/$(lds):    $(lds).S
+$(build)/$(lds):    $(src_dir)/$(lds).S
 	@echo "CPP: "
 	$(cc) -E $< -o $@ -P -DNOT_CC $(cc_includes)
 
