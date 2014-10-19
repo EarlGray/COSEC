@@ -6,8 +6,7 @@ export build        := $(top_dir)/build
 host_os := $(shell uname)
 
 ifeq ($(host_os),Darwin)
-gcc_home := /usr/local/gcc-4.5.2-for-linux32
-crosscompile := $(gcc_home)/bin/i586-pc-linux-
+crosscompile := i386-elf-
 endif
 
 cc  ?=  $(crosscompile)gcc
