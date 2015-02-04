@@ -21,11 +21,12 @@ cp res/grubcd.cfg $GRUB_DIR/grub.cfg
 cp $BLDDIR/kernel $CD_DIR \
     || die "$BLDDIR/kernel not found"
 
-mkdir -p $SRC_DIR
-cp -R include/ arch/ core/ dev/ fs/ mem/ std/ usr/ $SRC_DIR
-cp res/fd.img.bz2 res/grubcd.cfg res/mkcd res/mkinitfs  $SRC_DIR
+mkdir -p $SRC_DIR $SRC_DIR/res
+cp -R include/ lib/ src/ usr/ $SRC_DIR
+cp res/fd.img.bz2 res/grubcd.cfg res/mkcd res/mkinitfs $SRC_DIR/res
 cp README.md INSTALL.md TODO Makefile $SRC_DIR
 
+# install xorriso on Ubuntu
 grub-mkrescue -o $CD_IMG $CD_DIR
 
 [ "$KEEP" ] || rm -r $CD_DIR

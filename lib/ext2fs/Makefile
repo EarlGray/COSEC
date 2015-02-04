@@ -10,8 +10,10 @@ umount=umount
 endif
 endif
 
+CFLAGS += -I../../include
+
 $(exe): ext2.o
-	gcc e2fuse.c `pkg-config fuse --cflags --libs` ext2.o -o $(exe)
+	$(CC) e2fuse.c `pkg-config fuse --cflags --libs` ext2.o -o $(exe)
 
 ext2.o: ext2.c
 
