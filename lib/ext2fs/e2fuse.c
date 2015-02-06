@@ -11,7 +11,7 @@
 #include "ext2.h"
 
 typedef struct file_block_device {
-    block_device blkdev;
+    e2fs_block_device_t blkdev;
     FILE *file;
 } file_block_device;
 
@@ -20,20 +20,20 @@ static struct ext2fs fs;
 /*
  *  Emulate a block device from file
  */
-static int read_file_blkdev(block_device* dev, index_t index, char *buffer) {
+static int read_file_blkdev(e2fs_block_device_t* dev, off_t index, char *buffer) {
     file_block_device *this = (file_block_device *)dev;
     
     return fread(buffer, dev->blksz, 1, this->file);
 }
 
-static int write_file_blkdev(block_device* dev, index_t index, const char *buffer) {
+static int write_file_blkdev(e2fs_block_device_t* dev, off_t index, const char *buffer) {
     return -ETODO;
 }
 
-const block_ops fb_ops = {
+const e2fs_block_device_t fb_ops = {
     .read_block = read_file_blkdev,
     .write_block = write_file_blkdev,
-}
+};
 
 /*
  *  FUSE structure and methods
@@ -113,7 +113,6 @@ struct fuse_operations fs_ops = {
 static void * fuse_ext2_init(struct fuse_conn_info *conn) {
     printf("fuse_conn_info: \n");
     printf("  version: %d.%d\n", conn->proto_major, conn->proto_minor);
-    //printf("  
     return NULL;
 }
 
@@ -233,6 +232,5 @@ static int fuse_ext2_removexattr(const char *path, const char *attr) {
 
 
 int main(int argc, char **argv) {
-    fuse_main(argc, argv, &fs_ops, NULL);
-    return 0;
+    return fuse_main(argc, argv, &fs_ops, NULL);
 }

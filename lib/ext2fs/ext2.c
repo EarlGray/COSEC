@@ -1,24 +1,36 @@
 #include "ext2.h"
 
-#include <dev/block.h>
+#include <string.h>
 
 #define EXT2_SUPERBLOCK_OFFSET 1024
 
-int e2fs_init(ext2fs_t *fs, block_dev_t* dev) {
-    memset(fs, 0, sizeof(struct ext2fs));
+int e2fs_read_superblock(ext2fs_t *fs, struct ext2_super_block *superblock) {
+    int ret = 0;
+    char *block = fs->alloc_block(fs, 1);
 
-    fs->bd = dev;
-    
-    dev->ops->read_block(dev, (dev->blksz > 1024)? 0 : 1, );
+    if (fs->bd->blksz > 1024) {
+        ret = fs->bd->read_block(fs->bd, 0, block);
+        if (!ret) goto exit;
+        memcpy(superblock, block + 1024, sizeof(struct ext2_super_block));
+    } else {
+        ret = fs->bd->read_block(fs->bd, 1, block);
+        if (!ret) goto exit;
+        memcpy(superblock, block, sizeof(struct ext2_super_block));
+    }
 
-    return 0;
-}  
+exit:
+    fs->free_block(fs, block);
+    return ret;
+}
 
+/*
 void print_ext2(ext2fs_t *fs, const char *cmd) {
     if (!strncmp(cmd, "sb", 2)) {
-        assertvf(fs->sb->s_magic != EXT2_SUPER_MAGIC, "ext2 magic (0x%x) is wrong\n", fs->sb->s_magic);
+        assertvf(fs->sb->s_magic != EXT2_SUPER_MAGIC,
+                "ext2 magic (0x%x) is wrong\n", fs->sb->s_magic);
 
-        k_printf("Superblock info (%s):\n", (fs->sb->s_state != EXT2_VALID_FS ? "dirty" : "clean"));
+        k_printf("Superblock info (%s):\n", 
+                (fs->sb->s_state != EXT2_VALID_FS ? "dirty" : "clean"));
         k_printf("  block size: %d\n", fs->blksz);
         k_printf("  inodes count = %d (free: %d)\n", 
                 fs->sb->s_inodes_count, fs->sb->s_free_inodes_count);
@@ -30,3 +42,4 @@ void print_ext2(ext2fs_t *fs, const char *cmd) {
         k_printf("Options: sb");
     }
 }
+*/

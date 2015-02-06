@@ -1,6 +1,11 @@
 exe 	:= ext2fs
 mnt 	:= mnt
 
+ifeq ($(COSEC),)
+CFLAGS 	+= -I../../include
+else
+endif
+
 mount=./$(exe)
 ifeq ($(shell uname),Linux)
 umount=fusermount -u
@@ -9,8 +14,6 @@ ifeq ($(shell uname),Darwin)
 umount=umount
 endif
 endif
-
-CFLAGS += -I../../include
 
 $(exe): ext2.o
 	$(CC) e2fuse.c `pkg-config fuse --cflags --libs` ext2.o -o $(exe)
