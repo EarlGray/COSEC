@@ -1,9 +1,14 @@
 exe 	:= ext2fs
 mnt 	:= mnt
 
+HOST_OS := $(shell uname)
+
 ifeq ($(COSEC),)
-CFLAGS 	+= -I../../include
 else
+CFLAGS 	+= -nostdinc -I../../include
+ifeq ($(HOST_OS),Darwin)
+CC		?= i386-elf-gcc
+endif
 endif
 
 mount=./$(exe)

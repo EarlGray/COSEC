@@ -10,27 +10,27 @@
 #include <fuse.h>
 #include "ext2.h"
 
-typedef struct file_block_device {
-    e2fs_block_device_t blkdev;
-    FILE *file;
-} file_block_device;
-
-static struct ext2fs fs;
-
 /*
  *  Emulate a block device from file
  */
+
+typedef struct file_block_device {
+    e2fs_block_device_t blkdev;
+    FILE *file;
+} file_block_device_t;
+
 static int read_file_blkdev(e2fs_block_device_t* dev, off_t index, char *buffer) {
-    file_block_device *this = (file_block_device *)dev;
+    file_block_device_t *this = (file_block_device_t *)dev;
     
-    return fread(buffer, dev->blksz, 1, this->file);
+    int ret = fread(buffer, dev->blksz, 1, this->file);
+    return (ret > 0);
 }
 
 static int write_file_blkdev(e2fs_block_device_t* dev, off_t index, const char *buffer) {
     return -ETODO;
 }
 
-const e2fs_block_device_t fb_ops = {
+e2fs_block_device_t the_fblkdev = {
     .read_block = read_file_blkdev,
     .write_block = write_file_blkdev,
 };
@@ -109,11 +109,24 @@ struct fuse_operations fs_ops = {
 };
 
 
+static ext2fs_t the_fs;
+static struct ext2_super_block the_superblock;
 
 static void * fuse_ext2_init(struct fuse_conn_info *conn) {
     printf("fuse_conn_info: \n");
     printf("  version: %d.%d\n", conn->proto_major, conn->proto_minor);
-    return NULL;
+
+    ext2fs_t *fs = &the_fs;
+
+    fs->bd = &the_fblkdev;
+    fs->bd->blksz = 4096;
+
+    fs->sb = &the_superblock;
+
+    e2fs_read_superblock(fs, fs->sb);
+    /* TODO: check ext2 magic */
+    /* TODO: read blksz back */
+    return fs;
 }
 
 static void   fuse_ext2_destroy(void *data) {
