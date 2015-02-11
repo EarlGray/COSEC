@@ -3,3 +3,8 @@ res/initfs
 build/*
 tags
 .bochsrc
+.*.swp
+*.o
+*.a
+*.iso
+*.img

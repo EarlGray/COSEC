@@ -12,6 +12,8 @@
 #include <kshell.h>
 #include <tasks.h>
 
+#include <log.h>
+
 static void print_welcome(void) {
     clear_screen();
 

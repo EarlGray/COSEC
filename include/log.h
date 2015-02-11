@@ -4,6 +4,8 @@
 #include <dev/screen.h>
 #include <sys/errno.h>
 
+void k_printf(const char *fmt, ...);
+
 #define print(msg) k_printf(msg)
 #define printf(...) k_printf(__VA_ARGS__)
 

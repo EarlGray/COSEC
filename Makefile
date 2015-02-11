@@ -23,8 +23,8 @@ as_flags    := -Wall -MD $(addprefix -I, $(include_dir))
 ld_flags    := -static -nostdlib -T$(build)/$(lds)
 
 ifneq ($(LUA),)
-cc_flags	+= -DCOSEC_LUA=1
-ld_flags	+= lib/liblua.a
+cc_flags    += -DCOSEC_LUA=1
+ld_flags    += lib/liblua.a
 endif
 
 cc_includes := $(addprefix -I, $(include_dir) lib/c/include)
@@ -40,7 +40,7 @@ objs    += $(wildcard $(src_dir)/*/*.c)
 
 objs    := $(patsubst $(src_dir)/%.S, $(build)/%.o, $(objs))
 objs    := $(patsubst $(src_dir)/%.c, $(build)/%.o, $(objs))
-objs 	+= $(build)/core/repl.o
+objs    += $(build)/core/repl.o
 
 libinit   := $(build)/usr/init.a
 kernel    := kernel
@@ -48,19 +48,19 @@ initfs    := res/initfs
 
 mnt_img     := bootfd
 image       := cosec.img
-cd_img		:= cosec.iso
+cd_img      := cosec.iso
 
 fuse    := $(shell which ext2fuse)
 
 ### Use native mount/umount for a GRUB installation, fuseext2 fails at this
 ifeq ($(strip $(fuse)),)
-    do_mount	:= sudo mount -o loop 
-    do_umount	:= sudo umount -l
-    do_install	:= sudo cp 
+    do_mount    := sudo mount -o loop
+    do_umount   := sudo umount -l
+    do_install  := sudo cp
 else
-    do_mount	:= $(fuse) -o rw+,uid=`id -u`,gid=`id -g` 
-    do_umount	:= fusermount -u 
-    do_install	:= cp
+    do_mount    := $(fuse) -o rw+,uid=`id -u`,gid=`id -g`
+    do_umount   := fusermount -u
+    do_install  := cp
 endif
 
 log_name      := fail.log
@@ -83,11 +83,11 @@ run:	install
 krun: $(kernel)
 	qemu -kernel $(build)/$(kernel) -fda $(image)
 
-qemu:	install 
+qemu:	install
 	@if [ -S $(pipe_file) ]; 							\
 	then qemu $(qemu_flags) -serial unix:$(pipe_file) ;	\
 	else qemu $(qemu_flags) -serial stdio ;							\
-	fi 
+	fi
 
 vbox:	install
 	VBoxManage startvm $(vbox_name)
@@ -111,7 +111,7 @@ $(initfs):
 	@res/mkinitfs $(initfs) && echo "## initfs created"
 
 $(mnt_img):	
-	@mkdir $(mnt_img) 
+	@mkdir $(mnt_img)
 
 mount:	$(image) $(mnt_img)
 	@$(do_mount) $(image) $(mnt_img) \
@@ -121,7 +121,7 @@ umount:
 	@$(do_umount) $(mnt_img) &&	echo "## Image unmounted" || true; \
 	rmdir $(mnt_img)
 
-$(image):	 
+$(image):
 	@echo "\n#### Checking image"
 	@if [ ! -e $(image) ]; then	\
         echo -en "\n## Generating image...\t\t"; \
@@ -160,7 +160,7 @@ $(build)/%.o: $(src_dir)/%.secd
 	
 $(build)/%.o : $(src_dir)/%.c
 	@echo -n "CC: "
-	$(cc) -c $< -o $@ $(cc_includes) $(cc_flags) -MT $(subst .d,.c,$@) 
+	$(cc) -c $< -o $@ $(cc_includes) $(cc_flags) -MT $(subst .d,.c,$@)
 
 $(build)/%.o : $(src_dir)/%.S
 	@echo -n "AS: "
@@ -168,6 +168,23 @@ $(build)/%.o : $(src_dir)/%.S
 
 $(libinit):
 	@cd usr && make
+
+ifneq ($(LUA),)
+LUA_VER		?= 5.2.2
+LUA_DIR		:= lib/lua/lua-$(LUA_VER)
+
+lib/liblua.a:
+	test -d $(LUA_DIR) || {   \
+	    mkdir -p lib/lua ; cd lib/lua ;   \
+	    curl -R -O http://www.lua.org/ftp/lua-$(LUA_VER).tar.gz; \
+	    tar xf lua-$(LUA_VER).tar.gz; }
+	make -C $(LUA_DIR)/src SYSFLAGS='-m32 -nostdinc -I$(top_dir)/lib/c/include' liblua.a
+	mv $(LUA_DIR)/src/liblua.a lib/
+	cd include ; test -L lua || ln -s ../$(LUA_DIR)/src lua
+
+clean_lua:
+	rm -rf include/lua lib/lua lib/liblua.a
+endif
 
 $(pipe_file):
 	mkfifo $(pipe_file)

@@ -3,10 +3,13 @@
 
 #define INT_MAX     (0x7FFFFFFF)
 
-#define MAX_UINT    (0xFFFFFFFFu)
-#define MAX_ULONG   ((MAX_UINT << 32) | MAX_UINT)
-#define UCHAR_MAX   0xFF
+#define UINT_MAX    (unsigned int)0xFFFFFFFFu
+#define ULONG_MAX   ((unsigned long)0xFFFFFFFFu)
 
-#define INTPTR_MAX  MAX_UINT
+#define SHRT_MAX    ((short int)0x7FFF)
+
+#define UCHAR_MAX   ((unsigned char)0xFF)
+
+#define INTPTR_MAX  UINT_MAX
 
 #endif //__COSEC_LIMITS_H__

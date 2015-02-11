@@ -373,6 +373,11 @@ FILE * fopen(const char *path, const char *mode) {
     */
 }
 
+FILE *freopen(const char *path, const char *mode, FILE *stream) {
+    /* TODO */
+    return stream;
+}
+
 int fclose(FILE *fp) {
     return -ETODO;
 }

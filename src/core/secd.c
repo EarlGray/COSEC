@@ -54,6 +54,7 @@ typedef struct DATA DATA;
 int dgetc(DATA *d);
 
 # include <log.h>
+# include <kshell.h>
 # undef assert
 # undef asserti
 # undef assertv
@@ -1866,7 +1867,7 @@ int dgetc(DATA *d) {
     if (!d) { 
         /* not so simple, line bufferization required */
         if (dstdin.getpos == dstdin.inppos) {
-            console_readline(dbuf, CONSOLE_BUFFER);
+            kshell_readline(dbuf, CONSOLE_BUFFER);
             //printf("console_read: '%s'\n", dbuf);
 
             char *src = dbuf;

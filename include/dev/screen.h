@@ -34,7 +34,6 @@ void sprint_at(int x, int y, const char *s);
 
 void print_uint(uint x, uint8_t base);
 void print_int(int x, uint8_t base);
-void k_printf(const char *fmt, ...);
 
 void print_centered(const char *s);
 

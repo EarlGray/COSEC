@@ -164,7 +164,7 @@ inline void console_writeline(const char *msg) {
     k_printf("%s\n", msg);
 }
 
-void console_readline(char *buf, size_t size) {
+void kshell_readline(char *buf, size_t size) {
     char *cur = buf;
     while (1) {
         char c = getchar();
@@ -436,7 +436,7 @@ void kshell_info(const struct kshell_command *this, const char *arg) {
         size_t i;
         for(i = 0; i < n_mods; ++i) {
             printf("%d '%s' - [ *%x : *%x ]\n",
-                    i, (mods[i].string ? mods[i].string : "<null>"),
+                    i, (mods[i].string ? (const char *)mods[i].string : "<null>"),
                     mods[i].mod_start, mods[i].mod_end);
         }
     } else {
@@ -619,7 +619,7 @@ void kshell_run(void) {
 
     for_ever {
         console_write(prompt);
-        console_readline(cmd_buf, CMD_SIZE);
+        kshell_readline(cmd_buf, CMD_SIZE);
         kshell_do(cmd_buf);
     }
 }

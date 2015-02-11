@@ -62,4 +62,6 @@ struct device_t {
 
 void dev_setup(void);
 
+void ide_setup(void);
+
 #endif //__DRIVERS_TABLE_H__

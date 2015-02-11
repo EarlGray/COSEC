@@ -246,7 +246,7 @@ void intrs_setup(void) {
 }
 
 int irq_wait(irqnum_t irqnum) {
-    assert(irqnum < 16, "Wrong IRQ number", -EINVAL);
+    returnf_if(irqnum < 16, -EINVAL, "Wrong IRQ number");
 
     irq_happened[irqnum] = false;
     do cpu_halt();

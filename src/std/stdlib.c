@@ -70,8 +70,12 @@ int __pure strncmp(const char *s1, const char *s2, size_t n) {
     return 0;
 }
 
+int __pure strcoll(const char *s1, const char *s2) {
+    return strcmp(s1, s2);
+}
+
 int __pure strcmp(const char *s1, const char *s2) {
-    return strncmp(s1, s2, MAX_UINT);
+    return strncmp(s1, s2, UINT_MAX);
 }
 
 int __pure strncasecmp(const char *s1, const char *s2, size_t n) {
@@ -88,7 +92,7 @@ int __pure strncasecmp(const char *s1, const char *s2, size_t n) {
 }
 
 int __pure strcasecmp(const char *s1, const char *s2) {
-    return strncasecmp(s1, s2, MAX_UINT);
+    return strncasecmp(s1, s2, UINT_MAX);
 }
 
 int __pure memcmp(const void *s1, const void *s2, size_t n) {
@@ -114,7 +118,7 @@ char *strndup(const char *s, size_t n) {
 }
 
 char *strdup(const char *s) {
-    return strndup(s, MAX_UINT);
+    return strndup(s, UINT_MAX);
 }
 
 char *strcpy(char *dest, const char *src) {
@@ -193,6 +197,23 @@ char *strchr(const char *s, int c) {
 
 char *strrchr(const char *s, int c) {
     return strnrchr(s, INT_MAX, c);
+}
+
+char *strstr(const char *haystack, const char *needle) {
+}
+
+char *strpbrk(const char *s, const char *accept) {
+    char accept_table[ UCHAR_MAX + 1] = { 0 };
+    char *c;
+
+    for (c = accept; *c; ++c)
+        accept_table[*c] = true;
+
+    for (c = s; *c; ++c)
+        if (accept_table[*c])
+            return c;
+
+    return NULL;
 }
 
 /* Source: http://en.wikipedia.org/wiki/Jenkins_hash_function */
