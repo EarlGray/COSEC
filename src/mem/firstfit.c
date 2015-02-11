@@ -154,7 +154,7 @@ firstfit_new(void *startmem, size_t size) {
 }
 
 void * firstfit_malloc(struct firstfit_allocator *this, uint size) {
-    if ((size == 0) || (size > MAX_INT)) return null;
+    if ((size == 0) || (size > INT_MAX)) return null;
 
     chunk_t *chunk = this->current;
     do {

@@ -22,6 +22,11 @@ cc_flags    := -ffreestanding -nostdinc -Wall -Wextra -Winline -Wno-unused -O2 -
 as_flags    := -Wall -MD $(addprefix -I, $(include_dir))
 ld_flags    := -static -nostdlib -T$(build)/$(lds)
 
+ifneq ($(LUA),)
+cc_flags	+= -DCOSEC_LUA=1
+ld_flags	+= lib/liblua.a
+endif
+
 cc_includes := $(addprefix -I, $(include_dir) lib/c/include)
 
 ### for 64bit host

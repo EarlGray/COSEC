@@ -21,6 +21,12 @@
 
 #include <kshell.h>
 
+#ifdef COSEC_LUA
+# include <lua/lua.h>
+# include <lua/lualib.h>
+# include <lua/lauxlib.h>
+#endif
+
 /***
   *     Internal declarations
  ***/
@@ -525,10 +531,15 @@ void kshell_time() {
 }
 
 void kshell_secd() {
+#ifdef COSEC_LUA
+    lua_State *lua;
+    lua = luaL_newstate();
+#else
     int ret;
     ret = run_lisp();
     if (ret != 0)
         logef("SECD REPL exited with code %d\n", ret);
+#endif
 }
 
 void kshell_unknown_cmd() {

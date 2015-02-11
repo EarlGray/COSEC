@@ -9,7 +9,13 @@
 #include <mem/kheap.h>
 
 #include <log.h>
+
 /* misc from stdlib.h */
+int abs(int i) {
+    if (i >= 0) return i;
+    return -i;
+}
+
 int atoi(const char *nptr) {
     while (isspace(*nptr)) ++nptr;
 
@@ -160,33 +166,33 @@ void *memset(void *s, int c, size_t n) {
     return s;
 }
 
-char __pure *strnchr(char *s, size_t n, char c) {
+char __pure *strnchr(const char *s, size_t n, int c) {
     char *cur = (char *)s;
     while (*cur && ((cur - s) < (int)n)) {
-        if (c == *cur)
+        if ((char)c == *cur)
             return cur;
         ++cur;
     }
     return null;
 }
 
-char __pure *strnrchr(char *s, size_t n, char c) {
+char __pure *strnrchr(const char *s, size_t n, int c) {
     char *cur = (char *)s;
     char *last = null;
     while (*cur && ((cur - s) < (int)n)) {
-        if (c == *cur)
+        if ((char)c == *cur)
             last = cur;
         ++cur;
     }
     return last;
 }
 
-char *strchr(char *s, char c) {
-    return strnchr(s, MAX_INT, c);
+char *strchr(const char *s, int c) {
+    return strnchr(s, INT_MAX, c);
 }
 
-char *strrchr(char *s, char c) {
-    return strnrchr(s, MAX_INT, c);
+char *strrchr(const char *s, int c) {
+    return strnrchr(s, INT_MAX, c);
 }
 
 /* Source: http://en.wikipedia.org/wiki/Jenkins_hash_function */

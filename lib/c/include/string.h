@@ -3,6 +3,10 @@
 
 #include <stdint.h>
 
+#ifndef NULL
+#define NULL ((void *)0)
+#endif
+
 int strcmp(const char *s1, const char *s2);
 int strncmp(const char *s1, const char *s2, size_t n);
 
@@ -19,14 +23,14 @@ void* memset(void *s, int c, size_t n);
 int memcmp(const void *s1, const void *s2, size_t n);
 void* memcpy(void *dest, const void *src, size_t n);
 
-char *strchr(char *s, char c);
-char *strrchr(char *s, char c);
+char *strchr(const char *s, int c);
+char *strrchr(const char *s, int c);
 
 char *strndup(const char *s, size_t n);
 char *strdup(const char *s);
 
-char *strnchr(char *s, size_t n, char c);
-char *strnrchr(char *s, size_t n, char c);
+char *strnchr(const char *s, size_t n, int c);
+char *strnrchr(const char *s, size_t n, int c);
 
 uint32_t strhash(const char *key, size_t len);
 
