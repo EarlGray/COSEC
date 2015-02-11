@@ -3,6 +3,8 @@ export include_dir  := $(top_dir)/include
 export src_dir      := $(top_dir)/src
 export build        := $(top_dir)/build
 
+export STDINC_DIR	:= lib/c/include
+
 host_os := $(shell uname)
 
 ifeq ($(host_os),Darwin)
@@ -27,7 +29,7 @@ cc_flags    += -DCOSEC_LUA=1
 ld_flags    += lib/liblua.a
 endif
 
-cc_includes := $(addprefix -I, $(include_dir) lib/c/include)
+cc_includes := $(addprefix -I, $(include_dir) $(STDINC_DIR))
 
 ### for 64bit host
 cc_flags  += -m32
@@ -173,18 +175,24 @@ ifneq ($(LUA),)
 LUA_VER		?= 5.2.2
 LUA_DIR		:= lib/lua/lua-$(LUA_VER)
 
-lib/liblua.a:
-	test -d $(LUA_DIR) || {   \
+lib/lua/lua-$(LUA_VER).tar.gz:
+	test -f $@ || {   \
 	    mkdir -p lib/lua ; cd lib/lua ;   \
-	    curl -R -O http://www.lua.org/ftp/lua-$(LUA_VER).tar.gz; \
-	    tar xf lua-$(LUA_VER).tar.gz; }
-	make -C $(LUA_DIR)/src SYSFLAGS='-m32 -nostdinc -I$(top_dir)/lib/c/include' liblua.a
-	mv $(LUA_DIR)/src/liblua.a lib/
+	    TARGZ=$(notdir $@);               \
+	    curl -R -O http://www.lua.org/ftp/$$TARGZ; \
+	    tar xf $$TARGZ; }
+
+lib/liblua.a: lib/lua/lua-$(LUA_VER).tar.gz
+	test -d $(LUA_DIR) || tar -C lib/lua xf $<
+	cd $(LUA_DIR)/src \
+	&& make CC=$(cc) AR='$(crosscompile)ar rcu' \
+	        SYSFLAGS='-m32 -nostdinc -I./$(STDINC_DIR)' liblua.a \
+	&& mv liblua.a $(top_dir)/$@
 	cd include ; test -L lua || ln -s ../$(LUA_DIR)/src lua
 
+endif
 clean_lua:
 	rm -rf include/lua lib/lua lib/liblua.a
-endif
 
 $(pipe_file):
 	mkfifo $(pipe_file)
