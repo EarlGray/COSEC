@@ -47,7 +47,7 @@ as_flags  += -m32
 ld_flags  += -melf_i386
 
 libinit   := $(build)/usr/init.a
-kernel    := kernel
+kernel    := $(build)/kernel
 initfs    := res/initfs
 
 mnt_img     := bootfd
@@ -68,81 +68,82 @@ else
 endif
 
 log_name      := fail.log
-objdfile      := $(build)/$(kernel).objd
+objdfile      := $(kernel).objd
 pipe_file     := pipe
 
 vbox_name   := COSEC
+qemu        := qemu-system-i386
 qemu_flags  := -fda $(image) -boot a -m 64 -net nic,model=rtl8139
 
 .PHONY: run install mount umount clean
 .PHONY: qemu vbox bochs
 
-run:	install
+run: install
 	@echo "\n#### Running..." && \
-	if [ $$DISPLAY ] ; then	\
-		make vbox || make qemu || make bochs || \
-			echo "@@@@ Error: VirtualBox, qemu or Bochs must be installed";	\
-	else qemu $(qemu_flags) -curses;	fi
+	if [ $$DISPLAY ] ; then      \
+	    make vbox || make qemu || make bochs || \
+	        echo "@@@@ Error: VirtualBox, qemu or Bochs must be installed"; \
+	else $(qemu) $(qemu_flags) -curses; fi
 
 krun: $(kernel)
-	qemu -kernel #< -fda $(image)
+	$(qemu) -kernel $(kernel) -fda $(image)
 
-qemu:	install
-	@if [ -S $(pipe_file) ]; 							\
-	then qemu $(qemu_flags) -serial unix:$(pipe_file) ;	\
-	else qemu $(qemu_flags) -serial stdio ;							\
+qemu: install
+	@if [ -S $(pipe_file) ];  \
+	then $(qemu) $(qemu_flags) -serial unix:$(pipe_file) ; \
+	else $(qemu) $(qemu_flags) -serial stdio ;             \
 	fi
 
-vbox:	install
+vbox: install
 	VBoxManage startvm $(vbox_name)
 
-bochs:	install
+bochs: install
 	bochs
 
-$(cd_img): kernel
+$(cd_img): $(kernel)
 	@echo "Creating a LiveCD..."
 	@res/mkcd
 
 install:  $(kernel) $(initfs)
 	@make mount \
-		&& $(do_install) $(build)/$(kernel) $(mnt_img) 	\
-		&& echo "\n## Kernel installed";				\
-	$(do_install) $(initfs) $(mnt_img) 					\
-		&& echo "## Initfs installed"; 					\
+	    && $(do_install) $(kernel) $(mnt_img)   \
+	    && echo "\n## Kernel installed";        \
+	$(do_install) $(initfs) $(mnt_img)          \
+	    && echo "## Initfs installed";          \
 	make umount
 
 $(initfs):
 	@res/mkinitfs $(initfs) && echo "## initfs created"
 
-$(mnt_img):	
+$(mnt_img):
 	@mkdir $(mnt_img)
 
-mount:	$(image) $(mnt_img)
+mount: $(image) $(mnt_img)
 	@$(do_mount) $(image) $(mnt_img) \
 	&& echo "## Image mounted"
 
-umount:	
-	@$(do_umount) $(mnt_img) &&	echo "## Image unmounted" || true; \
+umount:
+	@$(do_umount) $(mnt_img) && echo "## Image unmounted" || true; \
 	rmdir $(mnt_img)
 
 $(image):
 	@echo "\n#### Checking image"
-	@if [ ! -e $(image) ]; then	\
-        echo -en "\n## Generating image...\t\t"; \
-		cp res/fd.img.bz2 .;	\
-		bunzip2 fd.img.bz2;	\
-		mv fd.img $(image);	\
-		make mount \
-			&& mkdir -p $(mnt_img)/boot/grub/ \
-			&& $(do_install) res/menu.lst $(mnt_img)/boot/grub \
-			&& make umount;	\
-		echo -e "## ...generated\n";	\
+	@if [ ! -e $(image) ]; then \
+	    echo -en "\n## Generating image...\t\t"; \
+	    cp res/fd.img.bz2 .; \
+	    bunzip2 fd.img.bz2; \
+	    mv fd.img $(image); \
+	    make mount \
+	        && mkdir -p $(mnt_img)/boot/grub/ \
+	        && $(do_install) res/menu.lst $(mnt_img)/boot/grub \
+	        && make umount; \
+	    echo -e "## ...generated\n"; \
 	fi
 
 $(kernel): $(build) $(liblua) $(objs) $(build)/$(lds)
 	@echo "\n#### Linking..."
 	@echo -n "LD: "
-	$(ld) -o $(build)/$(kernel)	$(objs) $(liblua) $(ld_flags) && echo "## ...linked"
+	$(ld) -o $(build)/$(kernel) $(objs) $(liblua) $(ld_flags) && echo "## ...linked"
 	@[ `which $(objdump) 2>/dev/null` ] && $(objdump) -d $(build)/$(kernel) > $(objdfile) || true
 	@[ `which $(nm) 2>/dev/null` ] && $(nm) $(build)/$(kernel) | sort > $(build)/$(kernel).nm || true
 	@[ `which ctags 2>/dev/null ` ] && ctags -R * || true
@@ -150,8 +151,8 @@ $(kernel): $(build) $(liblua) $(objs) $(build)/$(lds)
 $(build):
 	@echo "\n#### Compiling"
 	@mkdir -p $(build)
-	@for d in $(src_dir)/* ; do		\
-		[ -d $$d ] && mkdir $(build)/$${d#$(src_dir)/} || true;	\
+	@for d in $(src_dir)/* ; do \
+	    [ -d $$d ] && mkdir $(build)/$${d#$(src_dir)/} || true; \
 	done
 
 $(build)/$(lds):    $(src_dir)/$(lds).S
@@ -174,8 +175,8 @@ $(libinit):
 	@cd usr && make
 
 ifneq ($(LUA),)
-LUA_VER		?= 5.2.2
-LUA_DIR		:= lib/lua/lua-$(LUA_VER)
+LUA_VER  ?= 5.2.2
+LUA_DIR  := lib/lua/lua-$(LUA_VER)
 
 # include/lua/lua.h: $(LUA_DIR)
 
