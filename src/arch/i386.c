@@ -146,7 +146,6 @@ inline segment_descriptor * i386_idt(void) {
  ***/ 
 
 
-
 void cpu_setup(void) {
     gdt_setup();
 

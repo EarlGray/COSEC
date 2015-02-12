@@ -5,8 +5,10 @@
 #include <ctype.h>
 #include <limits.h>
 #include <locale.h>
+#include <setjmp.h>
 
 #include <arch/i386.h>
+#include <arch/setjmp.h>
 #include <mem/kheap.h>
 
 #include <log.h>
@@ -368,4 +370,21 @@ struct lconv *localeconv(void) {
 char *setlocale(int category, const char *locale) {
     logmsgf("Tried to change locale to %s\n", locale);
     return "C";
+}
+
+
+/*
+ *  setjmp/longjmp
+ */
+
+int setjmp(jmp_buf env) {
+    return i386_setjmp(env);
+}
+
+void longjmp(jmp_buf env, int val) {
+    return i386_longjmp(env, val);
+}
+
+void abort(void) {
+    panic("aborted");
 }

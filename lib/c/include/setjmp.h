@@ -1,8 +1,9 @@
 #ifndef __COSEC_SETJMP_H__
 #define __COSEC_SETJMP_H__
 
-struct jmp_buf_data;
-typedef struct jmp_buf_data *jmp_buf;
+//#include <arch/setjmp.h>
+
+typedef int jmp_buf[];
 
 int setjmp(jmp_buf env);
 
