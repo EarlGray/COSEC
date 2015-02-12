@@ -194,7 +194,7 @@ void test_serial(void) {
     logmsgf("IRQs state = 0x%x\n", (uint)irq_get_mask());
 
     uint8_t saved_color = get_cursor_attr();
-    print("Use <Esc> to quit, <Del> for register info\n");
+    k_printf("Use <Esc> to quit, <Del> for register info\n");
     serial_setup();
 
     //poll_serial();
@@ -211,13 +211,13 @@ void test_serial(void) {
 }
 
 void test_kbd(void) {
-    print("Use <Esc> to quit\n");
+    k_printf("Use <Esc> to quit\n");
     uint8_t key = 0;
     while (key != 1) {
         key = kbd_wait_scan(true);
         printf("%x->%x\t", (uint)key, (uint)translate_from_scan(null, key));
     }
-    print("\n");
+    k_printf("\n");
 }
 
 
@@ -243,12 +243,12 @@ void do_task0(void) {
     int i = 0;
     while (1) {
         ++i;
-        if (0 == (i % 75)) {    i = 0;   print("\r");    }
+        if (0 == (i % 75)) {    i = 0;   k_printf("\r");    }
         if (i > 75) {
             logmsgf("\nA: assert i <= 75 failed, i=0x%x\n", i);
             while (1) cpu_halt();
         }
-        print("0");
+        k_printf("0");
     }
 }
 
@@ -256,19 +256,19 @@ void do_task1(void) {
     int i = 0;
     while (1) {
         ++i;
-       if (0 == (i % 75)) {   i = 0;   print("\r");   }
+       if (0 == (i % 75)) {   i = 0;   k_printf("\r");   }
        if (i > 75) {
            logmsgf("\nB: assert i <= 75 failed, i=0x%x\n", i);
            while (1) cpu_halt();
        }
-       print("1");
+       k_printf("1");
     }
 }
 
 volatile bool quit;
 
 void key_press(/*scancode_t scan*/) {
-    print("\n\nexiting...\n");
+    k_printf("\n\key pressed...\n");
     quit = true;
 }
 
@@ -317,14 +317,14 @@ void test_tasks(void) {
     kbd_set_onpress(null);
     task_set_scheduler(null);
 
-    print("\nBye.\n");
+    k_printf("\nBye.\n");
 }
 
 /***********************************************************/
 void run_userspace(void) {
-    print("Hello, userspace");
+    k_printf("Hello, userspace");
     asm ("int $0x80  \t\n");
-    print("... and we're back");
+    k_printf("... and we're back");
     while (1);
 }
 

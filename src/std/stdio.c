@@ -12,18 +12,15 @@
 
 #include <log.h>
 
-struct FILE_struct {
-   off_t offset;
-};
+struct FILE_struct { };
 
-FILE f_stdin = {
-};
-
-FILE f_stdout = {
-};
+FILE f_stdin =  { };
+FILE f_stdout = { };
+FILE f_stderr = { };
 
 FILE *stdin = &f_stdin;
 FILE *stdout = &f_stdout;
+FILE *stderr = &f_stderr;
 
 volatile char c = 0;
 
@@ -55,7 +52,7 @@ int getline(char *buf, size_t bufsize) {
             return c;
         case '\b':
             if (cur > buf) {
-                print("\b \b");
+                k_printf("\b \b");
                 --cur;
             }
             break;
@@ -201,6 +198,31 @@ const char * sscan_int(const char *str, int *res, const uint8_t base) {
     if (sign == -1) 
         *res = - *res;
     return str;
+}
+
+int printf(const char *format, ...) {
+    int ret;
+    va_list ap;
+    va_start(ap, format);
+    ret = vfprintf(stdout, format, ap);
+    va_end(ap);
+    return ret;
+}
+
+int fprintf(FILE *stream, const char *format, ...) {
+    int ret;
+    va_list ap;
+    va_start(ap, format);
+    ret = vfprintf(stream, format, ap);
+    va_end(ap);
+    return ret;
+}
+
+int vfprintf(FILE *stream, const char *format, va_list ap) {
+    if (stream == stdout) {
+        logmsge("TODO: vfprintf()");
+    }
+    return 0;
 }
 
 int snprintf(char *str, size_t size, const char *format, ...) {
@@ -365,12 +387,11 @@ int sprintf(char *str, const char *format, ...) {
 
 
 FILE * fopen(const char *path, const char *mode) {
-    return null;
-    /*
-    FILE *f = (FILE *) malloc(sizeof(FILE));
-    f->offset = 0;
-    return f;
-    */
+    return NULL;
+}
+
+size_t fread(void *ptr, size_t size, size_t nmmeb, FILE *stream) {
+    return 0;
 }
 
 FILE *freopen(const char *path, const char *mode, FILE *stream) {
@@ -380,6 +401,26 @@ FILE *freopen(const char *path, const char *mode, FILE *stream) {
 
 int fclose(FILE *fp) {
     return -ETODO;
+}
+
+int fflush(__unused FILE *stream) {
+    return 0;
+}
+
+int feof(FILE *stream) {
+    if (stream == stdin)
+        return 0;
+    return 1;
+}
+
+void clearerr(__unused FILE *stream) {
+}
+
+int ferror(__unused FILE *stream) {
+    if (stream == stdin)  return 0;
+    if (stream == stdout) return 0;
+    if (stream == stderr) return 0;
+    return 1;
 }
 
 int fgetc(FILE *f) {

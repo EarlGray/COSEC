@@ -489,7 +489,7 @@ void kshell_set(const struct kshell_command *this, const char *arg) {
         if (*(arg + 6))
             strncpy(prompt, arg + 7, PROMPT_BUF_SIZE);
         else
-            print("Why do you want to output prompt if you see it?!\n");
+            k_printf("Why do you want to output prompt if you see it?!\n");
     } else {
         k_printf("Variables: %s\n", this->options);
     }
@@ -563,11 +563,11 @@ void kshell_help(const struct kshell_command __unused *this, const char *cmdline
             }
     }
 
-    print("Available commands ('help <cmd>' for more):\n\t");
+    k_printf("Available commands ('help <cmd>' for more):\n\t");
     for (cmd = main_commands; cmd->name; ++cmd)
         printf("%s\t", cmd->name);
 
-    print("\n\nAvailable shortcuts:\n\tCtrl-L - clear screen\n\n");
+    k_printf("\n\nAvailable shortcuts:\n\tCtrl-L - clear screen\n\n");
 }
 
 

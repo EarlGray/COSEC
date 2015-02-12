@@ -6,9 +6,6 @@
 
 void k_printf(const char *fmt, ...);
 
-#define print(msg) k_printf(msg)
-#define printf(...) k_printf(__VA_ARGS__)
-
 #define logmsg(msg) k_printf(msg)
 #define logmsgf(...) k_printf(__VA_ARGS__)
 

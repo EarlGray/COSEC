@@ -10,7 +10,7 @@
 pde_t thePageDirectory[N_PDE] __attribute__((aligned (PAGE_SIZE)));
 
 int pg_fault(void) {
-    print("\n#PF\n");
+    k_printf("\n#PF\n");
 
     ptr_t fault_addr;
     asm volatile ("movl %%cr2, %0   \n" : "=r"(fault_addr) );

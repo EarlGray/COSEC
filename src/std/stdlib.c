@@ -113,6 +113,11 @@ void *calloc(size_t nmemb, size_t size) {
     return p;
 }
 
+void *realloc(void *ptr, size_t size) {
+    logmsge("TODO: realloc()");
+    return NULL;
+}
+
 void free(void *ptr) {
     kfree(ptr);
 }
