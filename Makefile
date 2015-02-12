@@ -15,6 +15,7 @@ cc  ?=  $(crosscompile)gcc
 as  ?=  $(crosscompile)gcc
 ld  ?=  $(crosscompile)ld
 ar  ?=  $(crosscompile)ar
+ranlib ?= $(crosscompile)ranlib
 
 nm  :=  $(crosscompile)nm
 objdump :=  $(crosscompile)objdump
@@ -187,14 +188,14 @@ $(LUA_DIR): lib/lua/lua-$(LUA_VER).tar.gz
 	cd include ; test -L lua || ln -s ../$(LUA_DIR)/src lua
 
 $(liblua): $(LUA_DIR)
-	cd $(LUA_DIR)/src \
-	&& make CC=$(cc) AR='$(ar) rcu --target elf32-i386' \
-	        SYSCFLAGS='-m32 -nostdinc -I$(shell readlink -f $(STDINC_DIR))' liblua.a
+	TOP_DIR=`pwd` && cd $(LUA_DIR)/src \
+	&& make CC=$(cc) RANLIB=$(ranlib) AR='$(ar) rcu --target elf32-i386' \
+	        SYSCFLAGS="-m32 -nostdinc -I$$TOP_DIR/$(STDINC_DIR)" liblua.a
 	mv $(LUA_DIR)/src/liblua.a $(top_dir)/$@
 
 endif
 clean_lua:
-	rm -rf include/lua lib/liblua.a # lib/lua
+	rm -rf include/lua lib/liblua.a $(LUA_DIR)
 
 $(pipe_file):
 	mkfifo $(pipe_file)
