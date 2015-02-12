@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <ctype.h>
 #include <limits.h>
+#include <locale.h>
 
 #include <arch/i386.h>
 #include <mem/kheap.h>
@@ -35,10 +36,70 @@ int atoi(const char *nptr) {
 
 /*
 long strtol(const char *nptr, char **endptr, int base) {
+    const char *c = nptr;
 }
 */
 
-/* 
+double strtod(const char *nptr, char **endptr) {
+    bool neg = false;
+    char *c = nptr;
+    double res = 0;
+    char decpoint = localeconv()->decimal_point[0];
+
+    while (isspace(*c)) ++c;
+
+    switch (*c) {
+      case '-': neg = true; /* fallthrough */
+      case '+': ++c; break;
+    }
+
+    if (!isdigit(*c) && (*c != decpoint))
+        goto error_exit;
+
+    /* TODO: hexadecimals, INF/INFINITY/NAN */
+    while (isdigit(*c)) {
+        res *= 10;
+        res += (*c) - '0';
+        ++c;
+    }
+
+    if (*c == decpoint) {
+        double fracpow = 1;
+        ++c;
+        while (isdigit(*c)) {
+            fracpow /= 10.0;
+            res += fracpow * (*c - '0');
+            ++c;
+        }
+    }
+
+    if (tolower(*c) == 'e') {
+        ++c;
+        int expnum = 0;
+        bool expneg = false;
+        switch (*c) {
+            case '-': expneg = true; /*fallthough*/
+            case '+': ++c; break;
+        }
+        if (!isdigit(*c))
+            goto error_exit;
+
+        do {
+            expnum *= 10;
+            expnum += (*c - '0');
+        } while (isdigit(*++c));
+        res *= pow(10,0, (expneg ? -expnum : expnum));
+    }
+
+    if (endptr) *endptr = c;
+    return (neg ? -res : res);
+
+error_exit:
+    if (endptr) *endptr = nptr;
+    return 0;
+}
+
+/*
  * stdlib-like memory management using the global heap: stdlib.h
  */
 void *malloc(size_t size) {
@@ -113,7 +174,7 @@ char *strndup(const char *s, size_t n) {
     size_t len = strlen(s) + 1;
     if (len > n) len = n;
     char *d = (char *) kmalloc(len);
-    if (!d) logef("strndup: kmalloc failed!\n");
+    if (!d) logmsgef("strndup: kmalloc failed!\n");
     return strncpy(d, s, n);
 }
 
@@ -234,6 +295,11 @@ uint32_t strhash(const char *key, size_t len) {
     return jenkins_one_at_a_time_hash(key, len);
 }
 
+char *strerror(int errornum) {
+    return "strerror()";
+}
+
+
 /*
  *  char operations from ctype.h
  */
@@ -259,4 +325,42 @@ int isspace(int c) {
 int isdigit(int c) {
     if ('0' <= c && c <= '9') return true;
     return false;
+}
+
+
+void __stack_chk_fail(void) {
+    panic("__stack_chk_fail()");
+}
+
+/*
+ *  Locale stuff
+ */
+struct lconv clocale = {
+    .decimal_point = ".",
+    .thousands_sep = "",
+    .grouping      = "",
+    .int_curr_symbol = "",
+    .currency_symbol = "",
+    .mon_decimal_point = "",
+    .mon_thousands_sep = "",
+    .mon_grouping      = "",
+    .positive_sign     = "",
+    .negative_sign     = "",
+    .int_frac_digits   = '\x7f',
+    .frac_digits       = '\x7f',
+    .p_cs_precedes     = '\x7f',
+    .p_sep_by_space    = '\x7f',
+    .n_cs_precedes     = '\x7f',
+    .n_sep_by_space    = '\x7f',
+    .p_sign_posn    = '\x7f',
+    .n_sign_posn    = '\x7f',
+};
+
+struct lconv *localeconv(void) {
+    return &clocale;
+}
+
+char *setlocale(int category, const char *locale) {
+    logmsgf("Tried to change locale to %s\n", locale);
+    return "C";
 }

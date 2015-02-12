@@ -20,7 +20,7 @@
 #include <log.h>
 
 #if MEM_DEBUG
-#   define mem_logf(msg, ...) logf(msg, __VA_ARGS__)
+#   define mem_logf(msg, ...) logmsgf(msg, __VA_ARGS__)
 #else
 #   define mem_logf(msg, ...)
 #endif
@@ -160,7 +160,7 @@ static void mark_used(void *p1, void *p2) {
     for (i = pft1; i < pft2; ++i) {
         pageframe_t *pf = the_pageframe_map + i;
         if (pf->flags != PF_FREE) {
-            logef("pmem_init: trying to mark page #%x as used, its flags are %d\n",
+            logmsgef("pmem_init: trying to mark page #%x as used, its flags are %d\n",
                     i, pf->flags);
             return;
         }

@@ -47,7 +47,7 @@ static void task_save_context(task_struct *task) {
 
     task->tss.esp0 = (uint)context + CONTEXT_SIZE + task_sysinfo_size(task)*sizeof(uint);
 
-    logdf("\n| save cntxt=%x |", (uint)context);
+    logmsgdf("\n| save cntxt=%x |", (uint)context);
 }
 
 /* this routine is normally called from within interrupt! */
@@ -55,7 +55,7 @@ static void task_push_context(task_struct *task) {
     uint context = task->tss.esp0 - CONTEXT_SIZE - task_sysinfo_size(task)*sizeof(uint);
     intr_set_context_esp(context);
 
-    logdf(" push cntxt=%x |\n", context);
+    logmsgdf(" push cntxt=%x |\n", context);
 }
 
 static inline void task_cpu_load(task_struct *task) {
@@ -130,7 +130,7 @@ void task_init(task_struct *task, void *entry,
 
     task->tss_index = gdt_alloc_entry(taskdescr);
     assertv( task->tss_index, "Error: can't allocate GDT entry for TSSD\n");
-    logdf("new TSS <- GDT[%x]\n", task->tss_index);
+    logmsgdf("new TSS <- GDT[%x]\n", task->tss_index);
 
     /* init is done */
     task->state = TS_READY;

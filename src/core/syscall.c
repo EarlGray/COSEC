@@ -29,7 +29,7 @@ void int_syscall() {
     uint arg2 = *(stack - 3);
     uint arg3 = *(stack - 4);
 
-    logdf("\n#syscall(%d, 0x%x, 0x%x, 0x%x)\n",
+    logmsgdf("\n#syscall(%d, 0x%x, 0x%x, 0x%x)\n",
             intr_num, arg1, arg2, arg3);
 
     assertv( intr_num < N_SYSCALLS,
@@ -38,12 +38,12 @@ void int_syscall() {
     const syscall_handler callee = syscalls[intr_num];
     assertv(callee, "#SYS: invalid handler for syscall[0x%x]\n", intr_num);
 
-    logdf("callee *%x will be called...\n", (uint)callee);
+    logmsgdf("callee *%x will be called...\n", (uint)callee);
     callee(arg1, arg2, arg3);
 }
 
 int sys_print(const char **fmt) {
-    logd("sys_printf()");
+    logmsgd("sys_printf()");
     print(*fmt);
     return 0;
 }

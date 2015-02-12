@@ -49,14 +49,14 @@ static void test_vsprint(const char *fmt, ...) {
             switch (*(++c)) {
                 case 's': {
                     char *s = va_arg(ap, char *); 
-                    logf("%%s: 0x%x, *s=0x%x\n", (uint)s, (uint)*s);
+                    logmsgf("%%s: 0x%x, *s=0x%x\n", (uint)s, (uint)*s);
                           } break;
                 case 'd': case 'u': case 'x': {
                     int arg = va_arg(ap, int);
-                    logf("%%d: 0x%x\n", (uint)arg);
+                    logmsgf("%%d: 0x%x\n", (uint)arg);
                                               } break;
                 default:
-                    log("Unknown operand for %%\n");
+                    logmsg("Unknown operand for %%\n");
                         
             }
         }
@@ -64,7 +64,7 @@ static void test_vsprint(const char *fmt, ...) {
     }
 
     va_end(ap);
-    logf("\n%s\n", buf);
+    logmsgf("\n%s\n", buf);
 }
 
 void test_sprintf(void) {
@@ -74,7 +74,7 @@ void test_sprintf(void) {
 void test_eflags(void) {
     uint flags = 0;
     i386_eflags(flags);
-    logf("flags=0x%x\n", flags);
+    logmsgf("flags=0x%x\n", flags);
 }
 
 void test_usleep(void) {
@@ -108,11 +108,11 @@ static void on_timer(uint counter) {
     if (counter % 1000 == 0) {
         uint ts[2] = { 0 };
         i386_rdtsc((uint64_t *)ts);
-        logf("%d: rdtsc=%x %x ", counter, ts[1], ts[0]);
+        logmsgf("%d: rdtsc=%x %x ", counter, ts[1], ts[0]);
 #if INTR_PROFILING
-        logf(" tick=%x %x, icnt = %x", intr_ticks.u32[1], intr_ticks.u32[0], intr_count);
+        logmsgf(" tick=%x %x, icnt = %x", intr_ticks.u32[1], intr_ticks.u32[0], intr_count);
 #endif
-        log("\n");
+        logmsg("\n");
     }
 }
 
@@ -141,14 +141,14 @@ void test_timer(void) {
 inline static void print_serial_info(uint16_t port) {
     uint8_t iir;
     inb(port + 1, iir);
-    logf("(IER=%x\t", (uint)iir);
+    logmsgf("(IER=%x\t", (uint)iir);
     inb(port + 2, iir);
-    logf("IIR=%x\t", (uint)iir);
+    logmsgf("IIR=%x\t", (uint)iir);
     inb(port + 5, iir);
-    logf("LSR=%x\t", (uint)iir);
+    logmsgf("LSR=%x\t", (uint)iir);
     inb(port + 6, iir);
-    logf("MSR=%x", (uint)iir);
-    logf("PIC=%x)", (uint)irq_get_mask());
+    logmsgf("MSR=%x", (uint)iir);
+    logmsgf("PIC=%x)", (uint)irq_get_mask());
 }
 
 void on_serial_received(uint8_t b) {
@@ -191,7 +191,7 @@ void poll_serial() {
 }
 
 void test_serial(void) {
-    logf("IRQs state = 0x%x\n", (uint)irq_get_mask());
+    logmsgf("IRQs state = 0x%x\n", (uint)irq_get_mask());
 
     uint8_t saved_color = get_cursor_attr();
     print("Use <Esc> to quit, <Del> for register info\n");
@@ -245,7 +245,7 @@ void do_task0(void) {
         ++i;
         if (0 == (i % 75)) {    i = 0;   print("\r");    }
         if (i > 75) {
-            logf("\nA: assert i <= 75 failed, i=0x%x\n", i);
+            logmsgf("\nA: assert i <= 75 failed, i=0x%x\n", i);
             while (1) cpu_halt();
         }
         print("0");
@@ -258,7 +258,7 @@ void do_task1(void) {
         ++i;
        if (0 == (i % 75)) {   i = 0;   print("\r");   }
        if (i > 75) {
-           logf("\nB: assert i <= 75 failed, i=0x%x\n", i);
+           logmsgf("\nB: assert i <= 75 failed, i=0x%x\n", i);
            while (1) cpu_halt();
        }
        print("1");
@@ -351,7 +351,7 @@ void test_userspace(void) {
     segment_selector tss_sel;
     tss_sel.as.word = make_selector(taskdescr_index, 0, PL_USER);
 
-    logf("GDT[%x]\n", taskdescr_index);
+    logmsgf("GDT[%x]\n", taskdescr_index);
 
     kbd_set_onpress((kbd_event_f)key_press);
 
@@ -388,7 +388,7 @@ void test_init(void) {
     segment_selector tss_sel;
     tss_sel.as.word = make_selector(taskdescr_index, 0, PL_USER);
 
-    logf("GDT[%x]\n", taskdescr_index);
+    logmsgf("GDT[%x]\n", taskdescr_index);
 
     kbd_set_onpress((kbd_event_f)key_press);
 

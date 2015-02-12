@@ -39,8 +39,8 @@
 #define PIC_EOI         0x20            // PIC end-of-interrput command code
 
 #if INTR_DEBUG
-#   define intr_logf(msg, ...) logf(msg, __VA_ARGS__)
-#   define intr_log(msg) log(msg)
+#   define intr_logf(msg, ...) logmsgf(msg, __VA_ARGS__)
+#   define intr_log(msg) logmsg(msg)
 #else
 #   define intr_logf(msg, ...)
 #   define intr_log(msg)

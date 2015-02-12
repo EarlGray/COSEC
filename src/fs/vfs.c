@@ -16,15 +16,15 @@ err_t vfs_mkdir(const char *path, mode_t mode) {
 }
 
 void print_ls(const char *path) {
-    logef("TODO: VFS not implemented\n");
+    logmsgef("TODO: VFS not implemented\n");
 }
 
 void print_mount(void) {
-    logef("TODO: VFS not implemented\n");
+    logmsgef("TODO: VFS not implemented\n");
 }
 
 void vfs_shell(const char *cmd) {
-    logef("TODO: VFS not implemented\n");
+    logmsgef("TODO: VFS not implemented\n");
 }
 
 void vfs_setup(void) {

@@ -12,7 +12,7 @@ static uint8_t from_bcd(uint8_t bcd) {
 
 static inline void convert_from_cmos_fmt(ymd_hms *time) {
     uint8_t cmos_b = read_cmos(CMOS_REG_STATUS_B);
-    logdf("cmos b = %x\n", (uint)cmos_b);
+    logmsgdf("cmos b = %x\n", (uint)cmos_b);
 
     if (!(cmos_b & CMOS_B_FMT_NOT_BCD)) {
         time->tm_sec = from_bcd(time->tm_sec);
@@ -31,7 +31,7 @@ err_t time_ymd_from_rtc(ymd_hms *ymd) {
     ymd_hms time;
 
     do {
-        logd("RTC read: trying...");
+        logmsgd("RTC read: trying...");
         while (cmos_is_in_update());
         time.tm_sec = read_cmos(CMOS_REG_SECS);
         time.tm_min = read_cmos(CMOS_REG_MINS);

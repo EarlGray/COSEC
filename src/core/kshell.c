@@ -538,7 +538,7 @@ void kshell_secd() {
     int ret;
     ret = run_lisp();
     if (ret != 0)
-        logef("SECD REPL exited with code %d\n", ret);
+        logmsgef("SECD REPL exited with code %d\n", ret);
 #endif
 }
 

@@ -3,7 +3,7 @@ export include_dir  := $(top_dir)/include
 export src_dir      := $(top_dir)/src
 export build        := $(top_dir)/build
 
-export STDINC_DIR	:= lib/c/include
+export STDINC_DIR   := lib/c/include
 
 host_os := $(shell uname)
 
@@ -14,27 +14,10 @@ endif
 cc  ?=  $(crosscompile)gcc
 as  ?=  $(crosscompile)gcc
 ld  ?=  $(crosscompile)ld
+ar  ?=  $(crosscompile)ar
 
 nm  :=  $(crosscompile)nm
 objdump :=  $(crosscompile)objdump
-
-lds := vmcosec.lds
-
-cc_flags    := -ffreestanding -nostdinc -Wall -Wextra -Winline -Wno-unused -O2 -MD -DCOSEC=1
-as_flags    := -Wall -MD $(addprefix -I, $(include_dir))
-ld_flags    := -static -nostdlib -T$(build)/$(lds)
-
-ifneq ($(LUA),)
-cc_flags    += -DCOSEC_LUA=1
-ld_flags    += lib/liblua.a
-endif
-
-cc_includes := $(addprefix -I, $(include_dir) $(STDINC_DIR))
-
-### for 64bit host
-cc_flags  += -m32
-as_flags  += -m32
-ld_flags  += -melf_i386
 
 objs    := $(src_dir)/arch/boot.S
 objs    += $(wildcard $(src_dir)/arch/[^b]*.S) # exclude boot.S
@@ -43,6 +26,24 @@ objs    += $(wildcard $(src_dir)/*/*.c)
 objs    := $(patsubst $(src_dir)/%.S, $(build)/%.o, $(objs))
 objs    := $(patsubst $(src_dir)/%.c, $(build)/%.o, $(objs))
 objs    += $(build)/core/repl.o
+
+lds := vmcosec.lds
+
+cc_includes := $(addprefix -I, $(include_dir) $(STDINC_DIR))
+
+cc_flags    := -ffreestanding -nostdinc -Wall -Wextra -Winline -Wno-unused -O2 -MD -DCOSEC=1
+as_flags    := -Wall -MD $(addprefix -I, $(include_dir))
+ld_flags    := -static -nostdlib -T$(build)/$(lds)
+
+ifneq ($(LUA),)
+liblua		:= lib/liblua.a
+cc_flags    += -DCOSEC_LUA=1
+endif
+
+### for 64bit host
+cc_flags  += -m32
+as_flags  += -m32
+ld_flags  += -melf_i386
 
 libinit   := $(build)/usr/init.a
 kernel    := kernel
@@ -137,10 +138,10 @@ $(image):
 		echo -e "## ...generated\n";	\
 	fi
 
-$(kernel): $(build) $(objs) $(build)/$(lds)
+$(kernel): $(build) $(liblua) $(objs) $(build)/$(lds)
 	@echo "\n#### Linking..."
 	@echo -n "LD: "
-	$(ld) -o $(build)/$(kernel)	$(objs) $(ld_flags) && echo "## ...linked"
+	$(ld) -o $(build)/$(kernel)	$(objs) $(liblua) $(ld_flags) && echo "## ...linked"
 	@[ `which $(objdump) 2>/dev/null` ] && $(objdump) -d $(build)/$(kernel) > $(objdfile) || true
 	@[ `which $(nm) 2>/dev/null` ] && $(nm) $(build)/$(kernel) | sort > $(build)/$(kernel).nm || true
 	@[ `which ctags 2>/dev/null ` ] && ctags -R * || true
@@ -175,24 +176,25 @@ ifneq ($(LUA),)
 LUA_VER		?= 5.2.2
 LUA_DIR		:= lib/lua/lua-$(LUA_VER)
 
-lib/lua/lua-$(LUA_VER).tar.gz:
-	test -f $@ || {   \
-	    mkdir -p lib/lua ; cd lib/lua ;   \
-	    TARGZ=$(notdir $@);               \
-	    curl -R -O http://www.lua.org/ftp/$$TARGZ; \
-	    tar xf $$TARGZ; }
+# include/lua/lua.h: $(LUA_DIR)
 
-lib/liblua.a: lib/lua/lua-$(LUA_VER).tar.gz
-	test -d $(LUA_DIR) || tar -C lib/lua xf $<
-	cd $(LUA_DIR)/src \
-	&& make CC=$(cc) AR='$(crosscompile)ar rcu' \
-	        SYSFLAGS='-m32 -nostdinc -I./$(STDINC_DIR)' liblua.a \
-	&& mv liblua.a $(top_dir)/$@
+lib/lua/lua-$(LUA_VER).tar.gz:
+	mkdir -p lib/lua ; cd lib/lua; \
+    curl -R -O http://www.lua.org/ftp/$(notdir $@)
+
+$(LUA_DIR): lib/lua/lua-$(LUA_VER).tar.gz
+	cd lib/lua && tar xf $(notdir $<)
 	cd include ; test -L lua || ln -s ../$(LUA_DIR)/src lua
+
+$(liblua): $(LUA_DIR)
+	cd $(LUA_DIR)/src \
+	&& make CC=$(cc) AR='$(ar) rcu --target elf32-i386' \
+	        SYSCFLAGS='-m32 -nostdinc -I$(shell readlink -f $(STDINC_DIR))' liblua.a
+	mv $(LUA_DIR)/src/liblua.a $(top_dir)/$@
 
 endif
 clean_lua:
-	rm -rf include/lua lib/lua lib/liblua.a
+	rm -rf include/lua lib/liblua.a # lib/lua
 
 $(pipe_file):
 	mkfifo $(pipe_file)
@@ -211,5 +213,5 @@ help:
 	echo "  to make image with native sudo. In order to do this, use"; \
 	echo "	make fuse=";	echo
 
-include $(wildcard $(addprefix /*.d, $(build)))
+include $(wildcard $(addprefix /*.d, $(build)/arch $(build)/core $(build)/dev $(build)/fs $(build)/mem $(build)/std))
 $(build)/core/repl.o: $(src_dir)/core/repl.secd

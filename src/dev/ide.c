@@ -41,7 +41,7 @@ uint8_t ide_identify(uint port, uint8_t drive) {
     while (!(status & 0x09)) inb_p(port + STATUSPORT, status);
 
     if (status & 0x01) {
-        loge("ide_identify: ERR bit set");
+        logmsge("ide_identify: ERR bit set");
         return 0;
     }
 

@@ -63,7 +63,7 @@ typedef enum { false, true } bool;
 typedef  long  index_t;
 #endif
 
-#define errorf(...) logef(__VA_ARGS__)
+#define errorf(...) logmsgef(__VA_ARGS__)
 #define assert_or_continue(cond, ...) \
     if (!(cond)) { errorf(__VA_ARGS__); continue; }
 #define assert(cond, ...) \
@@ -1477,7 +1477,7 @@ void print_env(secd_t *secd) {
             cell_t *sym = get_car(symlist);
             cell_t *val = get_car(vallist);
             if (atom_type(sym) != ATOM_SYM)
-                logef("print_env: not a symbol at *%p in vallist\n", sym);
+                logmsgef("print_env: not a symbol at *%p in vallist\n", sym);
             printf("  %s\t=>\t", symname(sym));
             print_cell(val);
 

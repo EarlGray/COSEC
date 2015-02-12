@@ -9,40 +9,40 @@ void k_printf(const char *fmt, ...);
 #define print(msg) k_printf(msg)
 #define printf(...) k_printf(__VA_ARGS__)
 
-#define log(msg) k_printf(msg)
-#define logf(...) k_printf(__VA_ARGS__)
+#define logmsg(msg) k_printf(msg)
+#define logmsgf(...) k_printf(__VA_ARGS__)
 
-#define loge(...) do { log("Error: "); logf(__VA_ARGS__); log("\n"); } while (0)
-#define logef(...)  loge(__VA_ARGS__)
+#define logmsge(...) do { logmsg("Error: "); logmsgf(__VA_ARGS__); logmsg("\n"); } while (0)
+#define logmsgef(...)  logmsge(__VA_ARGS__)
 
 #ifdef __DEBUG
-#   define logd(msg) log(msg)
-#   define logdf(...) logf(__VA_ARGS__)
+#   define logmsgd(msg) logmsg(msg)
+#   define logmsgdf(...) logmsgf(__VA_ARGS__)
 #else
-#   define logd(msg)
-#   define logdf(...)
+#   define logmsgd(msg)
+#   define logmsgdf(...)
 #endif
 
 #define return_if_eq(expr1, ret_expr) \
     if ((expr1) == (ret_expr)) return (ret_expr);
 
 #define return_if(assertion, retval, msg) \
-    if (assertion) {  logd(msg); return (retval); }
+    if (assertion) {  logmsgd(msg); return (retval); }
 
 #define returnv_if(assertion, msg) \
-    if (assertion) {  logd(msg); return; }
+    if (assertion) {  logmsgd(msg); return; }
 
 #define returnf_if(assertion, retval, fmt, ...) \
-    if (assertion) {  logdf(msg, __VA_ARGS__); return (retval); }
+    if (assertion) {  logmsgdf(msg, __VA_ARGS__); return (retval); }
 
 #define assertq(assertion, retval) \
     if (!(assertion)) { return (retval); }
 
 #define assert(assertion, retval, ...)    \
-    if (!(assertion)) { logef(__VA_ARGS__); return (retval); }
+    if (!(assertion)) { logmsgef(__VA_ARGS__); return (retval); }
 
 #define assertv(assertion, ...)    \
-    if (!(assertion)) { logef(__VA_ARGS__); return; }
+    if (!(assertion)) { logmsgef(__VA_ARGS__); return; }
 
 
 extern void panic(const char *fatal_error);
