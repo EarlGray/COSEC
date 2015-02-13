@@ -38,6 +38,10 @@ int kfree(void *p) {
     return 0;
 }
 
+void *krealloc(void *p, size_t size) {
+    return firstfit_realloc(theHeap, p, size);
+}
+
 void kheap_info(void) {
     heap_info(theHeap);
 }

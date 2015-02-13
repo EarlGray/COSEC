@@ -192,6 +192,55 @@ void * firstfit_malloc(struct firstfit_allocator *this, uint size) {
     return null;   // no memory
 }
 
+void *firstfit_realloc(struct firstfit_allocator *this, void *p, size_t size) {
+    if (!p) return firstfit_malloc(this, size);
+
+    size_t aligned_size = aligned(size);
+
+    chunk_t *this_chunk = (chunk_t *)((uint)p - CHUNK_SIZE);
+    size_t this_size = get_size(this_chunk);
+
+    chunk_t *next_chunk = next(this_chunk);
+
+    if (aligned_size < this_size) {
+        // shrink
+        if ((aligned_size + sizeof(chunk_t)) >= this_size)
+            return p; // no space for a new chunk
+
+        chunk_t *new_chunk = (chunk_t *)((uint)this_chunk + CHUNK_SIZE + aligned_size);
+        if (!is_used(next_chunk)) {
+            // merge new free space with the next free chunk
+            if (this->current == next_chunk)
+                this->current = new_chunk;
+            next_chunk = next(next_chunk);
+        }
+
+        set_next(this_chunk, new_chunk);
+        set_prev(next_chunk, new_chunk);
+        set_chunk(new_chunk, next_chunk, this_chunk, false);
+    } else {
+        // grow
+        if (!is_used(next_chunk)
+            && (get_size(next_chunk) >= (aligned_size - this_size)))
+        {
+            // use the next chunk
+            next_chunk = next(next_chunk);
+            chunk_t *new_chunk = (chunk_t *)((uint)this_chunk + CHUNK_SIZE + aligned_size);
+            set_next(this_chunk, new_chunk);
+            set_prev(next_chunk, new_chunk);
+            set_chunk(new_chunk, next_chunk, this_chunk, false);
+        } else {
+            // relocate
+            void *new_p = firstfit_malloc(this, size);
+            memcpy(new_p, p, this_size);
+            firstfit_free(this, p);
+            return new_p;
+        }
+    }
+
+    return chunk_data(this_chunk);
+}
+
 void firstfit_free(struct firstfit_allocator *this, void *p) {
     assertv(p, "firstfit warning: trying to deallocate null");
 
@@ -231,17 +280,17 @@ void *firstfit_corruption(struct firstfit_allocator *this) {
 #include <log.h>
 
 void heap_info(struct firstfit_allocator *this) {
-    printf("header(*%x): startmem = 0x%x, endmem = 0x%x, current = 0x%x\n",
+    k_printf("header(*%x): startmem = 0x%x, endmem = 0x%x, current = 0x%x\n",
             (uint)this, (uint)this->startmem, (uint)this->endmem, (uint)this->current);
     chunk_t *cur = this->current;
     do {
-        printf("  0x%x %s (0x%x : 0x%x) [0x%x]\n",
+        k_printf("  0x%x %s (0x%x : 0x%x) [0x%x]\n",
               (uint)cur, (is_used(cur) ? "used" : "free"),
               CHUNK_SIZE + (uint)cur,
               (uint)next(cur), get_size(cur));
         cur = next(cur);
         if (! check_sum(cur)) {
-            printf("HEAP ERROR: Invalid checksum, heap corruption at 0x%x\n", cur);
+            k_printf("HEAP ERROR: Invalid checksum, heap corruption at 0x%x\n", cur);
             return;
         }
 

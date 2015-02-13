@@ -22,6 +22,11 @@ struct firstfit_allocator * firstfit_new(void *startmem, unsigned size);
 void *firstfit_malloc(struct firstfit_allocator *this, unsigned size);
 
 /***
+  *     Shrink or grow pointer memory
+ ***/
+void *firstfit_realloc(struct firstfit_allocator *this, void *p, unsigned size);
+
+/***
   *     Free memory, keep consistency of the heap, check heap for corruption, 
   *    try to repair it if necessary
  ***/

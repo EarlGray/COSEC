@@ -1,5 +1,5 @@
-#ifndef __COSEC_SETJMP_H__
-#define __COSEC_SETJMP_H__
+#ifndef __COSEC_X86_SETJMP_H__
+#define __COSEC_X86_SETJMP_H__
 
 #define MY_JMPBUF_SIZE 6
 
@@ -16,7 +16,7 @@ typedef int i386_jmp_buf[MY_JMPBUF_SIZE];
 
 int i386_setjmp(i386_jmp_buf env);
 
-void 386_longjmp(i386_jmp_buf env, int val);
+void i386_longjmp(i386_jmp_buf env, int val);
 
 #endif // NOT_CC
-#endif // __COSEC_SETJMP_H__
+#endif // __COSEC_X86_SETJMP_H__

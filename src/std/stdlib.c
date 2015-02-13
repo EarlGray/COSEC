@@ -6,6 +6,7 @@
 #include <limits.h>
 #include <locale.h>
 #include <setjmp.h>
+#include <math.h>
 
 #include <arch/i386.h>
 #include <arch/setjmp.h>
@@ -44,7 +45,7 @@ long strtol(const char *nptr, char **endptr, int base) {
 
 double strtod(const char *nptr, char **endptr) {
     bool neg = false;
-    char *c = nptr;
+    const char *c = nptr;
     double res = 0;
     char decpoint = localeconv()->decimal_point[0];
 
@@ -90,14 +91,14 @@ double strtod(const char *nptr, char **endptr) {
             expnum *= 10;
             expnum += (*c - '0');
         } while (isdigit(*++c));
-        res *= pow(10,0, (expneg ? -expnum : expnum));
+        res *= pow(10.0, (expneg ? -expnum : expnum));
     }
 
-    if (endptr) *endptr = c;
+    if (endptr) *endptr = (char *)c;
     return (neg ? -res : res);
 
 error_exit:
-    if (endptr) *endptr = nptr;
+    if (endptr) *endptr = (char *)nptr;
     return 0;
 }
 
@@ -116,8 +117,7 @@ void *calloc(size_t nmemb, size_t size) {
 }
 
 void *realloc(void *ptr, size_t size) {
-    logmsge("TODO: realloc()");
-    return NULL;
+    return krealloc(ptr, size);
 }
 
 void free(void *ptr) {
@@ -268,17 +268,18 @@ char *strrchr(const char *s, int c) {
 }
 
 char *strstr(const char *haystack, const char *needle) {
+    /* TODO */
 }
 
 char *strpbrk(const char *s, const char *accept) {
     char accept_table[ UCHAR_MAX + 1] = { 0 };
     char *c;
 
-    for (c = accept; *c; ++c)
-        accept_table[*c] = true;
+    for (c = (char *)accept; *c; ++c)
+        accept_table[(int)*c] = true;
 
-    for (c = s; *c; ++c)
-        if (accept_table[*c])
+    for (c = (char *)s; *c; ++c)
+        if (accept_table[(unsigned)*c])
             return c;
 
     return NULL;
@@ -382,7 +383,7 @@ int setjmp(jmp_buf env) {
 }
 
 void longjmp(jmp_buf env, int val) {
-    return i386_longjmp(env, val);
+    i386_longjmp(env, val);
 }
 
 void abort(void) {
