@@ -532,8 +532,15 @@ void kshell_time() {
 
 void kshell_secd() {
 #ifdef COSEC_LUA
+    const char *exp = "print(2 + 2)";
     lua_State *lua;
     lua = luaL_newstate();
+    luaL_openlibs(lua);
+    int err = luaL_loadbuffer(lua, exp, strlen(exp), "line") || lua_pcall(lua, 0, 0, 0);
+    if (err) {
+        printf("### Error: %s\n", lua_tostring(lua, -1));
+        lua_pop(lua, 1);
+    }
 #else
     int ret;
     ret = run_lisp();

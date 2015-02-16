@@ -139,6 +139,7 @@ int __pure strncmp(const char *s1, const char *s2, size_t n) {
 }
 
 int __pure strcoll(const char *s1, const char *s2) {
+    logmsgd("TODO: strcoll defaults to strcmp()");
     return strcmp(s1, s2);
 }
 
@@ -161,6 +162,21 @@ int __pure strncasecmp(const char *s1, const char *s2, size_t n) {
 
 int __pure strcasecmp(const char *s1, const char *s2) {
     return strncasecmp(s1, s2, UINT_MAX);
+}
+
+size_t strspn(const char *s1, const char *s2) {
+    char accept[UCHAR_MAX + 1] = { 0 };
+    const char *s;
+    for (s = s2; *s; ++s) {
+        accept[ (uint8_t)*s ] = true;
+    }
+
+    s = s1;
+    for (s = s1; *s; ++s) {
+        if (!accept[ (uint8_t)*s ])
+            return (size_t)(s - s1);
+    }
+    return (size_t)(s - s1);
 }
 
 int __pure memcmp(const void *s1, const void *s2, size_t n) {
@@ -238,6 +254,16 @@ void *memset(void *s, int c, size_t n) {
     return s;
 }
 
+void *memchr(const void *s, int c, size_t n) {
+    size_t i;
+    const char *sp = s;
+    for (i = 0; i < n; ++i) {
+        if (sp[i] == c)
+            return (void *)(s + i);
+    }
+    return NULL;
+}
+
 char __pure *strnchr(const char *s, size_t n, int c) {
     char *cur = (char *)s;
     while (*cur && ((cur - s) < (int)n)) {
@@ -268,7 +294,8 @@ char *strrchr(const char *s, int c) {
 }
 
 char *strstr(const char *haystack, const char *needle) {
-    /* TODO */
+    logmsge("TODO: strstr()");
+    return NULL;
 }
 
 char *strpbrk(const char *s, const char *accept) {
@@ -311,6 +338,55 @@ char *strerror(int errornum) {
 /*
  *  char operations from ctype.h
  */
+enum chargroups {
+    CHARGRP_ALNUM = 0x0001,
+    CHARGRP_ALPHA = 0x0002,
+    CHARGRP_CNTRL = 0x0004,
+    CHARGRP_DIGIT = 0x0008,
+    CHARGRP_GRAPH = 0x0010,
+    CHARGRP_HEXDI = 0x0020,
+    CHARGRP_LOWER = 0x0040,
+    CHARGRP_NUM   = 0x0080,
+    CHARGRP_SPEC  = 0x0100,
+    CHARGRP_PRINT = 0x0200,
+    CHARGRP_PUNCT = 0x0400,
+    CHARGRP_SPACE = 0x0800,
+    CHARGRP_UPPER = 0x1000,
+    CHARGRP_XDIGIT = 0x2000,
+};
+
+const uint16_t ascii_chrgrp[128] = {
+    /* 00 */ 0x0004, 0x0004, 0x0004, 0x0004, 0x0004, 0x0004, 0x0004, 0x0004,
+    /* 08 */ 0x0004, 0x0804, 0x0804, 0x0804, 0x0804, 0x0804, 0x0004, 0x0004,
+    /* 10 */ 0x0004, 0x0004, 0x0004, 0x0004, 0x0004, 0x0004, 0x0004, 0x0004,
+    /* 18 */ 0x0004, 0x0004, 0x0004, 0x0004, 0x0004, 0x0004, 0x0004, 0x0004,
+    /* 20 */ 0x0800, 0x0010, 0x0010, 0x0010, 0x0010, 0x0010, 0x0010, 0x0010,
+    /* 28 */ 0x0010, 0x0010, 0x0010, 0x0010, 0x0010, 0x0010, 0x0010, 0x0010,
+    /* 30 */ 0x20b9, 0x20b9, 0x20b9, 0x20b9, 0x20b9, 0x20b9, 0x20b9, 0x20b9,
+    /* 38 */ 0x20b9, 0x20b9, 0x0010, 0x0010, 0x0010, 0x0010, 0x0010, 0x0010,
+    /* 40 */ 0x0010, 0x3033, 0x3033, 0x3033, 0x3033, 0x3033, 0x3033, 0x1013,
+    /* 48 */ 0x1013, 0x1013, 0x1013, 0x1013, 0x1013, 0x1013, 0x1013, 0x1013,
+    /* 50 */ 0x1013, 0x1013, 0x1013, 0x1013, 0x1013, 0x1013, 0x1013, 0x1013,
+    /* 58 */ 0x1013, 0x1013, 0x1013, 0x0010, 0x0010, 0x0010, 0x0010, 0x0010,
+    /* 60 */ 0x0010, 0x2073, 0x2073, 0x2073, 0x2073, 0x2073, 0x2073, 0x0053,
+    /* 68 */ 0x0053, 0x0053, 0x0053, 0x0053, 0x0053, 0x0053, 0x0053, 0x0053,
+    /* 70 */ 0x0053, 0x0053, 0x0053, 0x0053, 0x0053, 0x0053, 0x0053, 0x0053,
+    /* 78 */ 0x0053, 0x0053, 0x0053, 0x0010, 0x0010, 0x0010, 0x0010, 0x0004,
+};
+
+int isalnum(int c) { return (ascii_chrgrp[c] & CHARGRP_ALNUM); }
+int isalpha(int c) { return (ascii_chrgrp[c] & CHARGRP_ALPHA); }
+int isspace(int c) { return (ascii_chrgrp[c] & CHARGRP_SPACE); }
+int isdigit(int c) { return (ascii_chrgrp[c] & CHARGRP_DIGIT); }
+
+int islower(int c) { return (ascii_chrgrp[c] & CHARGRP_LOWER); }
+int isupper(int c) { return (ascii_chrgrp[c] & CHARGRP_UPPER); }
+
+int iscntrl(int c) { return (ascii_chrgrp[c] & CHARGRP_CNTRL); }
+int isgraph(int c) { return (ascii_chrgrp[c] & CHARGRP_GRAPH); }
+int ispunct(int c) { return (ascii_chrgrp[c] & CHARGRP_PUNCT); }
+int isxdigit(int c) { return (ascii_chrgrp[c] & CHARGRP_XDIGIT); }
+
 int tolower(int c) {
     if (('A' <= c) && (c <= 'Z')) return c + 'a' - 'A';
     return c;
@@ -321,24 +397,6 @@ int toupper(int c) {
     return c;
 }
 
-int isspace(int c) {
-    switch (c) {
-      case ' ': case '\t':      /* see 'man isspace' */
-      case '\n': case '\r':
-      case '\v': case '\f': return true;
-      default: return false;
-    }
-}
-
-int isdigit(int c) {
-    if ('0' <= c && c <= '9') return true;
-    return false;
-}
-
-
-void __stack_chk_fail(void) {
-    panic("__stack_chk_fail()");
-}
 
 /*
  *  Locale stuff
@@ -375,6 +433,7 @@ char *setlocale(int category, const char *locale) {
 
 
 /*
+ *  System control flow
  *  setjmp/longjmp
  */
 
@@ -386,6 +445,60 @@ void longjmp(jmp_buf env, int val) {
     i386_longjmp(env, val);
 }
 
+void __stack_chk_fail(void) {
+    panic("__stack_chk_fail()");
+}
+
 void abort(void) {
     panic("aborted");
+}
+
+
+#define EXITENV_SUCCESS -1
+#define EXITENV_EXITPOINT -2
+
+struct {
+    jmp_buf exit_env;
+    bool actual_exit;
+    int status;
+} theExitInfo = {
+    .exit_env = { 0 },
+    .actual_exit = false,
+    .status = 0,
+};
+
+int exitpoint(void) {
+    int ret = setjmp(theExitInfo.exit_env);
+
+    if (ret) {
+        // actual exit
+        theExitInfo.status = ret;
+        theExitInfo.actual_exit = true;
+        theExitInfo.exit_env[0] = 0;
+        return (ret == EXITENV_SUCCESS ? EXIT_SUCCESS : ret);
+    } else {
+        // exit point set
+        theExitInfo.status = EXITENV_SUCCESS;
+        theExitInfo.actual_exit = false;
+        return 0;
+    }
+}
+
+void exit(int status) {
+    if (theExitInfo.exit_env[0] == 0) {
+        logmsge("exit: exitpoint not set");
+        return;
+    }
+    /* TODO : atexit handlers */
+    longjmp(theExitInfo.exit_env, (status == EXIT_SUCCESS ? EXITENV_SUCCESS : status));
+}
+
+int system(const char *command) {
+    logmsgef("TODO: system('%s')", command);
+    return -ETODO;
+}
+
+char *getenv(const char *name) {
+    logmsgef("TODO: getenv('%s')", name);
+    return NULL;
 }

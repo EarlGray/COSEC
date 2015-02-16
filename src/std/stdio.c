@@ -220,7 +220,6 @@ int fprintf(FILE *stream, const char *format, ...) {
 
 int vfprintf(FILE *stream, const char *format, va_list ap) {
     if (stream == stdout) {
-        logmsge("TODO: vfprintf()");
     }
     return 0;
 }
