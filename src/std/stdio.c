@@ -81,37 +81,6 @@ int getline(char *buf, size_t bufsize) {
 #define get_digit(digit) \
     ( ((digit) < 10) ? ('0' + (digit)) : ('A' + (digit) - 10))
 
-/*
-struct generic_ostream {
-    bool (*print)(struct generic_stream *, char);
-    void *data;
-};
-
-struct generic_istream {
-    char (*read)(struct generic_stream *);
-    void *data;
-};
-
-struct generic_iostream {
-    bool (*print)(struct generic_stream *, char);
-    char (*read)(struct generic_stream *);
-    void *data;
-}
-typedef  struct generic_istream  istream;
-typedef  struct generic_ostream  ostream;
-typedef  struct generic_iostream iostream;
-
-const ostream cin = {
-    .
-};
-
-void vioprintf(ostream *out, const char *fmt, va_list args) {
-       
-}
-
-void ioprintf(ostream *out, const char *fmt, ...) {
-    
-} */
 
 char * snprint_uint(char *str, char *const end, uint x, uint8_t base, uint flags, int precision) {
 #define maxDigits 32	// 4 * 8 max for binary
@@ -386,16 +355,53 @@ int sprintf(char *str, const char *format, ...) {
 
 
 FILE * fopen(const char *path, const char *mode) {
+    logmsge("TODO: fopen");
     return NULL;
-}
-
-size_t fread(void *ptr, size_t size, size_t nmmeb, FILE *stream) {
-    return 0;
 }
 
 FILE *freopen(const char *path, const char *mode, FILE *stream) {
     /* TODO */
+    logmsge("TODO: freopen");
     return stream;
+}
+
+size_t fread(void *ptr, size_t size, size_t nmmeb, FILE *stream) {
+    logmsge("TODO: fread");
+    return 0;
+}
+
+size_t fwrite(const void *ptr, size_t size, size_t nitems, FILE *stream) {
+    logmsge("TODO: fwrite");
+    return 0;
+}
+
+int fgetc(FILE *f) {
+    if (!f) return EOF;
+
+    if (f == stdin)
+        return getchar();
+
+    return EOF;
+}
+
+int ungetc(int c, FILE *stream) {
+    logmsge("TODO: ungetc");
+    return EOF;
+}
+
+char *fgets(char *s, int size, FILE *stream) {
+    logmsge("TODO: fgets");
+    return NULL;
+}
+
+long ftell(FILE *stream) {
+    logmsge("TODO: ftell");
+    return -1;
+}
+
+int fseek(FILE *stream, long offset, int whence) {
+    logmsge("TODO: fseek");
+    return -1;
 }
 
 int fclose(FILE *fp) {
@@ -406,10 +412,25 @@ int fflush(__unused FILE *stream) {
     return 0;
 }
 
+int setvbuf(FILE *stream, char *buf, int type, size_t size) {
+    logmsge("TODO: setvbuf");
+    return EOF;
+}
+
 int feof(FILE *stream) {
     if (stream == stdin)
         return 0;
     return 1;
+}
+
+int rename(const char *old, const char *new) {
+    logmsge("TODO: rename");
+    return -1;
+}
+
+int remove(const char *path) {
+    logmsge("TODO: remove");
+    return -1;
 }
 
 void clearerr(__unused FILE *stream) {
@@ -420,14 +441,5 @@ int ferror(__unused FILE *stream) {
     if (stream == stdout) return 0;
     if (stream == stderr) return 0;
     return 1;
-}
-
-int fgetc(FILE *f) {
-    if (!f) return EOF;
-
-    if (f == stdin)
-        return getchar();
-
-    return EOF;
 }
 

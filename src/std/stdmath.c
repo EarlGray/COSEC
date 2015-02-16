@@ -100,3 +100,6 @@ double cosh(double x) {
     return x;
 }
 
+
+int rand(void) {
+}
