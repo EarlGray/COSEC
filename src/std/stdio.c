@@ -189,6 +189,20 @@ int fprintf(FILE *stream, const char *format, ...) {
 
 int vfprintf(FILE *stream, const char *format, va_list ap) {
     if (stream == stdout) {
+        int ret = 0;
+        size_t bufsize = 64;
+        char *buf = kmalloc(bufsize);
+        while (1) {
+            ret = vsnprintf(buf, bufsize, format, ap);
+            if (ret < bufsize)
+                break;
+        
+            bufsize *= 2;
+            krealloc(buf, bufsize);
+        }
+
+        k_printf("%s", buf);
+        kfree(buf);
     }
     return 0;
 }
@@ -353,6 +367,11 @@ int sprintf(char *str, const char *format, ...) {
     return res;
 }
 
+int fscanf(FILE *stream, const char *format, ...) {
+    logmsge("TODO: fscanf");
+    return 0;
+}
+
 
 FILE * fopen(const char *path, const char *mode) {
     logmsge("TODO: fopen");
@@ -365,6 +384,10 @@ FILE *freopen(const char *path, const char *mode, FILE *stream) {
     return stream;
 }
 
+char *tmpnam(char *s) {
+    return "";
+}
+
 size_t fread(void *ptr, size_t size, size_t nmmeb, FILE *stream) {
     logmsge("TODO: fread");
     return 0;
@@ -373,6 +396,11 @@ size_t fread(void *ptr, size_t size, size_t nmmeb, FILE *stream) {
 size_t fwrite(const void *ptr, size_t size, size_t nitems, FILE *stream) {
     logmsge("TODO: fwrite");
     return 0;
+}
+
+FILE *tmpfile(void) {
+    logmsge("TODO: tmpfile");
+    return NULL;
 }
 
 int fgetc(FILE *f) {

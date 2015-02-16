@@ -267,7 +267,7 @@ const struct kshell_command main_commands[] = {
     {   .name = "ls",       .handler = kshell_ls,    .description = "list current VFS directory"    },
     {   .name = "mount",    .handler = kshell_mount, .description = "list current mounted filesystems"  },
     {   .name = "time",     .handler = kshell_time,  .description = "system time", .options = ""  },
-    {   .name = "lisp",     .handler = kshell_secd,  .description = "a simple Lisp REPL", .options = "" },
+    {   .name = "lua",      .handler = kshell_secd,  .description = "Lua REPL", .options = "" },
     {   .name = null,       .handler = 0    }
 };
 
@@ -530,8 +530,8 @@ void kshell_time() {
             (uint)t.tm_hour, (uint)t.tm_min, (uint)t.tm_sec);
 }
 
-void kshell_secd() {
 #ifdef COSEC_LUA
+void kshell_lua_test(void) {
     const char *exp = "print(2 + 2)";
     lua_State *lua;
     lua = luaL_newstate();
@@ -540,6 +540,17 @@ void kshell_secd() {
     if (err) {
         printf("### Error: %s\n", lua_tostring(lua, -1));
         lua_pop(lua, 1);
+    }
+}
+#endif
+
+void kshell_secd() {
+#ifdef COSEC_LUA
+    int ret = exitpoint();
+    if (ret == EXITENV_EXITPOINT) {
+        kshell_lua_test();
+    } else {
+        logmsgf("exited with code %d\n", ret);
     }
 #else
     int ret;

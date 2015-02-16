@@ -27,6 +27,9 @@ double strtod(const char *nptr, char **endptr);
 int rand(void);
 void srand(unsigned int seed);
 
+#define EXITENV_SUCCESS     -1
+#define EXITENV_EXITPOINT   -2
+#define EXITENV_ABORTED     -3
 
 enum exit_status { EXIT_SUCCESS, EXIT_FAILURE };
 

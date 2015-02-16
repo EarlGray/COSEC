@@ -100,6 +100,11 @@ double cosh(double x) {
     return x;
 }
 
+void srand(unsigned seed) {
+    logmsge("TODO: srand");
+}
 
 int rand(void) {
+    logmsge("TODO: rand returns randomly chosen number 4");
+    return 4;  // a random number!
 }
