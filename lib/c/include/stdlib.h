@@ -24,6 +24,8 @@ int abs(int i);
 int atoi(const char *nptr);
 double strtod(const char *nptr, char **endptr);
 
+long strtol(const char *nptr, char **endptr, int base);
+
 int rand(void);
 void srand(unsigned int seed);
 

@@ -37,11 +37,10 @@ int atoi(const char *nptr) {
     return sign * res;
 }
 
-/*
 long strtol(const char *nptr, char **endptr, int base) {
-    const char *c = nptr;
+    logmsge("TODO: strtol");
+    return 0;
 }
-*/
 
 double strtod(const char *nptr, char **endptr) {
     bool neg = false;

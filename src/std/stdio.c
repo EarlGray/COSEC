@@ -287,6 +287,7 @@ int snprintf(char *str, size_t size, const char *format, ...) {
     return out_c - str;
 }
 
+
 int vsnprintf(char *str, size_t size, const char *format, va_list ap) {
     const char *fmt_c = format;
     char *out_c = str;

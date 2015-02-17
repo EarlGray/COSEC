@@ -252,8 +252,11 @@ const char * ecma48_console_codes(const char *s) {
     return ++s;
 }
 
+void k_vprintf(const char *fmt, va_list ap) {
+}
+
 void k_printf(const char *fmt, ...) {
-    if (fmt == null) return;
+    if (!fmt) return;
 
     va_list args;
     va_start(args, fmt);
