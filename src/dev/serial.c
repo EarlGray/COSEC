@@ -91,7 +91,7 @@ inline void serial_write(uint16_t port, uint8_t b) {
     outb(port, b);
 }
 
-static void serial_configure(uint16_t port, uint8_t speed_divisor) {
+void serial_configure(uint16_t port, uint8_t speed_divisor) {
     outb(port + IER_OFFSET, 0);
     set_serial_divisor(port, speed_divisor);
     set_serial_bitness(port, 8);     /* 8bit byte */
@@ -100,7 +100,7 @@ static void serial_configure(uint16_t port, uint8_t speed_divisor) {
     outb(port + IER_OFFSET, 0x0F);   /* enable FIFO, clear, 14b threshold */
 }
 
-void serial_setup(void) {
+void serial_setup() {
     /* configure serial interface */
     serial_configure(COM1_PORT, 1);
 

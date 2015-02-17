@@ -209,7 +209,7 @@ static void console_setup(void) {
   *     Temporary kernel shell
   *    @TODO: must be moved to userspace as soon as possible
  ***/
-typedef void (*void_f)(void);
+typedef void (*void_f)();
 
 struct kshell_command {
     const char * name;
@@ -512,11 +512,15 @@ void kshell_mem(const struct kshell_command *this, const char *arg) {
 
 void kshell_test(const struct kshell_command *this, const char *cmdline) {
     const struct kshell_subcmd *subcmd;
-    for (subcmd = test_cmds; subcmd->name; ++subcmd)
-        if (!strncmp(cmdline, subcmd->name, strlen(subcmd->name))) {
-            (subcmd->handler)();
+    for (subcmd = test_cmds; subcmd->name; ++subcmd) {
+        size_t subcmdlen = strlen(subcmd->name);
+        if (!strncmp(cmdline, subcmd->name, subcmdlen)) {
+            cmdline = cmdline + subcmdlen;
+            while (isspace(*cmdline)) ++cmdline;
+            (subcmd->handler)(cmdline);
             return;
         }
+    }
 
     k_printf("Options: %s\n\n", this->options);
 }

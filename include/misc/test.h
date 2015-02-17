@@ -3,7 +3,7 @@
 
 void test_sprintf(void);
 void test_timer(void);
-void test_serial(void);
+void test_serial(const char *);
 void test_kbd(void);
 void test_tasks(void);
 void test_userspace(void);

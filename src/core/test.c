@@ -17,8 +17,6 @@
 #include <kshell.h>
 #include <log.h>
 
-volatile bool poll_exit = false;
-
 void test_strs(void) {
     printf("'abc' 'ABC %d\n", strcasecmp("abc", "ABC"));
     printf("'ABC' 'abc %d\n", strcasecmp("ABC", "abc"));
@@ -116,6 +114,8 @@ static void on_timer(uint counter) {
     }
 }
 
+volatile bool poll_exit = false;
+
 static void tt_keypress() {
     poll_exit = true;
 }
@@ -137,34 +137,52 @@ void test_timer(void) {
 #include <dev/screen.h>
 #include <dev/intrs.h>
 
+static bool serialcode_mode = false;
 
 inline static void print_serial_info(uint16_t port) {
     uint8_t iir;
     inb(port + 1, iir);
-    logmsgf("(IER=%x\t", (uint)iir);
+    logmsgf(" (IER=%x\t", (uint)iir);
     inb(port + 2, iir);
-    logmsgf("IIR=%x\t", (uint)iir);
+    logmsgf(" IIR=%x\t", (uint)iir);
     inb(port + 5, iir);
-    logmsgf("LSR=%x\t", (uint)iir);
+    logmsgf(" LSR=%x\t", (uint)iir);
     inb(port + 6, iir);
-    logmsgf("MSR=%x", (uint)iir);
-    logmsgf("PIC=%x)", (uint)irq_get_mask());
+    logmsgf(" MSR=%x", (uint)iir);
+    logmsgf(" PIC=%x) ", (uint)irq_get_mask());
 }
 
 void on_serial_received(uint8_t b) {
     set_cursor_attr(0x0A);
-    cprint(b);
+
+    if (serialcode_mode) {
+        k_printf(" %x", (uint)b);
+    } else {
+        switch (b) {
+          case '\r': cprint('\n'); break;
+          case 0x7f: cprint('\b'); break;
+          default: cprint(b);
+        }
+    }
     update_hw_cursor();
 }
 
 static void on_press(scancode_t scan) {
-    if (scan == 1) 
-        poll_exit = true;
-    if (scan == 0x53) 
-        print_serial_info(COM1_PORT);
+    switch (scan) {
+        // SCAN_ESC
+        case 0x01: poll_exit = true; return;
+        // SCAN_DEL
+        case 0x53: print_serial_info(COM1_PORT); return;
+        // SCAN_F1
+        case 0x3b: serialcode_mode = !serialcode_mode; return;
+    }
 
     char c = translate_from_scan(null, scan);
     if (c == 0) return;
+
+    while (! serial_is_transmit_empty(COM1_PORT));
+    if (c == '\n') 
+        serial_write(COM1_PORT, '\r');
 
     while (! serial_is_transmit_empty(COM1_PORT));
     serial_write(COM1_PORT, c);
@@ -190,11 +208,11 @@ void poll_serial() {
     kbd_set_onpress(null);
 }
 
-void test_serial(void) {
+void test_serial(const char *arg) {
     logmsgf("IRQs state = 0x%x\n", (uint)irq_get_mask());
 
     uint8_t saved_color = get_cursor_attr();
-    k_printf("Use <Esc> to quit, <Del> for register info\n");
+    k_printf("Use <Esc> to quit, <Del> for register info, <F1> to toggle char/code mode\n");
     serial_setup();
 
     //poll_serial();
@@ -268,7 +286,7 @@ void do_task1(void) {
 volatile bool quit;
 
 void key_press(/*scancode_t scan*/) {
-    k_printf("\n\key pressed...\n");
+    k_printf("\nkey pressed...\n");
     quit = true;
 }
 
