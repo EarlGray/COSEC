@@ -91,6 +91,17 @@ inline void serial_write(uint16_t port, uint8_t b) {
     outb(port, b);
 }
 
+void serial_puts(uint16_t port, const char *s) {
+    //while (!serial_is_transmit_empty(COM1_PORT));
+    while (*s) {
+        switch (*s) {
+          case '\n': serial_write(port, '\r'); /* fallthrough */
+          default: serial_write(port, *s);
+        }
+        ++s;
+    }
+}
+
 void serial_configure(uint16_t port, uint8_t speed_divisor) {
     outb(port + IER_OFFSET, 0);
     set_serial_divisor(port, speed_divisor);

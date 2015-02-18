@@ -20,7 +20,7 @@
 #include <log.h>
 
 #if MEM_DEBUG
-#   define mem_logf(msg, ...) logmsgf(msg, __VA_ARGS__)
+#   define mem_logf(msg, ...) k_printf(msg, __VA_ARGS__)
 #else
 #   define mem_logf(msg, ...)
 #endif
@@ -305,12 +305,12 @@ void * pmem_alloc(size_t pages_count) {
 void pmem_info(void) {
     struct memory_map *mmmap = (struct memory_map *)mboot_mmap_addr();
     uint i;
-    printf("\nMemory map [%d]\n", mboot_mmap_length());
+    k_printf("\nMemory map [%d]\n", mboot_mmap_length());
     for (i = 0; i < mboot_mmap_length(); ++i) {
         if (mmmap[i].type == 0) continue;
         if (mmmap[i].size > 100) continue;
 
-        printf("%d: %d) base=\t%x\t%x,len=%x\t%x,sh=%x\n",
+        k_printf("%d: %d) base=\t%x\t%x,len=%x\t%x,sh=%x\n",
             i, mmmap[i].type,
             mmmap[i].base_addr_high, mmmap[i].base_addr_low,
             mmmap[i].length_high, mmmap[i].length_low,

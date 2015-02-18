@@ -23,7 +23,7 @@ void kheap_setup(void) {
     }
 
     theHeap = firstfit_new(start_heap_addr, KHEAP_INITIAL_SIZE);
-    mem_logf("theHeap at *%x\n", (ptr_t)theHeap);
+    k_printf("theHeap at *%x\n", (ptr_t)theHeap);
 }
 
 void *kmalloc(size_t size) {

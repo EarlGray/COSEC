@@ -86,7 +86,7 @@ run: install
 	else $(qemu) $(qemu_flags) -curses; fi
 
 krun: $(kernel)
-	$(qemu) -kernel $(kernel) -fda $(image)
+	$(qemu) -kernel $(kernel) -fda $(image) -serial stdio
 
 qemu: install
 	@if [ -S $(pipe_file) ];  \

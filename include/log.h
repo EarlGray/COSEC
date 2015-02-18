@@ -1,13 +1,21 @@
 #ifndef __KERN_LOG_H__
 #define __KERN_LOG_H__
 
+#include <stdarg.h>
 #include <dev/screen.h>
 #include <sys/errno.h>
 
+/*
+ *  kernel log
+ */
+int logging_setup();
+int vlprintf(const char *fmt, va_list ap);
+int lprintf(const char *fmt, ...);
+
 void k_printf(const char *fmt, ...);
 
-#define logmsg(msg) k_printf(msg)
-#define logmsgf(...) k_printf(__VA_ARGS__)
+#define logmsg(msg) lprintf(msg)
+#define logmsgf(...) lprintf(__VA_ARGS__)
 
 #define logmsge(...) do { logmsg("Error: "); logmsgf(__VA_ARGS__); logmsg("\n"); } while (0)
 #define logmsgef(...)  logmsge(__VA_ARGS__)

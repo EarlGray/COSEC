@@ -36,6 +36,8 @@ void kinit(uint32_t magic, struct multiboot_info *mbi) {
     cpu_setup();
     memory_setup();
 
+    logging_setup();
+
     /* devices setup */
     dev_setup();
     timer_setup();
