@@ -38,8 +38,10 @@ double exp(double x) {
     return x;
 }
 double ldexp(double x, int exp) {
-    logmsge("TODO: ldexp()");
-    return x;
+    double res = 1;
+    if (exp > 0) while (exp) { res *= x; --exp; }
+    else while (exp < 0) { res /= x; ++exp; }
+    return res;
 }
 
 double log(double x) {
