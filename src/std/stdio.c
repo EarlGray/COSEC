@@ -12,6 +12,8 @@
 
 #include <log.h>
 
+extern int theErrNo;
+
 struct FILE_struct { };
 
 FILE f_stdin =  { };
@@ -109,10 +111,8 @@ const char * sscan_int(const char *str, int *res, const uint8_t base) {
     char sign = 1;
 
     switch (*str) {
-    case '-':
-        sign = -1;
-    case '+':
-        ++str;
+    case '-': sign = -1;
+    case '+': ++str;
     }
 
     str = sscan_uint(str, (uint *)res, base);
@@ -147,7 +147,7 @@ int vfprintf(FILE *stream, const char *format, va_list ap) {
         char *buf = kmalloc(bufsize);
         while (1) {
             ret = vsnprintf(buf, bufsize, format, ap);
-            if (ret < bufsize)
+            if (ret + 1 < bufsize)
                 break;
 
             bufsize *= 2;
@@ -169,91 +169,21 @@ int vfprintf(FILE *stream, const char *format, va_list ap) {
     return ret;
 }
 
+
 int snprintf(char *str, size_t size, const char *format, ...) {
-    void *stack = (void *)((void **)&format + 1);
-
-    const char *fmt_c = format;
-    char *out_c = str;
-    char *end = (size == 0 ? 0 : str + size - 1);
-
-    while (*fmt_c) {
-        if (end && (out_c >= end)) {
-            *end = 0;
-            return end - str;
-        }
-
-        switch (*fmt_c) {
-        case '%': {
-            int precision = 0;
-            uint flags = 0;
-            ++fmt_c;
-
-            bool changed;
-            do {
-                changed = true;
-                switch (*fmt_c) {
-                case '0':   flags |= ZERO_PADDED; ++fmt_c; break;
-                case '+':   flags |= PRINT_PLUS; ++fmt_c; break;
-                case ' ':   flags |= SPACE_PLUS; ++fmt_c; break;
-                case '.':
-                    fmt_c = sscan_int(++fmt_c, &precision, 10);
-                    break;
-                default:
-                    changed = false;
-                }
-            } while (changed);
-
-            switch (*fmt_c) {
-            case 'x': {
-                uint *arg = (uint *)stack;
-                out_c = snprint_uint(out_c, end, *arg, 16, flags, precision);
-                stack = (void *)(arg + 1);
-                } break;
-            case 'd': case 'i': {
-                int *arg = (int *)stack;
-                out_c = snprint_int(out_c, end, *arg, 10, flags, precision);
-                stack = (void *)(arg + 1);
-                } break;
-            case 'u': {
-                uint *arg = (uint *)stack;
-                out_c = snprint_uint(out_c, end, *arg, 10, flags, precision);
-                stack = (void *)(arg + 1);
-                } break;
-            case 'c': {
-                int *arg = (int *)stack;
-                *out_c++ = (char)*arg;
-                stack = (void *)(arg + 1);
-                } break;
-            case 's': {
-                char *c = *(char **)stack;
-                while (*c) {
-                    if (end && (out_c >= end)) break;
-                    *(out_c++) = *(c++);
-                }
-
-                stack = (void *)((char **)stack + 1);
-                } break;
-            //case 'e': case 'f': case
-            default:
-                *out_c = *fmt_c;
-                ++out_c;
-            }
-            } break;
-        default:
-            *out_c = *fmt_c;
-            ++out_c;
-        }
-        ++fmt_c;
-    }
-    *out_c = 0;
-    return out_c - str;
+    int ret;
+    va_list ap;
+    va_start(ap, format);
+    ret = vsnprintf(str, size, format, ap);
+    va_end(ap);
+    return ret;
 }
-
 
 int vsnprintf(char *str, size_t size, const char *format, va_list ap) {
     const char *fmt_c = format;
     char *out_c = str;
     char *end = (size == 0 ? 0 : str + size - 1);
+    //k_printf("## vsnprintf('%s')\n", format);
 
     while (*fmt_c) {
         if (end && (out_c >= end)) {
@@ -302,8 +232,19 @@ int vsnprintf(char *str, size_t size, const char *format, va_list ap) {
                     *(out_c++) = *(c++);
                 }
                 } break;
-            //case 'e': case 'f': case
+            case 'g': {
+                double arg = va_arg(ap, double);
+                uint intpart = (uint)arg;
+                uint fracpart = (uint)(1000000.0 * (arg - intpart));
+                out_c = snprint_uint(out_c, end, intpart, 10, flags, precision);
+                if (fracpart > 0) {
+                    *out_c++ = '.';
+                    out_c = snprint_uint(out_c, end, fracpart, 10,
+                                     ZERO_PADDED | LEFT_PADDED, 6);
+                }
+                } break;
             default:
+                logmsgef("vsnprintf: unknown format specifier %x", (uint)*fmt_c);
                 *out_c = *fmt_c;
                 ++out_c;
             }
@@ -416,10 +357,16 @@ int fseek(FILE *stream, long offset, int whence) {
 }
 
 int fclose(FILE *fp) {
-    return -ETODO;
+    theErrNo = ETODO;
+    return EOF;
 }
 
 int fflush(__unused FILE *stream) {
+    if (stream == stdout)
+        return 0;
+    if (stream == stderr)
+        return 0;
+    theErrNo = EBADF;
     return 0;
 }
 
@@ -440,11 +387,13 @@ int rename(const char *old, const char *new) {
 }
 
 int remove(const char *path) {
+    theErrNo = ETODO;
     logmsge("TODO: remove");
     return -1;
 }
 
 void clearerr(__unused FILE *stream) {
+    theErrNo = ETODO;
 }
 
 int ferror(__unused FILE *stream) {

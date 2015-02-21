@@ -27,6 +27,8 @@
 # include <lua/lauxlib.h>
 #endif
 
+#define CMD_SIZE    256
+
 /***
   *     Internal declarations
  ***/
@@ -536,15 +538,29 @@ void kshell_time() {
 
 #ifdef COSEC_LUA
 void kshell_lua_test(void) {
-    const char *exp = "print(2 + 2)";
-    lua_State *lua;
-    lua = luaL_newstate();
+    char cmd_buf[CMD_SIZE];
+    lua_State *lua = luaL_newstate();
+
+    if (!lua)
+        logmsge("luaL_newstate() -> NULL");
+
     luaL_openlibs(lua);
-    int err = luaL_loadbuffer(lua, exp, strlen(exp), "line") || lua_pcall(lua, 0, 0, 0);
-    if (err) {
-        fprintf(stderr, "### Error: %s\n", lua_tostring(lua, -1));
-        lua_pop(lua, 1);
+
+    for (;;) {
+        k_printf("lua> ");
+        kshell_readline(cmd_buf, CMD_SIZE);
+        if (!strcasecmp(cmd_buf, ":q"))
+            break;
+
+        int err = luaL_loadbuffer(lua, cmd_buf, strlen(cmd_buf), "line")
+               || lua_pcall(lua, 0, 0, 0);
+        if (err) {
+            fprintf(stderr, "### Error: %s\n", lua_tostring(lua, -1));
+            lua_pop(lua, 1);
+        }
     }
+
+    logmsge("...back to kshell");
 }
 #endif
 
@@ -633,7 +649,6 @@ void kshell_do(char *command) {
 }
 
 #define for_ever while(1)
-#define CMD_SIZE    256
 
 void kshell_run(void) {
     char cmd_buf[CMD_SIZE] = { 0 };

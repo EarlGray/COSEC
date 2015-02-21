@@ -5,6 +5,8 @@ export build        := $(top_dir)/build
 
 export STDINC_DIR   := lib/c/include
 
+LUA					:= 1
+
 host_os := $(shell uname)
 
 ifeq ($(host_os),Darwin)

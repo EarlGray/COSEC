@@ -173,6 +173,7 @@ error_exit:
 }
 
 double strtod(const char *nptr, char **endptr) {
+    theErrNo = 0;
     bool neg = false;
     const char *c = nptr;
     double res = 0;
@@ -227,6 +228,7 @@ double strtod(const char *nptr, char **endptr) {
     return (neg ? -res : res);
 
 error_exit:
+    theErrNo = EINVAL;
     if (endptr) *endptr = (char *)nptr;
     return 0;
 }
@@ -235,18 +237,24 @@ error_exit:
  * stdlib-like memory management using the global heap: stdlib.h
  */
 void *malloc(size_t size) {
-    return kmalloc(size);
+    theErrNo = 0;
+    void *p = kmalloc(size);
+    if (!p) theErrNo = ENOMEM;
+    return p;
 }
 
 void *calloc(size_t nmemb, size_t size) {
     size_t sz = nmemb * size;
-    char *p = kmalloc(sz);
+    char *p = malloc(sz);
     memset(p, 0x00, sz);
     return p;
 }
 
 void *realloc(void *ptr, size_t size) {
-    return krealloc(ptr, size);
+    theErrNo = 0;
+    void *p = krealloc(ptr, size);
+    if (!p) theErrNo = ENOMEM;
+    return p;
 }
 
 void free(void *ptr) {
@@ -552,7 +560,7 @@ struct lconv *localeconv(void) {
 }
 
 char *setlocale(int category, const char *locale) {
-    logmsgf("Tried to change locale to %s\n", locale);
+    logmsgf("setlocale(%s)\n", locale);
     return "C";
 }
 
@@ -624,6 +632,9 @@ int system(const char *command) {
 }
 
 char *getenv(const char *name) {
+    if (!strcmp(name, "UNAME")) {
+        return "COSEC";
+    }
     logmsgef("TODO: getenv('%s')", name);
     return NULL;
 }
