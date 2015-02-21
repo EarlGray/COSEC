@@ -46,6 +46,13 @@
  *
  ***/
 
+#if (0)
+# define memdebugf(...)       logmsgf(__VA_ARGS__)
+# define debug_heap_info(...) heap_info(__VA_ARGS__)
+#else
+# define memdebugf(...)
+# define debug_heap_info(...)
+#endif
 
 #define ALIGN 16
 
@@ -108,13 +115,17 @@ static inline void set_prev(chunk_t *this, chunk_t *prev) {
     this->prev = prev;  }
 
 static inline void set_next(chunk_t *this, chunk_t *next) {
-    this->next = next;  }
+    this->next = next;
+    // update checksum
+    if (is_used(this)) set_used(this);
+    else set_free(this);
+}
 
 static inline size_t get_size(chunk_t *this) {
     return (uint)this->next - (uint)this - CHUNK_SIZE;  }
 
 static inline void *chunk_data(chunk_t *this) {
-    return (void *)aligned((uint)this); }
+    return (void *)((uint)this + CHUNK_SIZE); }
 
 static inline void erase(chunk_t *this) {
     this->checksum = 0;
@@ -130,7 +141,7 @@ static inline chunk_t *set_chunk(chunk_t *this, chunk_t *next, chunk_t *prev, bo
 
 
 void try_to_repair(chunk_t *chunk) {
-    //
+    logmsge("ff_try_to_repair(*%x)\n", (uint)chunk);
 }
 
 
@@ -154,6 +165,7 @@ firstfit_new(void *startmem, size_t size) {
 }
 
 void * firstfit_malloc(struct firstfit_allocator *this, uint size) {
+    memdebugf("ff_malloc(0x%x)", size);
     if ((size == 0) || (size > INT_MAX)) return null;
 
     chunk_t *chunk = this->current;
@@ -162,6 +174,7 @@ void * firstfit_malloc(struct firstfit_allocator *this, uint size) {
             /** allocate this chunk **/
             // is there enough place for a new chunk after this one?
             if ((get_size(chunk) - size) >= aligned(CHUNK_SIZE)) {
+                //memdebugf("ff_malloc: splitting");
                 // possible position of new chunk counting from current+CHUNK_SIZE
                 uint new_chunk_offset = aligned(size + CHUNK_SIZE) - CHUNK_SIZE;
 
@@ -176,6 +189,8 @@ void * firstfit_malloc(struct firstfit_allocator *this, uint size) {
 
             this->current = next(chunk);
             set_used(chunk);
+            //return_if(!g
+            memdebugf(" -> *%x\n", (uint)chunk_data(chunk));
             return chunk_data(chunk);
         }
 
@@ -189,10 +204,12 @@ void * firstfit_malloc(struct firstfit_allocator *this, uint size) {
     } while (chunk != this->current);
 
     /** full cycle over chunks? **/
+    memdebugf("ff_malloc() -> NULL\n");
     return null;   // no memory
 }
 
 void *firstfit_realloc(struct firstfit_allocator *this, void *p, size_t size) {
+    memdebugf("ff_realloc(*%x, 0x%x)\n", (uint)p, size);
     if (!p) return firstfit_malloc(this, size);
 
     size_t aligned_size = aligned(size);
@@ -203,6 +220,7 @@ void *firstfit_realloc(struct firstfit_allocator *this, void *p, size_t size) {
     chunk_t *next_chunk = next(this_chunk);
 
     if (aligned_size < this_size) {
+        memdebugf("ff_realloc: shrinking\n");
         // shrink
         if ((aligned_size + sizeof(chunk_t)) >= this_size)
             return p; // no space for a new chunk
@@ -210,6 +228,8 @@ void *firstfit_realloc(struct firstfit_allocator *this, void *p, size_t size) {
         chunk_t *new_chunk = (chunk_t *)((uint)this_chunk + CHUNK_SIZE + aligned_size);
         if (!is_used(next_chunk)) {
             // merge new free space with the next free chunk
+            memdebugf("ff_realloc: merging this=*%x and next=%x\n",
+                      (uint)new_chunk, (uint)next_chunk);
             if (this->current == next_chunk)
                 this->current = new_chunk;
             next_chunk = next(next_chunk);
@@ -220,10 +240,12 @@ void *firstfit_realloc(struct firstfit_allocator *this, void *p, size_t size) {
         set_chunk(new_chunk, next_chunk, this_chunk, false);
     } else {
         // grow
+        memdebugf("ff_realloc: grow\n");
         if (!is_used(next_chunk)
             && (get_size(next_chunk) >= (aligned_size - this_size)))
         {
             // use the next chunk
+            memdebugf("ff_realloc: use the next chunk, *%x\n", (uint)next_chunk);
             next_chunk = next(next_chunk);
             chunk_t *new_chunk = (chunk_t *)((uint)this_chunk + CHUNK_SIZE + aligned_size);
             set_next(this_chunk, new_chunk);
@@ -231,18 +253,25 @@ void *firstfit_realloc(struct firstfit_allocator *this, void *p, size_t size) {
             set_chunk(new_chunk, next_chunk, this_chunk, false);
         } else {
             // relocate
+            memdebugf("ff_realloc: reallocating\n");
             void *new_p = firstfit_malloc(this, size);
             memcpy(new_p, p, this_size);
             firstfit_free(this, p);
+            memdebugf("ff_realloc: reallocated to *%x\n", (uint)new_p);
             return new_p;
         }
     }
 
+    debug_heap_info(this);
     return chunk_data(this_chunk);
 }
 
 void firstfit_free(struct firstfit_allocator *this, void *p) {
-    assertv(p, "firstfit warning: trying to deallocate null");
+    memdebugf("ff_free(*%x)\n", (uint)p);
+    if (!p) {
+        logmsg("ff_free(NULL)\n");
+        return;
+    }
 
     chunk_t *chunk = (chunk_t *)((uint)p - CHUNK_SIZE);
     if (! check_sum(chunk)) {
@@ -255,19 +284,28 @@ void firstfit_free(struct firstfit_allocator *this, void *p) {
     chunk_t *next_chunk = next(chunk);
     if (!is_used(next_chunk)) {
         // merge
-        set_chunk(chunk, next(next_chunk), prev(chunk), false);
+        memdebugf("ff_free: merging *%x and *%x (next)\n",
+                   (uint)chunk, (uint)next_chunk);
+        chunk_t *nextnext_chunk = next(next_chunk);
+        set_next(chunk, nextnext_chunk);
+        set_prev(nextnext_chunk, chunk);
         erase(next_chunk);
+        next_chunk = nextnext_chunk;
     }
 
     chunk_t *prev_chunk = prev(chunk);
     if (!is_used(prev_chunk)) {
         // merge
-        set_chunk(prev_chunk, next(chunk), prev(prev_chunk), false);
+        memdebugf("ff_free: merging *%x (prev) and *%x\n",
+                   (uint)prev_chunk, (uint)chunk);
+        set_next(prev_chunk, next_chunk);
+        set_prev(next_chunk, prev_chunk);
         erase(chunk);
         chunk = prev_chunk;
     }
 
     this->current = chunk;
+    debug_heap_info(this);
 }
 
 void *firstfit_corruption(struct firstfit_allocator *this) {
@@ -280,17 +318,17 @@ void *firstfit_corruption(struct firstfit_allocator *this) {
 #include <log.h>
 
 void heap_info(struct firstfit_allocator *this) {
-    k_printf("header(*%x): startmem = 0x%x, endmem = 0x%x, current = 0x%x\n",
+    logmsgf("header(*%x): startmem = 0x%x, endmem = 0x%x, current = 0x%x\n",
             (uint)this, (uint)this->startmem, (uint)this->endmem, (uint)this->current);
     chunk_t *cur = this->current;
     do {
-        k_printf("  0x%x %s (0x%x : 0x%x) [0x%x]\n",
+        logmsgf("  0x%x %s (0x%x : 0x%x) [0x%x]\n",
               (uint)cur, (is_used(cur) ? "used" : "free"),
               CHUNK_SIZE + (uint)cur,
               (uint)next(cur), get_size(cur));
         cur = next(cur);
         if (! check_sum(cur)) {
-            k_printf("HEAP ERROR: Invalid checksum, heap corruption at 0x%x\n", cur);
+            logmsgef("HEAP ERROR: Invalid checksum, heap corruption at *%x\n", cur);
             return;
         }
 

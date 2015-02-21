@@ -7,7 +7,7 @@
 
 #define KHEAP_INITIAL_SIZE  (256 * PAGE_SIZE)
 
-#if MEM_DEBUG & 1
+#if (0)
 #   define mem_logf(msg, ...) logmsgf(msg, __VA_ARGS__)
 #else 
 #   define mem_logf(msg, ...)
