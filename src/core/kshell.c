@@ -167,7 +167,7 @@ inline void console_writeline(const char *msg) {
 void kshell_readline(char *buf, size_t size) {
     char *cur = buf;
     while (1) {
-        char c = getchar();
+        char c = kbd_getchar();
 
         switch (c) {
         case '\n':
@@ -193,7 +193,7 @@ void kshell_readline(char *buf, size_t size) {
             if (cur - buf + 1 < (int)size) {
                 *cur = c;
                 ++cur;
-                putchar(c);
+                cprint(c);
             }
         }
     }
@@ -542,7 +542,7 @@ void kshell_lua_test(void) {
     luaL_openlibs(lua);
     int err = luaL_loadbuffer(lua, exp, strlen(exp), "line") || lua_pcall(lua, 0, 0, 0);
     if (err) {
-        printf("### Error: %s\n", lua_tostring(lua, -1));
+        fprintf(stderr, "### Error: %s\n", lua_tostring(lua, -1));
         lua_pop(lua, 1);
     }
 }
@@ -552,6 +552,7 @@ void kshell_secd() {
 #ifdef COSEC_LUA
     int ret = exitpoint();
     if (ret == EXITENV_EXITPOINT) {
+        logmsg("starting lua...\n");
         kshell_lua_test();
     } else {
         logmsgf("exited with code %d\n", ret);

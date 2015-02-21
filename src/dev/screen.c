@@ -1,6 +1,7 @@
 #include <dev/screen.h>
 
 #include <arch/i386.h>
+#include <log.h>
 
 #include <stdlib.h>
 #include <string.h>
@@ -24,7 +25,8 @@ inline uint8_t get_cursor_attr() {  	return cursorAttr; }
 
 inline void set_cursor_x(uint16_t X) { 	cursorX = X;  }
 inline void set_cursor_y(uint16_t Y) { 	cursorY = Y;  }
-inline void set_cursor_attr(uint8_t attr) {   cursorAttr = attr;   }
+inline void set_cursor_attr(uint8_t attr) {  cursorAttr = attr;   }
+inline void set_default_cursor_attr(void) {  cursorAttr = DEFAULT_CURSOR_ATTR; }
 
 
 inline void update_hw_cursor(void)
@@ -146,6 +148,11 @@ void sprint_at(int x, int y, const char *s) {
 	}
 }
 
+
+/*
+ *   k_printf
+ */
+
 inline char get_digit(uint8_t digit) {
 	if (digit < 10) return('0' + digit);
 	else return('A' + digit - 10);
@@ -253,6 +260,7 @@ const char * ecma48_console_codes(const char *s) {
 }
 
 void k_vprintf(const char *fmt, va_list ap) {
+    logmsge("TODO: k_vprintf");
 }
 
 void k_printf(const char *fmt, ...) {

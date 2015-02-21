@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <stdio.h>
 
 #include <string.h>
 #include <stdbool.h>
@@ -13,6 +14,69 @@
 #include <mem/kheap.h>
 
 #include <log.h>
+
+int theErrNo = 0;
+
+const char * const sys_errlist[] = {
+    [0] = "no error",
+    [EPERM]   = "EPERM: invalied permissions",
+    [ENOENT]  = "ENOENT: no such entity",
+    [ESRCH]   = "ESRCH: no such process",
+    [EINTR]   = "EINTR: interrupted system call",
+    [EIO]     = "I/O error",
+    [ENXIO]   = "No such device or address",
+    [E2BIG]   = "Argument list too]long",
+    [ENOEXEC] = "Exec format error",
+    [EBADF]   = "Bad file number",
+    [ECHILD]  = "No child processes",
+    [EAGAIN]  = "Try again",
+    [ENOMEM]  = "Out of memory",
+    [EACCES]  = "Permission denied",
+    [EFAULT]  = "Bad address",
+    [ENOTBLK] = "Block device required",
+    [EBUSY]   = "Device or resource busy",
+    [EEXIST]  = "File exists",
+    [EXDEV]   = "Cross-device link",
+    [ENODEV]  = "No such device",
+    [ENOTDIR] = "Not a directory",
+    [EISDIR]  = "Is a directory",
+    [EINVAL]  = "Invalid argument",
+    [ENFILE]  = "File table overflow",
+    [EMFILE]  = "Too many open files",
+    [ENOTTY]  = "Not a typewriter",
+    [ETXTBSY] = "Text file busy",
+    [EFBIG]   = "File too large",
+    [ENOSPC]  = "No space left on device",
+    [ESPIPE]  = "Illegal seek",
+    [EROFS]   = "Read-only file system",
+    [EMLINK]  = "Too many links",
+    [EPIPE]   = "Broken pipe",
+    [EDOM]    = "Math argument out of]domain of fun",
+    [ERANGE]  = "Math result not representable ",
+
+    [ETODO]   = "Not implemented yet",
+};
+
+#define UKNERR_BUF_LEN 40
+static char unknown_error[UKNERR_BUF_LEN] = "unknown error: ";
+static size_t unknown_err_len = 0;
+
+char const *strerror(int err) {
+    const char *res = sys_errlist[err];
+    if (res)
+        return res;
+
+    if (!unknown_err_len)
+        unknown_err_len = strlen(unknown_error);
+
+    snprintf(unknown_error + unknown_err_len, UKNERR_BUF_LEN - unknown_err_len,
+             "%d", err);
+    return unknown_error;
+}
+
+int get_errno(void) {
+    return theErrNo;
+}
 
 /* misc from stdlib.h */
 int abs(int i) {
@@ -37,8 +101,74 @@ int atoi(const char *nptr) {
     return sign * res;
 }
 
+inline int getbasedigit(char c, int base) {
+    char lc = tolower(c);
+    if ((base <= 0) || (base > 36))
+        return -1;
+
+    if (base > 10) {
+        if (('a' <= lc) && (lc < ('a' + base - 10)))
+            return (lc - 'a' + 10);
+    }
+    if (('0' <= lc) && (lc < ('0' + base)))
+        return lc - '0';
+    return -1;
+}
+
 long strtol(const char *nptr, char **endptr, int base) {
-    logmsge("TODO: strtol");
+    theErrNo = 0;
+    char const *c = nptr;
+    bool neg = false;
+    long res = 0;
+
+    if (base > 36)
+        goto error_exit;
+
+    while (isspace(*c)) ++c;
+
+    switch (*c) {
+      case '-': neg = true; /* fallthrough */
+      case '+': ++c; break;
+    }
+
+    if (base == 0) {
+        if (c[0] == '0') {
+            ++c;
+            if (tolower(*c) == 'x') {
+                base = 16; ++c;
+            } else if (getbasedigit(*c, 8) != -1) {
+                base = 8;
+            } else
+                goto error_exit;
+        }
+        else base = 10;
+    }
+
+    if (getbasedigit(*c, base) == -1)
+        goto error_exit;
+
+    for (;;) {
+        int digit = getbasedigit(*c, base);
+        if (digit < 0) break;
+
+        long oldres = res;
+        res *= 10;
+        res += digit;
+        if (oldres > res) {
+            theErrNo = ERANGE;
+            if (endptr) *endptr = NULL;
+            return 0;
+        }
+        ++c;
+    }
+
+    if (neg) res = -res;
+    if (endptr) *endptr = (char *)c;
+    return res;
+
+error_exit:
+    /* TODO: set EINVAL */
+    if (endptr) *endptr = (char *)nptr;
     return 0;
 }
 
@@ -329,10 +459,6 @@ uint32_t strhash(const char *key, size_t len) {
     return jenkins_one_at_a_time_hash(key, len);
 }
 
-char *strerror(int errornum) {
-    return "strerror()";
-}
-
 
 /*
  *  char operations from ctype.h
@@ -483,7 +609,8 @@ void exit(int status) {
         return;
     }
     /* TODO : atexit handlers */
-    longjmp(theExitInfo.exit_env, (status == EXIT_SUCCESS ? EXITENV_SUCCESS : status));
+    longjmp(theExitInfo.exit_env,
+            (status == EXIT_SUCCESS ? EXITENV_SUCCESS : status));
 }
 
 void abort(void) {

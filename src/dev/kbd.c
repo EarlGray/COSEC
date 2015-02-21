@@ -11,12 +11,12 @@
 
 /*************** Keyboard buffer ****************/
 
-#define KBD_BUF_SIZE    256 
+#define KBD_BUF_SIZE    256
 volatile struct {
     uint8_t head;
     uint8_t tail;
     scancode_t buf[KBD_BUF_SIZE];
-} theKbdBuf; 
+} theKbdBuf;
 
 inline void kbd_buf_clear(void) {
     theKbdBuf.head = theKbdBuf.tail = 0;
@@ -27,7 +27,7 @@ inline void kbd_buf_setup(void) {
 }
 
 scancode_t kbd_pop_scancode(void) {
-    if (theKbdBuf.head == theKbdBuf.tail) 
+    if (theKbdBuf.head == theKbdBuf.tail)
         return 0;
     else if (theKbdBuf.tail != KBD_BUF_SIZE-1)
         return theKbdBuf.buf[theKbdBuf.tail++];
@@ -41,9 +41,9 @@ scancode_t kbd_pop_scancode(void) {
         (((var) != (limit-1)) ? ++(var) : ((var) = 0) )
 
 static void kbd_push_scancode(scancode_t scan_id) {
-    if (theKbdBuf.tail == theKbdBuf.head+1) 
+    if (theKbdBuf.tail == theKbdBuf.head+1)
         next_circular(theKbdBuf.tail, KBD_BUF_SIZE);
-        
+
     // if append not at border of buf
     theKbdBuf.buf[ next_circular(theKbdBuf.head, KBD_BUF_SIZE) ] = scan_id;
 }
@@ -64,7 +64,7 @@ struct kbd_layout {
 };
 
 /** Default qwerty-ASCII translator **/
-const struct kbd_layout qwerty_layout = { 
+const struct kbd_layout qwerty_layout = {
     .key = {
         { 0, 0, 0 },        { 0, 0, 0},         {'1', '!', 0 },     { '2', '@', 0 }, // 0
         { '3', '#', 0 },    { '4', '$', 0 },    { '5', '%', 0 },    { '6', '^', 0 }, // 4
@@ -105,12 +105,12 @@ const struct kbd_layout qwerty_layout = {
 char translate_from_scan(const struct kbd_layout *layout, scancode_t scan_code) {
     if (scan_code & 0x80)
         return 0;
-    if (layout == null) 
+    if (layout == null)
         layout = &qwerty_layout;
 
     const struct scan_key *key = (layout->key + scan_code );
-    if (kbd_state_ctrl()) 
-        return key->ctrl; 
+    if (kbd_state_ctrl())
+        return key->ctrl;
     if (kbd_state_shift())
         return key->shift;
     return key->normal;
@@ -125,7 +125,7 @@ static void on_scan(scancode_t b) {
 
 scancode_t kbd_wait_scan(bool release_too) {
     kbd_set_onpress(on_scan);
-    if (release_too) 
+    if (release_too)
         kbd_set_onrelease(on_scan);
     sc = 0;
 
@@ -137,6 +137,14 @@ scancode_t kbd_wait_scan(bool release_too) {
     return sc;
 }
 
+char kbd_getchar(void) {
+    char c = 0;
+    while (!c) {
+        scancode_t sc = kbd_wait_scan(false);
+        c = translate_from_scan(NULL, sc);
+    }
+    return c;
+}
 
 /************* Keyboard driver ******************/
 
@@ -175,7 +183,7 @@ void keyboard_irq(/*void *stack*/) {
 	if (!(scan_code & 0x80)) {
 		/* on press event */
 		theKeyboard[scan_code] = true;
-        
+
         if (on_press)
             on_press(scan_code);
 	}	

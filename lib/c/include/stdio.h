@@ -32,9 +32,6 @@ FILE *freopen(const char *path, const char *mode, FILE *stream);
 size_t fread(void *ptr, size_t size, size_t nmmeb, FILE *stream);
 size_t fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream);
 
-int getchar(void);
-int putchar(int);
-
 int fgetc(FILE *stream);
 int ungetc(int c, FILE *stream);
 char *fgets(char *s, int size, FILE *stream);
@@ -67,6 +64,8 @@ int setvbuf(FILE *stream, char *buf, int mode, size_t size);
 
 int fclose(FILE *);
 
+
+char const *strerror(int err);
 
 #define L_tmpnam  0
 char *tmpnam(char *s);

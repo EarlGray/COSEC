@@ -22,53 +22,6 @@ FILE *stdin = &f_stdin;
 FILE *stdout = &f_stdout;
 FILE *stderr = &f_stderr;
 
-volatile char c = 0;
-
-static void on_key_press(scancode_t scan_code) {
-    c = translate_from_scan(null, scan_code);
-}
-
-int getchar(void) {
-    kbd_set_onpress(on_key_press);
-    c = 0;
-    while (c == 0) cpu_halt();
-    kbd_set_onpress(null);
-    return c;
-}
-
-int putchar(int c) {
-    cprint((uint8_t)c);
-    return c;
-}
-
-
-int getline(char *buf, size_t bufsize) {
-    char *cur = buf;
-    while (1) {
-        char c = getchar();
-        switch (c) {
-        case 4:  // ctrl-d
-            *cur = 0;
-            return c;
-        case '\b':
-            if (cur > buf) {
-                k_printf("\b \b");
-                --cur;
-            }
-            break;
-        default:
-            if (cur - buf < (int)bufsize) {
-                *cur++ = c;
-                putchar(c);
-                if (c == '\n') {
-                    *cur = 0;
-                    return c;
-                }
-            }
-        }
-    }
-}
-
 /***
   *     I/O
  ***/
@@ -89,7 +42,7 @@ char * snprint_uint(char *str, char *const end, uint x, uint8_t base, uint flags
     if (x == 0) {
         --n;
         a[n] = '0';
-    } else 
+    } else
     while (x != 0) {
         --n;
         a[n] = get_digit(x % base);
@@ -103,7 +56,7 @@ char * snprint_uint(char *str, char *const end, uint x, uint8_t base, uint flags
             a[n] = (flags & ZERO_PADDED ? '0' : ' ');
             --precision;
         }
-    } 
+    }
 
     while (n < maxDigits) {
         if (end && (end <= str)) return end;
@@ -123,12 +76,12 @@ char * snprint_uint(char *str, char *const end, uint x, uint8_t base, uint flags
 char * snprint_int(char *str, char *const end, int x, uint8_t base, uint flags, int precision) {
     if (end && (end <= str)) return end;
 
-   	if (x < 0) { 
-        *(str++) = '-'; 
+   	if (x < 0) {
+        *(str++) = '-';
         x = -x;
-    } else if (flags & PRINT_PLUS) 
-        *(str++) = '+'; 
-    else if (flags & SPACE_PLUS) 
+    } else if (flags & PRINT_PLUS)
+        *(str++) = '+';
+    else if (flags & SPACE_PLUS)
         *(str++) = ' ';
 
     return snprint_uint(str, end, x, base, flags, precision);
@@ -146,7 +99,7 @@ const char * sscan_uint(const char *str, uint *res, const uint8_t base) {
         if (('A' <= c) && (c <= ('A' + base - 10))) {
             *res *= base;
             *res += (c - 'A' + 10);
-        } else 
+        } else
             return str;
         ++str;
     } while (1);
@@ -156,15 +109,15 @@ const char * sscan_int(const char *str, int *res, const uint8_t base) {
     char sign = 1;
 
     switch (*str) {
-    case '-': 
+    case '-':
         sign = -1;
-    case '+': 
-        ++str; 
+    case '+':
+        ++str;
     }
 
     str = sscan_uint(str, (uint *)res, base);
 
-    if (sign == -1) 
+    if (sign == -1)
         *res = - *res;
     return str;
 }
@@ -188,23 +141,32 @@ int fprintf(FILE *stream, const char *format, ...) {
 }
 
 int vfprintf(FILE *stream, const char *format, va_list ap) {
+    int ret = 0;
     if (stream == stdout) {
-        int ret = 0;
         size_t bufsize = 64;
         char *buf = kmalloc(bufsize);
         while (1) {
             ret = vsnprintf(buf, bufsize, format, ap);
             if (ret < bufsize)
                 break;
-        
+
             bufsize *= 2;
             krealloc(buf, bufsize);
         }
 
         k_printf("%s", buf);
         kfree(buf);
+        return ret;
     }
-    return 0;
+    if (stream == stderr) {
+        set_cursor_attr(4);
+        ret = vfprintf(stdout, format, ap);
+        set_default_cursor_attr();
+        return ret;
+    }
+
+    logmsgef("TODO: vfprintf(*%x, '%s', ...)", (uint)stream, format);
+    return ret;
 }
 
 int snprintf(char *str, size_t size, const char *format, ...) {
@@ -236,9 +198,9 @@ int snprintf(char *str, size_t size, const char *format, ...) {
                 case '.':
                     fmt_c = sscan_int(++fmt_c, &precision, 10);
                     break;
-                default:    
+                default:
                     changed = false;
-                }   
+                }
             } while (changed);
 
             switch (*fmt_c) {
@@ -271,7 +233,7 @@ int snprintf(char *str, size_t size, const char *format, ...) {
 
                 stack = (void *)((char **)stack + 1);
                 } break;
-            //case 'e': case 'f': case 
+            //case 'e': case 'f': case
             default:
                 *out_c = *fmt_c;
                 ++out_c;
@@ -315,9 +277,9 @@ int vsnprintf(char *str, size_t size, const char *format, va_list ap) {
                 case '.':
                     fmt_c = sscan_int(++fmt_c, &precision, 10);
                     break;
-                default:    
+                default:
                     changed = false;
-                }   
+                }
             } while (changed);
 
             switch (*fmt_c) {
@@ -340,7 +302,7 @@ int vsnprintf(char *str, size_t size, const char *format, va_list ap) {
                     *(out_c++) = *(c++);
                 }
                 } break;
-            //case 'e': case 'f': case 
+            //case 'e': case 'f': case
             default:
                 *out_c = *fmt_c;
                 ++out_c;
@@ -386,6 +348,7 @@ FILE *freopen(const char *path, const char *mode, FILE *stream) {
 }
 
 char *tmpnam(char *s) {
+    logmsge("TODO: tmpnam('%s')", s);
     return "";
 }
 
@@ -395,7 +358,26 @@ size_t fread(void *ptr, size_t size, size_t nmmeb, FILE *stream) {
 }
 
 size_t fwrite(const void *ptr, size_t size, size_t nitems, FILE *stream) {
-    logmsge("TODO: fwrite");
+    char const *cptr = ptr;
+    int i;
+    if (stream == stdout) {
+        logmsgf("fwrite(*%x, %x, %x, stdout)\n", (uint)ptr, size, nitems);
+        for (i = 0; i < size * nitems; ++i) {
+            cprint(cptr[i]);
+        }
+        return nitems;
+    }
+    if (stream == stderr) {
+        logmsgf("fwrite(*%x, %x, %x, stderr)\n", (uint)ptr, size, nitems);
+        set_cursor_attr(4); // RED
+        for (i = 0; i < size * nitems; ++i) {
+            cprint(cptr[i]);
+        }
+        set_default_cursor_attr();
+        return nitems;
+    }
+    logmsge("TODO: fwrite(*%x, %x, %x, stream=*%x)\n",
+            (uint)ptr, size, nitems, (uint)stream);
     return 0;
 }
 
@@ -408,7 +390,7 @@ int fgetc(FILE *f) {
     if (!f) return EOF;
 
     if (f == stdin)
-        return getchar();
+        return kbd_getchar();
 
     return EOF;
 }

@@ -13,6 +13,7 @@
 void set_cursor_x(uint16_t X);
 void set_cursor_y(uint16_t Y);
 void set_cursor_attr(uint8_t attr);
+void set_default_cursor_attr(void);
 
 uint16_t get_cursor_x();
 uint16_t get_cursor_y();

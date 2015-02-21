@@ -43,8 +43,6 @@ char *strnrchr(const char *s, size_t n, int c);
 char *strpbrk(const char *s, const char *accept);
 size_t strspn(const char *s, const char *accept);
 
-char *strerror(int errornum);
-
 uint32_t strhash(const char *key, size_t len);
 
 #endif //__STRING_H__

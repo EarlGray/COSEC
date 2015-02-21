@@ -17,7 +17,10 @@ void k_printf(const char *fmt, ...);
 #define logmsg(msg) lprintf(msg)
 #define logmsgf(...) lprintf(__VA_ARGS__)
 
-#define logmsge(...) do { logmsg("Error: "); logmsgf(__VA_ARGS__); logmsg("\n"); } while (0)
+#define logmsge(...) do { \
+    logmsg("Error: "); logmsgf(__VA_ARGS__); logmsg("\n"); \
+    k_printf("Error: "); k_printf(__VA_ARGS__); k_printf("\n"); \
+} while (0)
 #define logmsgef(...)  logmsge(__VA_ARGS__)
 
 #ifdef __DEBUG

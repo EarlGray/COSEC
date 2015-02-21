@@ -224,7 +224,7 @@ void int_gpf(void) {
     intr_logf("#GP\nGeneral protection fault, error code %x\n", 
             intr_err_code());
     uint *ret_eip = (uint *)(intr_context_esp() + 0x2c);
-    intr_logf("Interrupted at %x:%x\n", ret_eip[1], ret_eip[0]);
+    logmsgef("Interrupted at %x:%x\n", ret_eip[1], ret_eip[0]);
     cpu_hang();
 }
 

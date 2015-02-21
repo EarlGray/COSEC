@@ -30,6 +30,8 @@ struct kbd_layout;
 // if layout is null, uses default
 char translate_from_scan(const struct kbd_layout *layout, scancode_t scan_code);
 
+char kbd_getchar(void);
+
 void keyboard_irq();
 void kbd_setup(void);
 
