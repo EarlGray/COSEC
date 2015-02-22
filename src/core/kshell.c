@@ -541,7 +541,7 @@ void kshell_time() {
 
 #ifdef COSEC_LUA
 void kshell_lua_test(void) {
-    const char *prompt = "\x1b[36mlua> \x1b[0m";
+    const char *prompt = "\x1b[36mlua> \x1b[3fm";
     char cmd_buf[CMD_SIZE];
     lua_State *lua;
 
@@ -557,6 +557,7 @@ void kshell_lua_test(void) {
 
     for (;;) {
         kshell_readline(cmd_buf, CMD_SIZE, prompt);
+        set_default_cursor_attr();
         if (!strcasecmp(cmd_buf, "q"))
             break;
 

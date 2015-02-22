@@ -205,14 +205,14 @@ void ecma48_control_sequence(uint num) {
     if (num == 0) {
         /* reset attributes */
         set_cursor_attr(DEFAULT_CURSOR_ATTR);
-    } else if ((30 <= num) && (num <= 37)) {
+    } else if ((0x30 <= num) && (num <= 0x3f)) {
         /* set foreground color */
         uint8_t attr = get_cursor_attr();
-        set_cursor_attr((attr & 0xF0) | (num - 30));
-    } else if ((40 <= num) && (num <= 47)) {
+        set_cursor_attr((attr & 0xF0) | (num - 0x30));
+    } else if ((0x40 <= num) && (num <= 0x4f)) {
         /* set background color */
         uint8_t attr = get_cursor_attr();
-        set_cursor_attr((attr & 0x0F) | ((num - 40) << 4));
+        set_cursor_attr((attr & 0x0F) | ((num - 0x40) << 4));
     }
 }
 
@@ -242,7 +242,7 @@ const char * ecma48_console_codes(const char *s) {
         switch (*++s) {
         case '[': {
             uint code = 0;
-            s = sscan_uint(++s, &code, 10);
+            s = sscan_uint(++s, &code, 16);
             if (*s == 'm') {
                 ecma48_control_sequence(code);
                 break;
