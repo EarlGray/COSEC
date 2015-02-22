@@ -1867,7 +1867,7 @@ int dgetc(DATA *d) {
     if (!d) { 
         /* not so simple, line bufferization required */
         if (dstdin.getpos == dstdin.inppos) {
-            kshell_readline(dbuf, CONSOLE_BUFFER);
+            kshell_readline(dbuf, CONSOLE_BUFFER, "");
             //printf("console_read: '%s'\n", dbuf);
 
             char *src = dbuf;

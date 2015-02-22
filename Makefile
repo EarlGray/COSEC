@@ -90,11 +90,8 @@ run: install
 	        echo "@@@@ Error: VirtualBox, qemu or Bochs must be installed"; \
 	else $(qemu) $(qemu_flags) -curses; fi
 
-qemu: install
-	@if [ -S $(pipe_file) ];  \
-	then $(qemu) $(qemu_flags) -serial unix:$(pipe_file) ; \
-	else $(qemu) $(qemu_flags) -serial stdio ;             \
-	fi
+qemu: $(cd_img)
+	$(qemu) -m 64 -cdrom $(cd_img) -boot d -serial stdio
 
 vbox: install
 	VBoxManage startvm $(vbox_name)
