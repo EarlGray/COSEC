@@ -569,6 +569,7 @@ void kshell_lua_test(void) {
         }
     }
 
+    lua_close(lua);
     logmsg("...back to kshell");
 }
 #endif

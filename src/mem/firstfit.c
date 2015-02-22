@@ -78,6 +78,9 @@ struct firstfit_allocator {
     uint startmem;
     uint endmem;
     struct ff_chunk_info *current;
+    /* some statistics */
+    uint n_malloc;
+    uint n_free;
 };
 
 typedef struct firstfit_allocator alloc_t;
@@ -140,8 +143,9 @@ static inline chunk_t *set_chunk(chunk_t *this, chunk_t *next, chunk_t *prev, bo
 }
 
 
-void try_to_repair(chunk_t *chunk) {
+void try_to_repair(struct firstfit_allocator *this, chunk_t *chunk) {
     logmsge("ff_try_to_repair(*%x)\n", (uint)chunk);
+    heap_info(this);
 }
 
 
@@ -161,6 +165,8 @@ firstfit_new(void *startmem, size_t size) {
     set_chunk(heap_end, initial, initial, true);    // never merge
 
     this->current = initial;
+    this->n_malloc = 0;
+    this->n_free = 0;
     return this;
 }
 
@@ -189,15 +195,15 @@ void * firstfit_malloc(struct firstfit_allocator *this, uint size) {
 
             this->current = next(chunk);
             set_used(chunk);
-            //return_if(!g
             memdebugf(" -> *%x\n", (uint)chunk_data(chunk));
+            ++this->n_malloc;
             return chunk_data(chunk);
         }
 
         chunk = next(chunk);
         if (! check_sum(chunk)) {
             logmsgef("Heap corruption at *0x%x ", (ptr_t)chunk);
-            try_to_repair(chunk);
+            try_to_repair(this, chunk);
             return null;
         }
 
@@ -275,7 +281,7 @@ void firstfit_free(struct firstfit_allocator *this, void *p) {
 
     chunk_t *chunk = (chunk_t *)((uint)p - CHUNK_SIZE);
     if (! check_sum(chunk)) {
-        try_to_repair(chunk);
+        try_to_repair(this, chunk);
         return;
     }
 
@@ -306,6 +312,7 @@ void firstfit_free(struct firstfit_allocator *this, void *p) {
 
     this->current = chunk;
     debug_heap_info(this);
+    ++this->n_free;
 }
 
 void *firstfit_corruption(struct firstfit_allocator *this) {
@@ -318,14 +325,33 @@ void *firstfit_corruption(struct firstfit_allocator *this) {
 #include <log.h>
 
 void heap_info(struct firstfit_allocator *this) {
-    logmsgf("header(*%x): startmem = 0x%x, endmem = 0x%x, current = 0x%x\n",
-            (uint)this, (uint)this->startmem, (uint)this->endmem, (uint)this->current);
+    size_t free_space = 0;
+    size_t meta_space = 0;
+    size_t used_space = 0;
+    size_t largest_free_space = 0;
+
+    logmsgif("heap(*%x): startmem = *%x, endmem = *%x, current = *%x",
+            (uint)this, (uint)this->startmem, (uint)this->endmem,
+            (uint)this->current);
+    logmsgif("%d mallocs, %d frees", this->n_malloc, this->n_free);
+
     chunk_t *cur = this->current;
     do {
+        size_t cur_size = get_size(cur);
         logmsgf("  0x%x %s (0x%x : 0x%x) [0x%x]\n",
               (uint)cur, (is_used(cur) ? "used" : "free"),
               CHUNK_SIZE + (uint)cur,
-              (uint)next(cur), get_size(cur));
+              (uint)next(cur), cur_size);
+
+        if (!is_used(cur)) {
+            free_space += cur_size;
+            if (cur_size > largest_free_space)
+                largest_free_space = cur_size;
+        } else if (next(cur) > prev(cur)) {
+            used_space += cur_size;
+        }
+        meta_space += CHUNK_SIZE;
+
         cur = next(cur);
         if (! check_sum(cur)) {
             logmsgef("HEAP ERROR: Invalid checksum, heap corruption at *%x\n", cur);
@@ -333,4 +359,10 @@ void heap_info(struct firstfit_allocator *this) {
         }
 
     } while (cur != this->current);
+
+    logmsgif("heap.free_space = 0x%x", free_space);
+    logmsgif("heap.used_space = 0x%x", used_space);
+    logmsgif("heap.meta_space = 0x%x (%d chunks)",
+             meta_space, meta_space/CHUNK_SIZE);
+    logmsgif("heap.largest_free = 0x%x", largest_free_space);
 }
