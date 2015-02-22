@@ -33,7 +33,7 @@ void srand(unsigned int seed);
 #define EXITENV_EXITPOINT   -2
 #define EXITENV_ABORTED     -3
 
-enum exit_status { EXIT_SUCCESS, EXIT_FAILURE };
+enum exit_status { EXIT_SUCCESS = 0, EXIT_FAILURE = 1 };
 
 char *getenv(const char *name);
 int system(const char *command);

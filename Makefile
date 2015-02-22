@@ -78,17 +78,17 @@ qemu        := qemu-system-i386
 qemu_flags  := -fda $(image) -boot a -m 64 -net nic,model=rtl8139
 
 .PHONY: run install mount umount clean
-.PHONY: qemu vbox bochs
+.PHONY: qemu vbox bochs runq
+
+runq: $(kernel)
+	$(qemu) -kernel $(kernel) -fda $(image) -serial stdio
 
 run: install
 	@echo "\n#### Running..." && \
 	if [ $$DISPLAY ] ; then      \
-	    make vbox || make qemu || make bochs || \
+	    make krun || make qemu || make vbox || make bochs || \
 	        echo "@@@@ Error: VirtualBox, qemu or Bochs must be installed"; \
 	else $(qemu) $(qemu_flags) -curses; fi
-
-krun: $(kernel)
-	$(qemu) -kernel $(kernel) -fda $(image) -serial stdio
 
 qemu: install
 	@if [ -S $(pipe_file) ];  \

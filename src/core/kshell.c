@@ -4,6 +4,7 @@
 
 #include <dev/intrs.h>
 #include <dev/screen.h>
+#include <dev/kbd.h>
 #include <dev/pci.h>
 
 #include <stdlib.h>
@@ -20,6 +21,7 @@
 #include <log.h>
 
 #include <kshell.h>
+#include <ctype.h>
 
 #ifdef COSEC_LUA
 # include <lua/lua.h>
@@ -166,7 +168,8 @@ inline void console_writeline(const char *msg) {
     k_printf("%s\n", msg);
 }
 
-void kshell_readline(char *buf, size_t size) {
+void kshell_readline(char *buf, size_t size, const char *prompt) {
+    k_printf(prompt);
     char *cur = buf;
     while (1) {
         char c = kbd_getchar();
@@ -184,7 +187,7 @@ void kshell_readline(char *buf, size_t size) {
         case 12:    // Ctrl-L
             *cur = 0;
             clear_screen();
-            console_write(prompt);
+            k_printf(prompt);
             console_write(buf);
             break;
         case '\t':
@@ -538,18 +541,23 @@ void kshell_time() {
 
 #ifdef COSEC_LUA
 void kshell_lua_test(void) {
+    const char *prompt = "\x1b[36mlua> \x1b[0m";
     char cmd_buf[CMD_SIZE];
-    lua_State *lua = luaL_newstate();
+    lua_State *lua;
 
+    logmsg("starting Lua...\n");
+    k_printf("\x1b[32m###\n###       Lua "LUA_VERSION_MAJOR"."LUA_VERSION_MINOR"\n###\n");
+    k_printf("###  type 'q' to exit\n###\x1b[0m\n");
+
+    lua = luaL_newstate();
     if (!lua)
         logmsge("luaL_newstate() -> NULL");
 
     luaL_openlibs(lua);
 
     for (;;) {
-        k_printf("lua> ");
-        kshell_readline(cmd_buf, CMD_SIZE);
-        if (!strcasecmp(cmd_buf, ":q"))
+        kshell_readline(cmd_buf, CMD_SIZE, prompt);
+        if (!strcasecmp(cmd_buf, "q"))
             break;
 
         int err = luaL_loadbuffer(lua, cmd_buf, strlen(cmd_buf), "line")
@@ -560,7 +568,7 @@ void kshell_lua_test(void) {
         }
     }
 
-    logmsge("...back to kshell");
+    logmsg("...back to kshell");
 }
 #endif
 
@@ -568,10 +576,9 @@ void kshell_secd() {
 #ifdef COSEC_LUA
     int ret = exitpoint();
     if (ret == EXITENV_EXITPOINT) {
-        logmsg("starting lua...\n");
         kshell_lua_test();
     } else {
-        logmsgf("exited with code %d\n", ret);
+        logmsgif("... exit code %d", ret);
     }
 #else
     int ret;
@@ -656,8 +663,7 @@ void kshell_run(void) {
     console_setup();
 
     for_ever {
-        console_write(prompt);
-        kshell_readline(cmd_buf, CMD_SIZE);
+        kshell_readline(cmd_buf, CMD_SIZE, prompt);
         kshell_do(cmd_buf);
     }
 }

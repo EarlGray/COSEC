@@ -23,6 +23,12 @@ void k_printf(const char *fmt, ...);
 } while (0)
 #define logmsgef(...)  logmsge(__VA_ARGS__)
 
+#define logmsgi(...) do { \
+    logmsg("### "); logmsgf(__VA_ARGS__); logmsg("\n"); \
+    k_printf("### "); k_printf(__VA_ARGS__); k_printf("\n"); \
+} while (0)
+#define logmsgif(...)  logmsgi(__VA_ARGS__)
+
 #ifdef __DEBUG
 #   define logmsgd(msg) logmsg(msg)
 #   define logmsgdf(...) logmsgf(__VA_ARGS__)

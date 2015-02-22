@@ -144,18 +144,18 @@ int vfprintf(FILE *stream, const char *format, va_list ap) {
     int ret = 0;
     if (stream == stdout) {
         size_t bufsize = 64;
-        char *buf = kmalloc(bufsize);
+        char *buf = malloc(bufsize);
         while (1) {
             ret = vsnprintf(buf, bufsize, format, ap);
             if (ret + 1 < bufsize)
                 break;
 
             bufsize *= 2;
-            krealloc(buf, bufsize);
+            realloc(buf, bufsize);
         }
 
         k_printf("%s", buf);
-        kfree(buf);
+        free(buf);
         return ret;
     }
     if (stream == stderr) {
@@ -236,12 +236,18 @@ int vsnprintf(char *str, size_t size, const char *format, va_list ap) {
                 double arg = va_arg(ap, double);
                 uint intpart = (uint)arg;
                 uint fracpart = (uint)(1000000.0 * (arg - intpart));
-                out_c = snprint_uint(out_c, end, intpart, 10, flags, precision);
+                out_c = snprint_uint(out_c, end, intpart, 10, flags, 0);
                 if (fracpart > 0) {
                     *out_c++ = '.';
                     out_c = snprint_uint(out_c, end, fracpart, 10,
                                      ZERO_PADDED | LEFT_PADDED, 6);
                 }
+                } break;
+            case 'p': {
+                void *arg = va_arg(ap, void *);
+                *out_c++ = '0'; *out_c++ = 'x';
+                out_c = snprint_uint(out_c, end, (uint)arg, 16,
+                                     ZERO_PADDED | flags, 8);
                 } break;
             default:
                 logmsgef("vsnprintf: unknown format specifier %x", (uint)*fmt_c);
