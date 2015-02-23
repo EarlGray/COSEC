@@ -39,9 +39,9 @@ double exp(double x) {
 }
 double ldexp(double x, int exp) {
     double res = 1;
-    if (exp > 0) while (exp) { res *= x; --exp; }
-    else while (exp < 0) { res /= x; ++exp; }
-    return res;
+    if (exp > 0) while (exp) { res *= 2; --exp; }
+    else while (exp < 0) { res /= 2; ++exp; }
+    return res * x;
 }
 
 double log(double x) {

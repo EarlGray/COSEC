@@ -275,7 +275,7 @@ void *firstfit_realloc(struct firstfit_allocator *this, void *p, size_t size) {
 void firstfit_free(struct firstfit_allocator *this, void *p) {
     memdebugf("ff_free(*%x)\n", (uint)p);
     if (!p) {
-        logmsg("ff_free(NULL)\n");
+        //logmsg("ff_free(NULL)\n");
         return;
     }
 

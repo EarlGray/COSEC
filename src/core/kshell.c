@@ -540,10 +540,31 @@ void kshell_time() {
 }
 
 #ifdef COSEC_LUA
+int syslua_heapinfo(lua_State *L) {
+    kheap_info();
+    return 0;
+}
+
+int syslua_mem(lua_State *L) {
+    int argc = lua_gettop(L);
+    uint p = 0;
+    uint sz = 0x100;
+
+    switch (argc) {
+      case 2: sz = (uint)lua_tonumber(L, 2); /* fallthrough */
+      case 1: p = (uint)lua_tonumber(L, 1); /* fallthrough */
+      case 0: break;
+    }
+
+    print_mem((const char *)p, (size_t)sz);
+    return 0;
+}
+
 void kshell_lua_test(void) {
     const char *prompt = "\x1b[36mlua> \x1b[3fm";
     char cmd_buf[CMD_SIZE];
     lua_State *lua;
+    int luastack;
 
     logmsg("starting Lua...\n");
     k_printf("\x1b[32m###\n###       Lua "LUA_VERSION_MAJOR"."LUA_VERSION_MINOR"\n###\n");
@@ -552,6 +573,20 @@ void kshell_lua_test(void) {
     lua = luaL_newstate();
     if (!lua)
         logmsge("luaL_newstate() -> NULL");
+
+    /* sys module */
+    lua_newtable(lua);
+
+    lua_pushstring(lua, "heapinfo");
+    lua_pushcfunction(lua, syslua_heapinfo);
+    lua_settable(lua, -3);
+
+    lua_pushstring(lua, "mem");
+    lua_pushcfunction(lua, syslua_mem);
+    lua_settable(lua, -3);
+
+    lua_setglobal(lua, "sys");
+
 
     luaL_openlibs(lua);
 
@@ -570,7 +605,7 @@ void kshell_lua_test(void) {
     }
 
     lua_close(lua);
-    logmsg("...back to kshell");
+    logmsg("...back to kshell\n");
 }
 #endif
 

@@ -85,6 +85,7 @@ int abs(int i) {
 }
 
 int atoi(const char *nptr) {
+    //logmsgf("atoi(%s)\n", nptr);
     while (isspace(*nptr)) ++nptr;
 
     int res = 0;
@@ -116,6 +117,7 @@ inline int getbasedigit(char c, int base) {
 }
 
 long strtol(const char *nptr, char **endptr, int base) {
+    logmsgf("strtol('%s')\n", nptr);
     theErrNo = 0;
     char const *c = nptr;
     bool neg = false;
@@ -173,6 +175,7 @@ error_exit:
 }
 
 double strtod(const char *nptr, char **endptr) {
+    //logmsgef("strtod('%s')\n", nptr);
     theErrNo = 0;
     bool neg = false;
     const char *c = nptr;
