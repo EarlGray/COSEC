@@ -1,7 +1,7 @@
 the Coolest Operating System Ever Created
 -----------------------------------------
 
-I'm kidding :) 
+I'm kidding :)
 Seriously, it's just my first effort in writing OS for protected mode of x86.
 It is quite simple and buggy, you won't see anything great for a long time.
 
@@ -13,7 +13,8 @@ Tools, languages and platform used:
 
 Features:
 - a simplest kernel shell with few built-in commands primarily for debugging;
-- small subset of libc, heap management; 
+- built-in Lua shell with `sys` module;
+- a subset of libc, heap management;
 - preemptive multitasking demo (two example tasks running concurrently);
 - simplest userspace init and syscalls (at the moment, just one actually);
 - posix virtual filesystem (inodes, mountpoints, filelinks), ramfs;

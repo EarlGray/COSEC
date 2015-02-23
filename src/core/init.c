@@ -42,7 +42,7 @@ void kinit(uint32_t magic, struct multiboot_info *mbi) {
     dev_setup();
     timer_setup();
     kbd_setup();
-    ide_setup();
+    //ide_setup();
 
     /* do something useful */
     tasks_setup();

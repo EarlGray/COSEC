@@ -7,9 +7,13 @@
 
 #define LOGBUF_SIZE  4096
 
+#define COM_LOGGING  (1)
+
 int logging_setup() {
+#if COM_LOGGING
     serial_configure(COM1_PORT, 1);
     k_printf("COM1_PORT configured for logging...\n");
+#endif
     return 0;
 }
 
@@ -23,7 +27,7 @@ int vlprintf(const char *fmt, va_list ap) {
     if (ret >= (int)LOGBUF_SIZE)
         logbuf[LOGBUF_SIZE - 1] = 0;
 
-#if 1
+#if COM_LOGGING
     serial_puts(COM1_PORT, logbuf);
 #else
     k_printf("# %s", logbuf);

@@ -159,7 +159,7 @@ int vfprintf(FILE *stream, const char *format, va_list ap) {
         return ret;
     }
     if (stream == stderr) {
-        set_cursor_attr(4);
+        set_cursor_attr(0x0C);
         ret = vfprintf(stdout, format, ap);
         set_default_cursor_attr();
         return ret;

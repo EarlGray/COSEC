@@ -60,7 +60,7 @@ inline void out_bits_l(uint16_t port, uint32_t mask, uint32_t val) {
 inline void set_serial_divisor(uint16_t port, uint16_t div) {
     out_bits_b(port + LCR_OFFSET, 0x80, 0x80);
     logmsgf("0x%x port set to 0x%x\n", (uint)port, (uint)div);
-    inw(port, div);
+    inb(port, div);
     out_bits_b(port + LCR_OFFSET, 0x80, 0x00);
 }
 
