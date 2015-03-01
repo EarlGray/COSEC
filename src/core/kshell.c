@@ -60,12 +60,6 @@ panic(const char *fatal_error) {
 
     snprintf(buf, 100, "--> %s <--", fatal_error);
     print_centered(buf);
-    /*
-    k_printf("\nCPU: \n");
-    print_cpu();
-    k_printf("\n\nKernel stack: \n");
-    print_mem((char *)cpu_stack(), 0x50);
-    */
 
     // original ascii-art from: http://brainbox.cc/repository/trunk/sixty-four/multiboot/include/kernel.h
 	k_printf("\n"
@@ -242,8 +236,10 @@ void kshell_io(const struct kshell_command *, const char *);
 void kshell_ls();
 void kshell_mount();
 void kshell_time();
-void kshell_secd();
 void kshell_panic();
+#if COSEC_LUA
+void kshell_lua();
+#endif
 
 void kshell_init() {
 #ifdef TEST_USERSPACE
@@ -272,8 +268,10 @@ const struct kshell_command main_commands[] = {
     {   .name = "ls",       .handler = kshell_ls,    .description = "list current VFS directory"    },
     {   .name = "mount",    .handler = kshell_mount, .description = "list current mounted filesystems"  },
     {   .name = "time",     .handler = kshell_time,  .description = "system time", .options = ""  },
-    {   .name = "lua",      .handler = kshell_secd,  .description = "Lua REPL", .options = "" },
-    {   .name = null,       .handler = 0    }
+#if COSEC_LUA
+    {   .name = "lua",      .handler = kshell_lua,  .description = "Lua REPL", .options = "" },
+#endif
+    {   .name = NULL,       .handler = 0    }
 };
 
 void test_strs(void);
@@ -607,23 +605,16 @@ void kshell_lua_test(void) {
     lua_close(lua);
     logmsg("...back to kshell\n");
 }
-#endif
 
-void kshell_secd() {
-#ifdef COSEC_LUA
+void kshell_lua() {
     int ret = exitpoint();
     if (ret == EXITENV_EXITPOINT) {
         kshell_lua_test();
     } else {
         logmsgif("... exit code %d", ret);
     }
-#else
-    int ret;
-    ret = run_lisp();
-    if (ret != 0)
-        logmsgef("SECD REPL exited with code %d\n", ret);
-#endif
 }
+#endif // COSEC_LUA
 
 void kshell_unknown_cmd() {
     k_printf("type 'help'\n\n");
@@ -692,14 +683,12 @@ void kshell_do(char *command) {
     kshell_unknown_cmd(command);
 }
 
-#define for_ever while(1)
-
 void kshell_run(void) {
     char cmd_buf[CMD_SIZE] = { 0 };
 
     console_setup();
 
-    for_ever {
+    for (;;) {
         kshell_readline(cmd_buf, CMD_SIZE, prompt);
         kshell_do(cmd_buf);
     }

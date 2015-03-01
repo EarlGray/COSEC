@@ -160,10 +160,6 @@ $(build)/$(lds):    $(src_dir)/$(lds).S
 	@echo "CPP: "
 	$(cc) -E $< -o $@ -P -DNOT_CC $(cc_includes)
 
-$(build)/%.o: $(src_dir)/%.secd
-	@echo -n "LD: "
-	$(ld) -melf_i386 -r -b binary -o $@ $<
-	
 $(build)/%.o : $(src_dir)/%.c
 	@echo -n "CC: "
 	$(cc) -c $< -o $@ $(cc_includes) $(cc_flags) -MT $(subst .d,.c,$@)
@@ -218,4 +214,3 @@ help:
 	echo "	make fuse=";	echo
 
 include $(wildcard $(addprefix /*.d, $(build)/arch $(build)/core $(build)/dev $(build)/fs $(build)/mem $(build)/std))
-$(build)/core/repl.o: $(src_dir)/core/repl.secd
