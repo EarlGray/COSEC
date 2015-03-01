@@ -199,7 +199,7 @@ void kshell_readline(char *buf, size_t size, const char *prompt) {
 }
 
 static void console_setup(void) {
-    //
+    k_printf("\n");
 }
 
 
