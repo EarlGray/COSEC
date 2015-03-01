@@ -3,24 +3,26 @@ export include_dir  := $(top_dir)/include
 export src_dir      := $(top_dir)/src
 export build        := $(top_dir)/build
 
-export STDINC_DIR   := lib/c/include
+STDINC_DIR   := lib/c/include
+CACHE_DIR    ?= $(top_dir)/.cache
 
-LUA					:= 1
+LUA          := 1
 
 host_os := $(shell uname)
 
 ifeq ($(host_os),Darwin)
-crosscompile := i386-elf-
+crosscompile ?= i386-elf-
 endif
 
-cc  ?=  $(crosscompile)gcc
-as  ?=  $(crosscompile)gcc
-ld  ?=  $(crosscompile)ld
-ar  ?=  $(crosscompile)ar
-ranlib ?= $(crosscompile)ranlib
+cc      ?= $(crosscompile)gcc
+as      ?= $(crosscompile)gcc
+ld      ?= $(crosscompile)ld
+ar      ?= $(crosscompile)ar
+ranlib  ?= $(crosscompile)ranlib
 
-nm  :=  $(crosscompile)nm
-objdump :=  $(crosscompile)objdump
+nm      := $(crosscompile)nm
+objdump := $(crosscompile)objdump
+
 
 objs    := $(src_dir)/arch/boot.S
 objs    += $(wildcard $(src_dir)/arch/[^b]*.S) # exclude boot.S
@@ -30,7 +32,7 @@ objs    := $(patsubst $(src_dir)/%.S, $(build)/%.o, $(objs))
 objs    := $(patsubst $(src_dir)/%.c, $(build)/%.o, $(objs))
 objs    += $(build)/core/repl.o
 
-lds := vmcosec.lds
+lds     := vmcosec.lds
 
 cc_includes := $(addprefix -I, $(include_dir) $(STDINC_DIR))
 
@@ -39,7 +41,7 @@ as_flags    := -Wall -MD $(addprefix -I, $(include_dir))
 ld_flags    := -static -nostdlib -T$(build)/$(lds)
 
 ifneq ($(LUA),)
-liblua		:= lib/liblua.a
+liblua      := lib/liblua.a
 cc_flags    += -DCOSEC_LUA=1
 endif
 
@@ -174,17 +176,18 @@ $(libinit):
 	@cd usr && make
 
 ifneq ($(LUA),)
+
 LUA_VER  ?= 5.2.2
-LUA_DIR  := lib/lua/lua-$(LUA_VER)
+LUA_DIR  := lib/lua-$(LUA_VER)
 
 # include/lua/lua.h: $(LUA_DIR)
 
-lib/lua/lua-$(LUA_VER).tar.gz:
-	mkdir -p lib/lua ; cd lib/lua; \
+$(CACHE_DIR)/lua-$(LUA_VER).tar.gz:
+	mkdir -p $(CACHE_DIR) ; cd $(CACHE_DIR); \
     curl -R -O http://www.lua.org/ftp/$(notdir $@)
 
-$(LUA_DIR): lib/lua/lua-$(LUA_VER).tar.gz
-	cd lib/lua && tar xf $(notdir $<)
+$(LUA_DIR): $(CACHE_DIR)/lua-$(LUA_VER).tar.gz
+	tar xf $< -C lib/
 	cd include ; test -L lua || ln -s ../$(LUA_DIR)/src lua
 
 $(liblua): $(LUA_DIR)
