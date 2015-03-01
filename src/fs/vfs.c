@@ -3,6 +3,7 @@
 #include <sys/errno.h>
 #include <sys/stat.h>
 
+#include <dev/devices.h>
 #include <log.h>
 
 typedef uint16_t uid_t, gid_t;
@@ -14,11 +15,31 @@ typedef struct fsdriver fsdriver_t;
 
 typedef struct mount_opts_t  mount_opts_t;
 
-err_t vfs_mount(const char *source, const char *target, const mount_opts_t *opts);
+err_t vfs_mount(dev_t source, const char *target, const mount_opts_t *opts);
 err_t vfs_mkdir(const char *path, mode_t mode);
 
 
-#define PINODE_SIZE 128
+
+struct superblock {
+    dev_t dev;
+    fsdriver_t *fs;
+
+    size_t blksz;
+    struct {
+        bool dirty :1 ;
+        bool ro :1 ;
+    } flags;
+
+    const char *relmntpath;       /* path relative to the parent mountpoint */
+    uint32_t mntpath_hash;        /* hash of this relmntpath */
+    struct superblock *brother;   /* the next superblock in the list of childs of parent */
+    struct superblock *parent;
+    struct superblock *childs;    /* list of this superblock child blocks */
+};
+
+struct superblock *theRootMnt = NULL;
+
+
 
 struct inode {
     index_t no;           // ino index
@@ -26,68 +47,106 @@ struct inode {
     count_t nlinks;
 };
 
-typedef struct pinode {
-    inode_t i;
-    char info[0];
-    char pad[PINODE_SIZE - sizeof(inode_t)];
-} pinode_t; // padded inode
-
-struct inode_ops {
-    int (*read)(inode_t *, off_t, char *, size_t);          // read data
-    int (*write)(inode_t *, off_t, const char *, size_t);   // write data
-
-    int (*truncate)(inode_t *, size_t);
-};
 
 struct mount_opts_t {
+    uint fs_id;
+    bool readonly:1;
 };
-
-#define PFSDRV_SIZE 256
 
 struct fsdriver {
     const char *name;
+    uint fs_id;
     fs_ops *ops;
+
+    struct {
+        fsdriver_t *prev, *next;
+    } lst;
 };
 
-typedef struct pfsdriver {
-    fsdriver_t fsd;
-    char info[0];
-    char pad[PFSDRV_SIZE - sizeof(fsdriver_t)];
-} pfsdriver_t;  // padded fsdriver
+
 
 struct fs_ops {
-    inode_t * (*new_inode)(superblock_t *); // create an inode
-    int (*del_inode)();                   // delete an inode
-
-    int (*get_inode)(inode_t *);        // fills the inode_t structure
-    int (*put_inode)(inode_t *);        // updates the inode by data in inode_t 
-
-    int (*statfs)(superblock_t *, struct statvfs *);
-    superblock_t * (*mountfs)(kdev_t, mount_opts_t *);
+    int (*read_superblock)(struct superblock *sb);
 };
 
-#define PSB_SIZE    512
+fsdriver_t * theFileSystems = NULL;
 
-struct superblock {
-    dev_t dev;
-    size_t blksz;
-    fsdriver_t *fs;
-    struct {
-        bool dirty :1 ;
-        bool ro :1 ;
-    } flags;
+void vfs_register_filesystem(fsdriver_t *fs) {
+    if (!theFileSystems) {
+        theFileSystems = fs;
+        fs->lst.next = fs->lst.prev = fs;
+        return;
+    }
+
+    /* insert just before theFileSystems in circular list */
+    fsdriver_t *lastfs = theFileSystems->lst.prev;
+    fs->lst.next = theFileSystems;
+    fs->lst.prev = lastfs;
+    lastfs->lst.next = fs;
+    theFileSystems->lst.prev = fs;
 };
 
-typedef struct psuperblock {
-    superblock_t sb;
-    char info[0];
-    char pad[PSB_SIZE - sizeof(superblock_t)];
-} psuperblock_t; // padded superblock
+fsdriver_t *vfs_fs_by_id(uint fs_id) {
+    fsdriver_t *fs = theFileSystems;
+    if (!fs) return NULL;
+
+    do {
+        if (fs->fs_id == fs_id)
+            return fs;
+    } while ((fs = fs->lst.next) != theFileSystems);
+    return NULL;
+}
 
 
+/*
+ *  Sysfs
+ */
 
-err_t vfs_mount(const char *source, const char *target, const mount_opts_t *opts) {
-    return -ETODO;
+static int sysfs_read_superblock(struct superblock *sb);
+
+fs_ops sysfs_fsops = {
+    .read_superblock = sysfs_read_superblock,
+}; 
+
+fsdriver_t sysfs_driver = {
+    .name = "sysfs",
+    .fs_id = 0x00535953, /* "SYS" */
+    .ops = &sysfs_fsops,
+};
+
+static int sysfs_read_superblock(struct superblock *sb) {
+    sb->dev = gnu_dev_makedev(CHR_VIRT, CHR0_SYSFS);
+    return 0;
+}
+
+
+err_t vfs_mount(dev_t source, const char *target, const mount_opts_t *opts) {
+    if (theRootMnt == NULL) {
+        if ((target[0] != '/') || (target[1] != '\0')) {
+             logmsgef("vfs_mount: mount('%s') with no root", target);
+             return -1;
+        }
+
+        fsdriver_t *fs = vfs_fs_by_id(opts->fs_id);
+        if (!fs) return -2;
+
+        struct superblock *sb = kmalloc(sizeof(struct superblock));
+        return_err_if(!sb, -3, "vfs_mount: malloc(superblock) failed");
+
+        sb->fs = fs;
+        int ret = fs->ops->read_superblock(sb);
+        return_err_if(ret, -4, "vfs_mount: read_superblock failed (%d)", ret);
+
+        sb->parent = NULL;
+        sb->brother = NULL;
+        sb->childs = NULL;
+        sb->relmntpath = NULL;
+
+        theRootMnt = sb;
+        return 0;
+    }
+    logmsge("vfs_mount: TODO: non-root");
+    return -110;
 }
 
 err_t vfs_mkdir(const char *path, mode_t mode) {
@@ -97,16 +156,32 @@ err_t vfs_mkdir(const char *path, mode_t mode) {
 
 
 void print_ls(const char *path) {
-    logmsgef("TODO: VFS not implemented\n");
+    logmsgef("TODO: ls not implemented\n");
 }
 
+
+
 void print_mount(void) {
-    logmsgef("TODO: VFS not implemented\n");
+    struct superblock *sb = theRootMnt;
+    if (!sb) return;
+
+    k_printf("%s on /\n", sb->fs->name);
+    if (sb->childs) {
+        logmsge("TODO: print child mounts");
+    }
 }
 
 void vfs_setup(void) {
     int ret;
-    ret = vfs_mount("sysfs", "/", null);
-    assertv(ret == 0, "root mount on ramfs failed\n");
-    k_printf("ramfs on / mounted successfully");
+
+    /* register filesystems here */
+    vfs_register_filesystem(&sysfs_driver);
+
+    /* mount actual filesystems */
+    dev_t sysfsdev = gnu_dev_makedev(CHR_VIRT, CHR0_SYSFS);
+    mount_opts_t mntopts = { .fs_id = 0x00535953 };
+    ret = vfs_mount(sysfsdev, "/", &mntopts);
+    returnv_err_if(ret, "root mount on sysfs failed (%d)", ret);
+
+    k_printf("sysfs on / mounted successfully\n");
 }

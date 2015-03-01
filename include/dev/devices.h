@@ -27,8 +27,8 @@ enum char_device_family {
 };
 
 enum char_virtual_devices {
-    CHR_UNSPECIFIED = 0,
-    CHR_SYSFS       = 1,
+    CHR0_UNSPECIFIED = 0,
+    CHR0_SYSFS       = 1,
 };
 
 enum block_device_family {

@@ -37,20 +37,23 @@ void k_printf(const char *fmt, ...);
 #   define logmsgdf(...)
 #endif
 
-#define return_if_eq(expr1, ret_expr) \
-    if ((expr1) == (ret_expr)) return (ret_expr);
+#define returnv_dbg_if(assertion, ...) \
+    if (assertion) {  logmsgdf(__VA_ARGS__); return; }
 
-#define return_if(assertion, retval, msg) \
-    if (assertion) {  logmsgd(msg); return (retval); }
+#define return_dbg_if(assertion, retval, ...) \
+    if (assertion) {  logmsgdf(__VA_ARGS__); return (retval); }
 
-#define returnv_if(assertion, msg) \
-    if (assertion) {  logmsgd(msg); return; }
+#define returnv_log_if(assertion, ...) \
+    if (assertion) {  logmsgf(__VA_ARGS__); return; }
 
-#define returnf_if(assertion, retval, fmt, ...) \
-    if (assertion) {  logmsgdf(msg, __VA_ARGS__); return (retval); }
+#define return_log_if(assertion, retval, ...) \
+    if (assertion) {  logmsgf(__VA_ARGS__); return (retval); }
 
-#define assertq(assertion, retval) \
-    if (!(assertion)) { return (retval); }
+#define returnv_err_if(assertion, ...) \
+    if (assertion) {  logmsgef(__VA_ARGS__); return; }
+
+#define return_err_if(assertion, retval, ...) \
+    if (assertion) {  logmsgef(__VA_ARGS__); return (retval); }
 
 #define assert(assertion, retval, ...)    \
     if (!(assertion)) { logmsgef(__VA_ARGS__); return (retval); }
