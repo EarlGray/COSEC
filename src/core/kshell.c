@@ -255,7 +255,7 @@ const struct kshell_command main_commands[] = {
     {   .name = "test",     .handler = kshell_test,  .description = "test utility",
         .options = "sprintf kbd timer serial tasks ring3 usleep" },
     {   .name = "info",     .handler = kshell_info,  .description = "various info",
-        .options = "stack gdt pmem colors cpu pci mods" },
+        .options = "stack gdt pmem colors cpu pci irq mods mboot" },
     {   .name = "mem",      .handler = kshell_mem,   .description = "mem <start_addr> <size = 0x100>" },
     {   .name = "io",       .handler = kshell_io,    .description = "io[bwd][rw] <port> [<value>]",
         .options = "br/wr/dr <port> -- read port; bw/ww/dw <port> <value> - write value to port" },
@@ -293,7 +293,7 @@ void kshell_ls(const struct kshell_command __unused *this, const char *arg) {
 }
 
 void kshell_vfs(const struct kshell_command __unused *this, const char *arg) {
-    vfs_shell(arg);
+    logmsgef("TODO: vfs");
 }
 
 void kshell_mount() {
@@ -339,6 +339,122 @@ bool kshell_autocomplete(char *buf) {
     }
     return false;
 }
+
+/*
+ *  parsing ELF
+ */
+const char* str_shdr_type[] = {
+    [SHT_NULL] =        "NULL",
+    [SHT_PROGBITS] =    "PROGBIT",
+    [SHT_SYMTAB] =      "SYMTAB",
+    [SHT_STRTAB] =      "STRTAB",
+    [SHT_RELA] =        "RELA",
+    [SHT_HASH] =        "HASH",
+    [SHT_DYNAMIC] =     "DYNAMIC",
+    [SHT_NOTE] =        "NOTE",
+    [SHT_NOBITS] =      "NOBITS",
+    [SHT_REL] =         "REL",
+    [SHT_SHLIB] =       "SHLIB",
+};
+
+const char* symtypes[] = {
+    [ STT_NOTYPE ] = "notype",
+    [ STT_OBJECT ] = "object",
+    [ STT_FUNC ] = "func",
+    [ STT_SECTION ] = "section",
+    [ STT_FILE ] = "file",
+};
+const char* symbinds[] = {
+    [ STB_LOCAL ] = "L",
+    [ STB_GLOBAL ] = "G",
+    [ STB_WEAK ] = "W",
+};
+
+
+Elf32_Shdr *elf_section_by_name(Elf32_Shdr *shdr, size_t snum, const char *sname) {
+    index_t i;
+    Elf32_Shdr *section;
+    const char *shstrtab = null;
+
+    // find .shstrtab first
+    for (i = 0; i < snum; ++i) {
+        section = shdr + i;
+        if (section->sh_type == SHT_STRTAB) {
+            shstrtab = (void *)section->sh_addr;
+            if (!strncmp(".shstrtab", shstrtab + section->sh_name, 9)) break;
+            else shstrtab = null;
+        }
+    }
+
+    assert(shstrtab, null, "shstrtab not found");
+
+    for (i = 0; i < snum; ++i) {
+        section = shdr + i;
+        if (!section->sh_name)
+            continue;
+        if (!strcmp(shstrtab + section->sh_name, sname))
+            return section;
+    }
+    return null;
+}
+
+void print_elf_syms(Elf32_Sym *syms, size_t n_syms, const char *strtab, const char *symname) {
+    index_t i;
+    size_t symlen = strlen(symname);
+    for (i = 0; i < n_syms; ++i) {
+        Elf32_Sym *sym = syms + i;
+        const char *name = strtab + sym->st_name;
+        if (!strncmp(symname, name, symlen)) {
+            k_printf("*%x\t[%x]\t", sym->st_value, sym->st_size);
+            uint8_t type = ELF32_ST_TYPE(sym->st_info);
+            k_printf("%s\t", (type <= STT_FILE) ? symtypes[type] : "???");
+            type = ELF32_ST_BIND(sym->st_info);
+            k_printf("%s\t", (type <= STB_WEAK) ? symbinds[type] : "?");
+            k_printf("%s\n", name);
+        }
+    }
+}
+
+void print_section_headers(Elf32_Shdr *shdr, size_t snum) {
+    Elf32_Shdr *section;
+    const char *shstrtab = null;
+    index_t i;
+
+    // find .shstrtab first
+    for (i = 0; i < snum; ++i) {
+        section = shdr + i;
+        if (section->sh_type == SHT_STRTAB) {
+            shstrtab = (void *)section->sh_addr;
+            if (!strncmp(".shstrtab", shstrtab + section->sh_name, 9)) break;
+            else shstrtab = null;
+        }
+    }
+
+    assertv(shstrtab, "shstrtab not found");
+    k_printf("shstrtab found at *%x\n", (ptr_t) shstrtab);
+
+    for (i = 0; i < snum; ++i) {
+        section = shdr + i;
+        // type
+        uint shtype = section->sh_type;
+        if (shtype < sizeof(str_shdr_type)/sizeof(ptr_t))
+            k_printf("%s\t", str_shdr_type[shtype]);
+        else k_printf("?%d\t", shtype);
+
+        // flags
+        k_printf((section->sh_flags & SHF_STRINGS) ? "S" : "-");
+        k_printf((section->sh_flags & SHF_EXECINSTR) ? "X" : "-");
+        k_printf((section->sh_flags & SHF_ALLOC) ? "A" : "-");
+        k_printf((section->sh_flags & SHF_WRITE) ? "W" : "-");
+        k_printf("\t");
+        //
+        k_printf("  *%x\t%x\t%x\t", section->sh_addr, section->sh_size, section->sh_addralign);
+        k_printf("%s", shstrtab + section->sh_name);
+
+        k_printf("\n");
+    }
+}
+
 
 void kshell_elf(const struct kshell_command *this, const char *arg) {
     elf_section_header_table_t *mboot_syms = mboot_kernel_shdr();
@@ -430,6 +546,9 @@ void kshell_info(const struct kshell_command *this, const char *arg) {
     } else
     if (!strncmp(arg, "irq", 3)) {
         k_printf("IRQ mask: %x\n", (uint)irq_get_mask() & 0xffff);
+    } else
+    if (!strncmp(arg, "mboot", 5)) {
+        print_mboot_info();
     } else
     if (!strncmp(arg, "mods", 4)) {
         count_t n_mods = 0;

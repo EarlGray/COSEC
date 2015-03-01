@@ -30,7 +30,7 @@ gnu_dev_makedev (unsigned int __major, unsigned int __minor)
 {
       return ((__minor & 0xff) | ((__major & 0xfff) << 8)
                         | (((dev_t) (__minor & ~0xff)) << 12)
-                                  | (((dev_t) (__major & ~0xfff)) << 32));
+                        | (((dev_t) (__major & ~0xfff)) << 32));
 }
 
 /* Access the functions with their traditional names.  */

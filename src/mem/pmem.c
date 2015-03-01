@@ -196,7 +196,7 @@ void pmem_setup(void) {
 
     pfmap = PAGE_SIZE * page_aligned(pfmap);
     ptr_t pfmap_end = pfmap + sizeof(pageframe_t) * pfmap_len;
-    mem_logf("pfmap at *%x:*%x (0x%x pageframes)\n", pfmap, pfmap_end, pfmap_len);
+    mem_logf("thePFMap[%x] at *%x (until *%x)\n", pfmap_len, pfmap, pfmap_end);
 
     // allocate virtual 4M pages
     if (pfmap_end > (ptr_t)__va(0x800000)) {

@@ -94,3 +94,12 @@ void mboot_modules_info(count_t *count, module_t **modules) {
     *count = is_set(mboot.flags, 3) ? mboot.mods_count : 0;
     *modules = mboot.mods_addr;
 }
+
+void print_mboot_info(void) {
+    k_printf("Booted with: %s\n", mboot.bootloader_name);
+    k_printf("Kernel args: %s\n", mboot.cmdline);
+    k_printf("Memory: lower=%d Kb, higher=%d Kb\n", mboot.mem_lower, mboot.mem_upper);
+    k_printf("Modules count: %d\n", mboot.mods_count);
+    k_printf("Drives count: %d\n", mboot.drives_length);
+    k_printf("Boot device = 0x%x\n", mboot.boot_device);
+}
