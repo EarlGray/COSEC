@@ -1,27 +1,49 @@
+#include <stdlib.h>
+
 #include <dev/devices.h>
 #include <dev/block.h>
 
 #include <log.h>
 
-driver_t* theChrDeviceTable[N_CHR] = { 0 };
-driver_t* theBlkDeviceTable[N_BLK] = { 0 };
+/*
+ *   Unspecified (0) character devices family
+ */
 
-int register_driver(driver_t* drv);
-
-int unregister_driver(index_t family);
-
-static inline void init_driver(driver_t *drv) {
-    if (drv->init_devclass) drv->init_devclass();
+static device_t *chr0devclass_get_device(mindev_t mindev) {
+    return NULL;
 }
 
-int register_driver(driver_t *drv) {
-    init_driver(drv);
+devclass_t chr0_device_family = {
+    .dev_type       = DEV_CHR,
+    .dev_maj        = 0,
+    .dev_class_name = "virtual character devices",
+
+    .get_device     = chr0devclass_get_device,
+    .init_devclass  = NULL,
+};
+
+
+/*
+ *  Device tables bookkeeping
+ */
+
+devclass_t* theChrDeviceTable[N_CHR] = { 0 };
+devclass_t* theBlkDeviceTable[N_BLK] = { 0 };
+
+void devclass_register(devclass_t *devclass) {
+    assertv(devclass, "devclass_register(NULL)");
+
+    switch (devclass->dev_type) {
+        case DEV_CHR: theChrDeviceTable[ devclass->dev_maj ] = devclass; break;
+        case DEV_BLK: theBlkDeviceTable[ devclass->dev_maj ] = devclass; break;
+        default: logmsgef("devclass_register(): unknown device type"); return;
+    }
+
+    if (devclass->init_devclass)
+        devclass->init_devclass();
 }
 
-#include <dev/memdev.h>
 
 void dev_setup(void) {
-    register_driver(&mem_drv);   
-
-    register_driver(&ram_drv);
+    devclass_register(&chr0_device_family);
 }

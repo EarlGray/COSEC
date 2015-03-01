@@ -17,7 +17,7 @@ int logging_setup() {
     return 0;
 }
 
-static logbuf[LOGBUF_SIZE];
+static char logbuf[LOGBUF_SIZE];
 
 int vlprintf(const char *fmt, va_list ap) {
     int ret = 0;

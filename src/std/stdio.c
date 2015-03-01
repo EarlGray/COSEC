@@ -143,7 +143,7 @@ int fprintf(FILE *stream, const char *format, ...) {
 int vfprintf(FILE *stream, const char *format, va_list ap) {
     int ret = 0;
     if (stream == stdout) {
-        size_t bufsize = 64;
+        int bufsize = 64;
         char *buf = malloc(bufsize);
         while (1) {
             ret = vsnprintf(buf, bufsize, format, ap);
@@ -306,7 +306,7 @@ size_t fread(void *ptr, size_t size, size_t nmmeb, FILE *stream) {
 
 size_t fwrite(const void *ptr, size_t size, size_t nitems, FILE *stream) {
     char const *cptr = ptr;
-    int i;
+    size_t i;
     if (stream == stdout) {
         logmsgf("fwrite(*%x, %x, %x, stdout)\n", (uint)ptr, size, nitems);
         for (i = 0; i < size * nitems; ++i) {

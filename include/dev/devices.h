@@ -5,63 +5,73 @@
 
 #define N_CHR           30
 #define N_BLK           12
-#define N_NET           0
 
-#define CHR_MEMDEVS     1
-#define CHR_PTY_MASTERS 2
-#define CHR_PTY_SLAVES  3
-#define CHR_TTYS        4
-#define CHR_TTY_OTH     5
-#define CHR_LP          6
-#define CHR_VCS         7
-#define CHR_SCSI_TAPE   9
-#define CHR_MISC        10
-#define CHR_KBD         11
-#define CHR_FRAMEBUF    29
-
-#define BLK_RAM         1
-#define BLK_FLOPPY      2
-#define BLK_IDE         3
-#define BLK_LOOPBACK    7
-#define BLK_SCSI_DISK   8
-#define BLK_RAID        9
-#define BLK_SCSI_CDROM  11
-
-typedef enum devicetype_e devicetype_e;
 enum devicetype_e {
     DEV_CHR = 0,
     DEV_BLK = 1,
-    DEV_NET = 2,
 };
 
+enum char_device_family {
+    CHR_VIRT        = 0,
+    CHR_MEMDEV      = 1,
+    CHR_PTY_MASTER  = 2,
+    CHR_PTY_SLAVE   = 3,
+    CHR_TTY         = 4,
+    CHR_TTY_OTH     = 5,
+    CHR_LP          = 6,
+    CHR_VCS         = 7,
+    CHR_SCSI_TAPE   = 9,
+    CHR_MISC        = 10,
+    CHR_KBD         = 11,
+    CHR_FRAMEBUF    = 29,
+};
+
+enum char_virtual_devices {
+    CHR_UNSPECIFIED = 0,
+    CHR_SYSFS       = 1,
+};
+
+enum block_device_family {
+    BLK_VIRT        = 0,
+    BLK_RAM         = 1,
+    BLK_FLOPPY      = 2,
+    BLK_IDE         = 3,
+    BLK_LOOPBACK    = 7,
+    BLK_SCSI_DISK   = 8,
+    BLK_RAID        = 9,
+    BLK_SCSI_CDROM  = 11,
+};
+
+typedef enum devicetype_e devicetype_e;
 typedef index_t majdev_t, mindev_t;
 
-typedef struct cache cache_t;
+typedef struct devclass_t  devclass_t;
+typedef struct device_t    device_t;
 
-typedef struct driver_t driver_t;
-typedef struct device_t device_t;
-typedef struct chrdriver_t chrdriver_t;
-typedef struct blkdriver_t blkdriver_t;
+struct devclass_t {
+    devicetype_e  dev_type;
+    majdev_t      dev_maj;
+    const char   *dev_class_name;
 
-struct driver_t {
-    /* who am I */
-    devicetype_e dev_type;
-    majdev_t dev_class;
-    const char *name;
-
+    device_t *(*get_device)(mindev_t num);
     void (*init_devclass)(void);
-    void (*deport_devclass)(void);
 };
 
 struct device_t {
+    devicetype_e dev_type;  // character or block
+    majdev_t dev_clss;      // generic driver
     mindev_t dev_no;        // device index in the family
-    driver_t* driver;       // generic driver
-    cache_t *cache;         // null if no caching for device
-    uint blksz;             // 1 for character devices
+    const char devfs_name;  // how it should appear in /dev
+
+    union {
+        struct chardevice_t {
+        } as_chardev;
+
+        struct blockdevice_t {
+        } as_blockdev;
+    };
 };
 
 void dev_setup(void);
-
-void ide_setup(void);
 
 #endif //__DRIVERS_TABLE_H__

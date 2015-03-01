@@ -30,7 +30,6 @@ objs    += $(wildcard $(src_dir)/*/*.c)
 
 objs    := $(patsubst $(src_dir)/%.S, $(build)/%.o, $(objs))
 objs    := $(patsubst $(src_dir)/%.c, $(build)/%.o, $(objs))
-objs    += $(build)/core/repl.o
 
 lds     := vmcosec.lds
 
@@ -143,7 +142,6 @@ $(image):
 
 $(kernel): $(build) $(liblua) $(objs) $(build)/$(lds)
 	@echo "\n#### Linking..."
-	@echo -n "LD: "
 	$(ld) -o $(kernel) $(objs) $(liblua) $(ld_flags) && echo "## ...linked"
 	@[ `which $(objdump) 2>/dev/null` ] && $(objdump) -d $(kernel) > $(objdfile) || true
 	@[ `which $(nm) 2>/dev/null` ] && $(nm) $(kernel) | sort > $(kernel).nm || true
@@ -157,15 +155,12 @@ $(build):
 	done
 
 $(build)/$(lds):    $(src_dir)/$(lds).S
-	@echo "CPP: "
 	$(cc) -E $< -o $@ -P -DNOT_CC $(cc_includes)
 
 $(build)/%.o : $(src_dir)/%.c
-	@echo -n "CC: "
 	$(cc) -c $< -o $@ $(cc_includes) $(cc_flags) -MT $(subst .d,.c,$@)
 
 $(build)/%.o : $(src_dir)/%.S
-	@echo -n "AS: "
 	$(as) -c $< -o $@ $(as_flags) -MT $(subst .d,.c,$@)
 
 $(libinit):

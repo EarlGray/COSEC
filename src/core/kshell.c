@@ -15,9 +15,9 @@
 #include <mem/pmem.h>
 #include <mem/kheap.h>
 #include <misc/test.h>
+#include <linux/elf.h>
 
 #include <fs/vfs.h>
-#include <fs/elf.h>
 #include <log.h>
 
 #include <kshell.h>

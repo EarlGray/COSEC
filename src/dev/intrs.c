@@ -122,15 +122,6 @@ uint16_t irq_get_mask(void) {
     return res;
 }
 
-bool irq_is_masked(uint irqnum) {
-    assert(irqnum < 16, -EINVAL, "Invalid IRQ number: %d", irqnum);
-    uint16_t mask = irq_get_mask();
-    if (irqnum < 8) {
-        
-    }
-    k_printf("IRQ mask: %x\n", (uint)mask);
-}
-
 inline void irq_eoi(void) {
     outb_p(0x20, 0x20);
 }
@@ -246,9 +237,10 @@ void intrs_setup(void) {
 }
 
 int irq_wait(irqnum_t irqnum) {
-    returnf_if(irqnum < 16, -EINVAL, "Wrong IRQ number");
+    returnf_if(irqnum >= 16, -EINVAL, "Wrong IRQ number");
 
     irq_happened[irqnum] = false;
     do cpu_halt();
     while (irq_happened[irqnum]);
+    return 0;
 }

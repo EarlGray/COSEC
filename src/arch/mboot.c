@@ -56,7 +56,7 @@ void mboot_info_parse(struct multiboot_info *mbi) {
         mboot.mods_count = 0;
         mboot.mods_addr = 0;
     }
-    mboot.syms = (elf_section_header_table_t *)(is_set(mboot.flags, 5))? &(mbi->u) : null;
+    mboot.syms = (elf_section_header_table_t *)(is_set(mboot.flags, 5)? &(mbi->u) : null);
     if (is_set(mboot.flags, 6)) {
         mboot.mmap_length = mbi->mmap_length;
         mboot.mmap_addr = (void *)(mbi->mmap_addr);

@@ -38,15 +38,13 @@ void kinit(uint32_t magic, struct multiboot_info *mbi) {
 
     logging_setup();
 
-    /* devices setup */
-    dev_setup();
+    /* hardware setup */
     timer_setup();
     kbd_setup();
-    //ide_setup();
 
     /* do something useful */
+    dev_setup();
     tasks_setup();
-
     vfs_setup();
 
     intrs_enable();

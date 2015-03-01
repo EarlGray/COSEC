@@ -54,7 +54,7 @@ uint8_t ide_identify(uint port, uint8_t drive) {
 void ide_init(uint prm_port, uint prm_ctrl, uint slv_port, uint slv_ctrl) {
     uint8_t ret = 0;
     ret = ide_identify(prm_port, DRIVE_MASTER);
-    printf("Primary master identification: %x\n", (uint)ret);
+    k_printf("Primary master identification: %x\n", (uint)ret);
 }
 
 void ide_setup(void) {

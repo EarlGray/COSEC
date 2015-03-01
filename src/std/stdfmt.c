@@ -164,5 +164,6 @@ int vgprintf(putc_f gputc, void *putc_arg, const char *format, va_list ap) {
         }
         ++fmt;
     }
-#undef PUTC
+    return ret;
 }
+#undef PUTC

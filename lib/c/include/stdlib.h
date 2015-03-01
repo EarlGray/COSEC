@@ -41,6 +41,7 @@ int system(const char *command);
 void abort(void);
 void exit(int status);
 
+int exitpoint(void);
 
 #define tmalloc(_type)  ((_type *) kmalloc(sizeof(_type)))
 

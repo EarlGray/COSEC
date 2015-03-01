@@ -25,7 +25,7 @@
 #   define mem_logf(msg, ...)
 #endif
 
-extern void _start, _end;
+extern char _start, _end;
 
 /***
   *     Alignment
@@ -214,7 +214,7 @@ void pmem_setup(void) {
     }
 
     // free the free regions
-    int mbm;
+    size_t mbm;
     for (mbm = 0; mbm < mmap_len; ++mbm)
         if (mapping[mbm].type == 1) {
             index_t start = page_aligned(mapping[mbm].base_addr_low);
@@ -242,7 +242,7 @@ void pmem_setup(void) {
     mem_logf("marking cache %x\n", pageframe_index(cpf));
 
     // mark kernel code&data space as used
-    pf = the_pageframe_map + (page_aligned_back(&_start));
+    pf = the_pageframe_map + (page_aligned_back((ptr_t)&_start));
     pf_list_init(&used_pageframes, pf, PF_USED);
     mark_used(pageframe_addr(++pf), &_end);
 
@@ -269,7 +269,7 @@ void * pmem_alloc(size_t pages_count) {
 
     while (true) {
         bool available = true;
-        int i;
+        size_t i;
         for (i = 0; i < pages_count; ++i) {
             currentp = startp + i;
 

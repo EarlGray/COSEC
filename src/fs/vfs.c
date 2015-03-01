@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <sys/errno.h>
+#include <sys/stat.h>
 
 #include <log.h>
 
@@ -11,18 +12,16 @@ typedef struct fs_ops fs_ops;
 typedef struct inode inode_t;
 typedef struct fsdriver fsdriver_t;
 
-typedef  struct mount_opts_t  mount_opts_t;
+typedef struct mount_opts_t  mount_opts_t;
+
+err_t vfs_mount(const char *source, const char *target, const mount_opts_t *opts);
+err_t vfs_mkdir(const char *path, mode_t mode);
+
 
 #define PINODE_SIZE 128
 
 struct inode {
-    kdev_t dev;         // device
     index_t no;           // ino index
-    
-    uid_t uid;
-    gid_t gid;
-    mode_t mode;
-
     size_t size;
     count_t nlinks;
 };
@@ -41,12 +40,7 @@ struct inode_ops {
 };
 
 struct mount_opts_t {
-
 };
-
-inode_t * vfs_get_inode(superblock_t *, index_t);
-int vfs_put_inode(inode_t *ino);
-int vfs_release_inode(inode_t *ino);
 
 #define PFSDRV_SIZE 256
 
@@ -90,12 +84,6 @@ typedef struct psuperblock {
     char pad[PSB_SIZE - sizeof(superblock_t)];
 } psuperblock_t; // padded superblock
 
-
-
-err_t vfs_mount(const char *source, const char *target, const mount_opts_t *opts);
-err_t vfs_mkdir(const char *path, mode_t mode);
-
-psuperblock_t *theSuperblocks;
 
 
 err_t vfs_mount(const char *source, const char *target, const mount_opts_t *opts) {

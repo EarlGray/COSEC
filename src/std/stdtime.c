@@ -8,6 +8,7 @@ double difftime(time_t time1, time_t time0) {
 
 time_t mktime(struct tm *tm) {
     logmsge("TODO: mktime");
+    return 0;
 }
 
 

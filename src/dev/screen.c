@@ -29,7 +29,7 @@ inline void set_cursor_attr(uint8_t attr) {  cursorAttr = attr;   }
 inline void set_default_cursor_attr(void) {  cursorAttr = DEFAULT_CURSOR_ATTR; }
 
 
-inline void update_hw_cursor(void)
+void update_hw_cursor(void)
 {
     unsigned temp = cursorY * SCR_WIDTH + cursorX;
 
