@@ -657,7 +657,7 @@ void kshell_time() {
 }
 
 #ifdef COSEC_LUA
-int syslua_heapinfo(lua_State *L) {
+int syslua_heapinfo() {
     kheap_info();
     return 0;
 }
