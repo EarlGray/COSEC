@@ -57,4 +57,6 @@ struct statvfs {
     unsigned long  f_namemax;  /* maximum filename length */
 };
 
+int mkdir(const char *path, mode_t mode);
+
 #endif // __COSEC_STAT_H__

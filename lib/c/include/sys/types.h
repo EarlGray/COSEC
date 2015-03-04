@@ -33,6 +33,8 @@ gnu_dev_makedev (unsigned int __major, unsigned int __minor)
                         | (((dev_t) (__major & ~0xfff)) << 32));
 }
 
+typedef size_t inode_t;
+
 /* Access the functions with their traditional names.  */
 # define major(dev) gnu_dev_major (dev)
 # define minor(dev) gnu_dev_minor (dev)
