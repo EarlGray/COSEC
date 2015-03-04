@@ -10,6 +10,8 @@
 #include <conf.h>
 #include <log.h>
 
+#define FS_SEP  '/'
+
 typedef uint16_t uid_t, gid_t;
 typedef size_t inode_t;
 
@@ -189,29 +191,43 @@ static int sysfs_get_direntry(mountnode *sb, inode_t ino, void **iter, struct di
 #define RAMFS_ID  0x004d4152
 
 static int ramfs_read_superblock(mountnode *sb);
+static int ramfs_lookup_inode(mountnode *sb, inode_t *ino, const char *path);
 
 struct fs_ops ramfs_fsops = {
     .read_superblock = ramfs_read_superblock,
+    .lookup_inode = ramfs_lookup_inode,
 };
 
+/* this structure is a "hierarchical" lookup table from any large index to some pointer */
 struct btree_node {
     int bt_level;         /* if 0, bt_children are leaves */
     size_t bt_fanout;     /* how many children for a node */
     void* bt_children[0]; /* child BTree nodes or leaves */
 };
 
-struct hashtable {
-};
-
-
+/* this is a directory hashtable array entry */
+/* it is an intrusive list */
 struct ramfs_direntry {
-    
+    uint32_t  name_hash;
+    char     *entry_name;           /* its length should be a power of 2 */
+    inode_t   ino;                  /* the actual value, inode_t */
+
+    struct ramfs_direntry *htnext;  /* next in hashtable collision list */
 };
 
+/* this is a container for directory hashtable */
+struct ramfs_directory {
+    size_t size;                /* number of values in the hashtable */
+    size_t htcap;               /* hashtable capacity */
+    struct ramfs_direntry **ht;  /* hashtable array */
+};
+
+/* used by struct superblock as `data` pointer to store FS-specific state */
 struct ramfs_data {
     struct btree_node *inodes_btree;  /* map from inode_t to struct inode */
-    struct ramfs_direntry *rootdir;   /* root directory entry */
+    struct ramfs_directory *rootdir;   /* root directory entry */
 };
+
 
 struct fsdriver ramfs_driver = {
     .name = "ramfs",
@@ -219,6 +235,7 @@ struct fsdriver ramfs_driver = {
     .ops = &ramfs_fsops,
     .lst = { 0 },
 };
+
 
 static int ramfs_read_superblock(mountnode *sb) {
     const size_t fanout = 64;
@@ -237,6 +254,8 @@ static int ramfs_read_superblock(mountnode *sb) {
 
     data->inodes_btree = inodes_btree;
 
+    /* TODO: init rootdir */
+
     sb->data = (void *)data;
     sb->fs = &ramfs_driver;
     return 0;
@@ -247,7 +266,99 @@ enomem_exit:
     return ENOMEM;
 }
 
-static int ramfs_lookup_inode(mountnode *sb, inode_t *ino, const char *path) {
+
+static inode * ramfs_idata_by_inode(mountnode *sb, inode_t ino) {
+    struct ramfs_data *data = sb->data;
+    int i;
+
+    struct btree_node *btnode = data->inodes_btree;
+    int btree_lvl = btnode->bt_level;
+    size_t btree_blksz = btnode->bt_fanout;
+
+    size_t last_ind = btree_blksz;
+    for (i = 0; i < btree_lvl; ++i) {
+        last_ind *= btree_blksz;
+    }
+
+    if (last_ind - 1 < ino)
+        return NULL; // ENOENT
+
+    /* get btree item */
+    while (btree_lvl > 0) {
+        size_t this_node_index = ino / last_ind;
+        ino = ino % last_ind;
+        struct btree_node *subnode = btnode->bt_children[ this_node_index ];
+        if (!subnode) return NULL;
+        btnode = subnode;
+    }
+    return btnode->bt_children[ ino ];
+}
+
+/*
+ *    Searches given `dir` for part between `basename` and `basename_end`
+ */
+static int ramfs_get_inode_by_basename(struct ramfs_directory *dir, inode_t *ino, const char *basename, const char *basename_end) 
+{
+    size_t basename_len = basename_end - basename;
+    uint32_t hash = strhash(basename, basename_len);
+
+    /* directory hashtable: get direntry */
+    struct ramfs_direntry *de = dir->ht[ hash % dir->htcap ];
+
+    while (de) {
+        if ((de->name_hash == hash) && !strncmp(basename, de->entry_name, basename_len)) {
+            if (ino) *ino = de->ino;
+            return 0;
+        }
+        de = de->htnext;
+    }
+
+    if (ino) *ino = 0;
+    return ENOENT;
+}
+
+
+static int ramfs_lookup_inode(mountnode *sb, inode_t *result, const char *path)
+{
+    struct ramfs_data *data = sb->data;
+
+    //     "some/longdirectoryname/to/examplefilename"
+    //           ^                ^
+    //       basename        basename_end
+    const char *basename = path;
+    const char *basename_end = path;
+    inode_t ino;
+    int ret = 0;
+
+    struct ramfs_directory *dir = data->rootdir;
+    for (;;) {
+        for (;;) {
+            switch (*++basename_end) {
+                case FS_SEP :
+                    /* to to directory search */
+                    break;
+                case 0:
+                    /* basename is "examplefilename" now */
+                    ret = ramfs_get_inode_by_basename(dir, &ino, basename, basename_end);
+                    if (result) *result = (ret ? 0 : ino);
+                    return ret;
+            }
+        }
+
+        ret = ramfs_get_inode_by_basename(dir, &ino, basename, basename_end);
+        if (!ret) {
+            if (result) *result = (ret ? 0 : ino);
+            return ret;
+        }
+        inode *idata = ramfs_idata_by_inode(sb, ino);
+        if (! S_ISDIR(idata->mode)) {
+            if (result) *result = 0;
+            return ENOTDIR;
+        }
+
+        while (*++basename_end == FS_SEP);
+        basename = basename_end;
+    }
 }
 
 
