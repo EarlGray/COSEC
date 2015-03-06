@@ -37,6 +37,7 @@
 #define ERANGE          34      /* Math result not representable */
 
 #define ETODO           255     /* Not implemented yet */
+#define EKERN           254     /* Kernel bug */
 
 #endif //__COSEC_ERRNO_H__
 
