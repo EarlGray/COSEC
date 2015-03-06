@@ -7,7 +7,7 @@ int sys_mount(mount_info_t *mnt) {
 }
 
 int sys_mkdir(const char *pathname, mode_t mode) {
-    return vfs_mkdir(pathname, mode);
+    return -1;
 }
 
 int sys_lsdir(const char *pathname, struct cosec_dirent *dirs, size_t count) {

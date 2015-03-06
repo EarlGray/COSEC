@@ -4,6 +4,13 @@
 /*
  *  primitive types
  */
+typedef unsigned  blksize_t, blkcnt_t, ino_t, nlink_t;
+typedef unsigned  fsblkcnt_t, fsfilcnt_t;
+typedef unsigned short  uid_t, gid_t;
+
+typedef unsigned long       time_t;     /* seconds since the epoch */
+typedef unsigned long long  clock_t;    /* time in CLOCKS_PER_SEC ticks */
+
 
 #define NOERR       0
 

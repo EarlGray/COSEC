@@ -30,7 +30,6 @@ void k_printf(const char *fmt, ...);
 #define logmsgif(...)  logmsgi(__VA_ARGS__)
 
 #ifdef __DEBUG
-#   define logmsgd(msg) logmsg(msg)
 #   define logmsgdf(...) logmsgf(__VA_ARGS__)
 #else
 #   define logmsgd(msg)

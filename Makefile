@@ -142,7 +142,8 @@ $(image):
 
 $(kernel): $(build) $(liblua) $(objs) $(build)/$(lds)
 	@echo "\n#### Linking..."
-	$(ld) -o $(kernel) $(objs) $(liblua) $(ld_flags) && echo "## ...linked"
+	$(ld) -o $(kernel) $(objs) $(liblua) $(ld_flags)
+	@echo "## ...linked"
 	@[ `which $(objdump) 2>/dev/null` ] && $(objdump) -d $(kernel) > $(objdfile) || true
 	@[ `which $(nm) 2>/dev/null` ] && $(nm) $(kernel) | sort > $(kernel).nm || true
 	@[ `which ctags 2>/dev/null ` ] && ctags -R * || true

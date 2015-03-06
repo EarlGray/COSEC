@@ -6,6 +6,8 @@
 #define UINT_MAX    (unsigned int)0xFFFFFFFFu
 #define ULONG_MAX   ((unsigned long)0xFFFFFFFFu)
 
+#define SIZE_MAX    UINT_MAX
+
 #define SHRT_MAX    ((short int)0x7FFF)
 
 #define UCHAR_MAX   ((unsigned char)0xFF)
