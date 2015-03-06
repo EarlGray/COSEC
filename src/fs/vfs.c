@@ -192,11 +192,13 @@ static int sysfs_get_direntry(mountnode *sb, inode_t ino, void **iter, struct di
 static int ramfs_read_superblock(mountnode *sb);
 static int ramfs_lookup_inode(mountnode *sb, inode_t *ino, const char *path, size_t pathlen);
 static int ramfs_make_directory(mountnode *sb, inode_t *ino, const char *path, mode_t mode);
+static int ramfs_get_direntry(mountnode *sb, inode_t dirnode, void **iter, struct dirent *dirent);
 
 struct fs_ops ramfs_fsops = {
     .read_superblock = ramfs_read_superblock,
     .lookup_inode = ramfs_lookup_inode,
     .make_directory = ramfs_make_directory,
+    .get_direntry = ramfs_get_direntry,
 };
 
 struct fsdriver ramfs_driver = {
@@ -715,6 +717,11 @@ static int ramfs_lookup_inode(mountnode *sb, inode_t *result, const char *path, 
     inode_t ino;
     int ret = 0;
 
+    if (basename[0] == 0) {
+        if (result) *result = data->root_ino;
+        return 0;
+    }
+
     struct inode *root_idata = ramfs_idata_by_inode(sb, data->root_ino);
     return_err_if(!root_idata, EKERN,
             "ramfs_lookup_inode: no idata for root_ino=%d\n", data->root_ino);
@@ -753,6 +760,9 @@ static int ramfs_lookup_inode(mountnode *sb, inode_t *result, const char *path, 
     }
 }
 
+static int ramfs_get_direntry(mountnode *sb, inode_t dirnode, void **iter, struct dirent *dirent) {
+    return ETODO;
+}
 
 /*
  *  VFS operations
@@ -791,7 +801,7 @@ static const char * vfs_match_mountpath(mountnode *parent_mnt, mountnode **match
 int vfs_mountnode_by_path(const char *path, mountnode **mntnode, const char **relpath) {
     return_log_if(!theRootMnt, EBADF, "vfs_mountnode_by_path(): theRootMnt absent\n");
 
-    return_log_if((!path || !*path), EINVAL, "vfs_mountnode_by_path(NULL or '')\n");
+    return_log_if(!(path && *path), EINVAL, "vfs_mountnode_by_path(NULL or '')\n");
     return_log_if(path[0] != FS_SEP, EINVAL, "vfs_mountnode_by_path('%s'): requires the absolute path\n", path);
     ++path;
 
