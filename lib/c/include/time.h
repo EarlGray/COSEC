@@ -2,11 +2,9 @@
 #define __TIME_H__
 
 #include <stdint.h>
+#include <sys/types.h>
 
 #define CLOCKS_PER_SEC  1000000
-
-typedef unsigned long       time_t;     /* seconds since the epoch */
-typedef unsigned long long  clock_t;    /* time in CLOCKS_PER_SEC ticks */
 
 struct tm {
     int tm_sec;
