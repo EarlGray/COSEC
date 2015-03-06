@@ -1,7 +1,7 @@
 #include <log.h>
 #include <mem/pmem.h>
 #include <mem/kheap.h>
-#include <mem/firstfit.h>
+#include <mem/ff_alloc.h>
 
 #include <arch/i386.h>
 
