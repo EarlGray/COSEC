@@ -282,20 +282,19 @@ static void * btree_get_index(struct btree_node *bnode, size_t index) {
  *      0 index must be taken by an "invalid" entry.
  */
 static inode_t btree_set_leaf(struct btree_node *bnode, struct inode *idata) {
-    //logmsgdf("btree_set_leaf(%d), bnode->lvl = %d\n", idata->i_no, bnode->bt_level);
+    const char *funcname = "btree_set_leaf";
 
     size_t i;
     size_t fanout = bnode->bt_fanout;
-    logmsgdf("fanout = %d, bt_used = %d\n", fanout, bnode->bt_used);
     if (bnode->bt_level == 0) {
         if (bnode->bt_used < fanout) {
             for (i = 0; i < fanout; ++i)
                 if (bnode->bt_children[i] == NULL) {
-                    //logmsgdf("bnode = *%x, bt_children = *%x, bt_children[i] = *%x\n",
-                    //         (uint)bnode, (uint)bnode->bt_children, (uint)&(bnode->bt_children[i]));
-                    logmsgdf("btree_set_leaf(%d) to *%x\n", i, (uint)idata);
-                    bnode->bt_children[i] = idata;
                     ++bnode->bt_used;
+                    bnode->bt_children[i] = idata;
+
+                    logmsgdf("%s(%d) to *%x, bnode=*%x, bt_used=%d\n",
+                             funcname, i, (uint)idata, (uint)bnode, bnode->bt_used);
                     return i;
                 }
         } else {
@@ -400,6 +399,8 @@ struct ramfs_directory {
 
 
 static int ramfs_directory_new(struct ramfs_directory **dir) {
+    const char *funcname = "ramfs_directory_new";
+
     struct ramfs_directory *d = kmalloc(sizeof(struct ramfs_directory));
     if (!d) goto enomem_exit;
 
@@ -410,9 +411,12 @@ static int ramfs_directory_new(struct ramfs_directory **dir) {
     if (!d->ht) goto enomem_exit;
     memset(d->ht, 0, htlen);
 
+    logmsgdf("%s: new directory *%x\n", funcname, (uint)d);
     *dir = d;
     return 0;
+
 enomem_exit:
+    logmsgdf("%s: ENOMEM\n");
     if (d) kfree(d);
     return ENOMEM;
 }
@@ -470,6 +474,8 @@ static int ramfs_directory_new_entry(
 }
 
 static void ramfs_directory_free(struct ramfs_directory *dir) {
+    const char *funcname = "ramfs_directory_free";
+    logmsgdf("%s(*%x)\n", funcname, (uint)dir);
     size_t i;
 
     for (i = 0; i < dir->htcap; ++i) {
@@ -549,9 +555,13 @@ error_exit:
 }
 
 static void ramfs_inode_free(struct inode *idata) {
+    const char *funcname = "ramfs_inode_free";
+    logmsgdf("%s(idata=*%x, ino=%d)\n", funcname, idata, idata->i_data);
+
     /* some type-specific actions here */
     if (S_ISDIR(idata->i_mode)) {
-        ramfs_directory_free(idata->i_data);
+        if (idata->i_data)
+            ramfs_directory_free(idata->i_data);
     }
     kfree(idata);
 }
@@ -654,9 +664,8 @@ static int ramfs_make_directory(mountnode *sb, inode_t *ino, const char *path, m
     return 0;
 
 error_exit:
-    if (parent_dir) ramfs_directory_free(parent_dir);
-    if (dir) ramfs_directory_free(dir);
-    ramfs_inode_free(idata);
+    if (dir)    ramfs_directory_free(dir);
+    if (idata)  ramfs_inode_free(idata);
 
     if (ino) *ino = 0;
     return ret;
@@ -959,11 +968,14 @@ int vfs_mkdir(const char *path, mode_t mode) {
     mode |= S_IFDIR;
 
     ret = vfs_mountnode_by_path(path, &sb, &localpath);
-    returnv_err_if(ret, "mkdir: no filesystem for path '%s'\n", path);
+    return_err_if(ret, ENOENT, "mkdir: no filesystem for path '%s'\n", path);
     logmsgdf("vfs_mkdir: localpath = '%s'\n", localpath);
 
+    return_log_if(!sb->sb_fs->ops->make_directory, EBADF,
+                  "mkdir: %s filesystem cannot mkdir\n", sb->sb_fs->name);
+
     ret = sb->sb_fs->ops->make_directory(sb, NULL, localpath, mode);
-    returnv_err_if(ret, "mkdir: failed (%d)\n", ret);
+    return_err_if(ret, ret, "mkdir: failed (%d)\n", ret);
 
     return 0;
 }
