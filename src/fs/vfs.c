@@ -25,10 +25,6 @@ typedef struct inode        inode;
 typedef struct fsdriver     fsdriver;
 
 
-err_t vfs_mount(dev_t source, const char *target, const mount_opts_t *opts);
-
-
-
 struct superblock {
     dev_t       sb_dev;
     fsdriver   *sb_fs;
@@ -39,16 +35,15 @@ struct superblock {
         bool ro :1 ;
     } sb_flags;
 
-    void *sb_data;                /* superblock-specific info */
+    inode_t     sb_root_ino;      /* index of the root inode */
+    void       *sb_data;          /* superblock-specific info */
 
     const char *sb_mntpath;       /* path relative to the parent mountpoint */
-    uint32_t sb_mntpath_hash;     /* hash of this relmntpath */
-    mountnode *sb_brother;        /* the next superblock in the list of childs of parent */
-    mountnode *sb_parent;
-    mountnode *sb_children;       /* list of this superblock child blocks */
+    uint32_t    sb_mntpath_hash;  /* hash of this relmntpath */
+    mountnode  *sb_brother;       /* the next superblock in the list of childs of parent */
+    mountnode  *sb_parent;
+    mountnode  *sb_children;      /* list of this superblock child blocks */
 };
-
-struct superblock *theRootMnt = NULL;
 
 #define N_DIRECT_BLOCKS  12
 #define MAX_SHORT_SYMLINK_SIZE   60
@@ -95,42 +90,84 @@ struct fsdriver {
 
 
 struct fs_ops {
+    /**
+     * \brief  probes the superblock on sb->sb_dev,
+     * @param mountnode     the superblock to initialize
+     */
     int (*read_superblock)(mountnode *sb);
+
+    /**
+     * \brief  creates a directory at local `path`
+     * @param ino   if not NULL, it is set to inode index of the new directory;
+     * @param path  fs-local path to the directory;
+     * @param mode  POSIX mode (S_IFDIR will be set if needed)
+     */
     int (*make_directory)(mountnode *sb, inode_t *ino, const char *path, mode_t mode);
-    int (*get_direntry)(mountnode *sb, inode_t ino, void **iter, struct dirent *dir);
+
+    /**
+     * \brief  creates a REG/CHR/BLK/FIFO/SOCK inode
+     * @param ino       if not NULL, it is set to inode index of the new inode;
+     * @param mode      POSIX mode (REG/CHR/BLK/FIFO/SOCK, will be set to REG if 0;
+     * @param info      mode-dependent info;
+     */
     int (*make_inode)(mountnode *sb, inode_t *ino, mode_t mode, void *info);
+
+    /**
+     * \brief  frees the inode
+     * @param ino       the inode index
+     */
+    int (*free_inode)(mountnode *sb, inode_t ino);
+
+    /**
+     * \brief  copies generic inode with index `ino` into buffer `idata`
+     * @
+     */
+    int (*inode_data)(mountnode *sb, inode_t ino, struct inode *idata);
+
+    /**
+     * \brief  iterates through directory and fills `dir`.
+     * @param ino   the directory inode index;
+     * @param iter  an iterator pointer; `*iter` must be set to NULL before the first call;
+     *              `*iter` will be set to NULL after the last directory entry;
+     * @param dir   a buffer to fill;
+     */
+    int (*get_direntry)(mountnode *sb, inode_t ino, void **iter, struct dirent *dir);
+
+    /**
+     * \brief  searches for inode index at the fs-local `path`
+     * @param ino       if not NULL, it is set to the found inode index;
+     * @param path      start of name; must be fs-local;
+     * @param pathlen   sets the end of path if there's no null bytes;
+     */
     int (*lookup_inode)(mountnode *sb, inode_t *ino, const char *path, size_t pathlen);
-    int (*link_inode)(mountnode *sb, inode_t ino, const char *path);
-    int (*unlink_inode)(mountnode *sb, inode_t ino);
+
+    /**
+     * \brief  creates a hardlink to inode with `path` (up to `pathlen` bytes)
+     * @param ino       the inode to be linked;
+     * @param path      fs-local path for the new (hard) link;
+     * @param pathlen   limits `path` length up to `pathlen` bytes;
+     */
+    int (*link_inode)(mountnode *sb, inode_t ino, inode_t dirino, const char *name, size_t namelen);
+
+    /**
+     * \brief  deletes a hardlink with path `path`, possibly deletes the inode
+     * @param path      the hardlink's path;
+     * @param pathlen   limits `path` to `pathlen` bytes;
+     */
+    int (*unlink_inode)(mountnode *sb, const char *path, size_t pathlen);
 };
+
+
+/*
+ *  Global state
+ */
 
 fsdriver * theFileSystems = NULL;
 
-void vfs_register_filesystem(fsdriver *fs) {
-    if (!theFileSystems) {
-        theFileSystems = fs;
-        fs->lst.next = fs->lst.prev = fs;
-        return;
-    }
+struct superblock *theRootMnt = NULL;
 
-    /* insert just before theFileSystems in circular list */
-    fsdriver *lastfs = theFileSystems->lst.prev;
-    fs->lst.next = theFileSystems;
-    fs->lst.prev = lastfs;
-    lastfs->lst.next = fs;
-    theFileSystems->lst.prev = fs;
-};
-
-fsdriver *vfs_fs_by_id(uint fs_id) {
-    fsdriver *fs = theFileSystems;
-    if (!fs) return NULL;
-
-    do {
-        if (fs->fs_id == fs_id)
-            return fs;
-    } while ((fs = fs->lst.next) != theFileSystems);
-    return NULL;
-}
+/* should be inode #0 */
+struct inode invalid_inode;
 
 
 /*
@@ -193,12 +230,22 @@ static int ramfs_read_superblock(mountnode *sb);
 static int ramfs_lookup_inode(mountnode *sb, inode_t *ino, const char *path, size_t pathlen);
 static int ramfs_make_directory(mountnode *sb, inode_t *ino, const char *path, mode_t mode);
 static int ramfs_get_direntry(mountnode *sb, inode_t dirnode, void **iter, struct dirent *dirent);
+static int ramfs_make_node(mountnode *sb, inode_t *ino, mode_t mode, void *info);
+static int ramfs_free_inode(mountnode *sb, inode_t ino);
+static int ramfs_link_inode(mountnode *sb, inode_t ino, inode_t dirino, const char *name, size_t namelen);
+static int ramfs_inode_data(mountnode *sb, inode_t ino, struct inode *idata);
+
+static void ramfs_inode_free(struct inode *idata);
+
 
 struct fs_ops ramfs_fsops = {
-    .read_superblock = ramfs_read_superblock,
-    .lookup_inode = ramfs_lookup_inode,
-    .make_directory = ramfs_make_directory,
-    .get_direntry = ramfs_get_direntry,
+    .read_superblock    = ramfs_read_superblock,
+    .lookup_inode       = ramfs_lookup_inode,
+    .make_directory     = ramfs_make_directory,
+    .get_direntry       = ramfs_get_direntry,
+    .make_inode         = ramfs_make_node,
+    .link_inode         = ramfs_link_inode,
+    .inode_data         = ramfs_inode_data,
 };
 
 struct fsdriver ramfs_driver = {
@@ -208,10 +255,6 @@ struct fsdriver ramfs_driver = {
     .lst = { 0 },
 };
 
-struct inode invalid_inode;
-
-static void ramfs_inode_free(struct inode *idata);
-
 /* this structure is a "hierarchical" lookup table from any large index to some pointer */
 struct btree_node {
     int     bt_level;       /* if 0, bt_children are leaves */
@@ -219,6 +262,18 @@ struct btree_node {
     size_t  bt_used;        /* how many non-NULL children are there */
     void *  bt_children[0]; /* child BTree nodes or leaves */
 };
+
+/* mallocs and initializes a btree_node with bt_level = 0 */
+static struct btree_node * btree_new(size_t fanout);
+
+/* frees a bnode and all its children */
+static void btree_free(struct btree_node *bnode);
+
+/* look up a value by index */
+static void * btree_get_index(struct btree_node *bnode, size_t index);
+
+/* sets an existing index to `idata` */
+static inode_t btree_set_leaf(struct btree_node *bnode, struct inode *idata);
 
 
 static struct btree_node * btree_new(size_t fanout) {
@@ -379,6 +434,13 @@ static inode_t btree_new_leaf(struct btree_node **btree_root, struct inode *idat
     return res;
 }
 
+static int btree_free_leaf(struct btree_node *bnode, inode_t index) {
+    /* find the 0 level bnode */
+    /* set index to NULL */
+    /* if bt_used drops to 0, delete the bnode */
+    return ETODO;
+}
+
 
 /* this is a directory hashtable array entry */
 /* it is an intrusive list */
@@ -467,7 +529,11 @@ static int ramfs_directory_new_entry(
     de->de_ino = idata->i_no;
 
     ret = ramfs_directory_insert(dir, de);
-    if (ret) return ret;
+    if (ret) {
+        kfree(de->de_name);
+        kfree(de);
+        return ret;
+    }
 
     ++ idata->i_nlinks;
     return 0;
@@ -499,7 +565,6 @@ static void ramfs_directory_free(struct ramfs_directory *dir) {
 /* used by struct superblock as `data` pointer to store FS-specific state */
 struct ramfs_data {
     struct btree_node *inodes_btree;  /* map from inode_t to struct inode */
-    inode_t root_ino;                 /* root directory inode */
 };
 
 static int ramfs_data_new(mountnode *sb) {
@@ -595,6 +660,141 @@ static inode * ramfs_idata_by_inode(mountnode *sb, inode_t ino) {
     return btnode->bt_children[ ino ];
 }
 
+static int ramfs_inode_data(mountnode *sb, inode_t ino, struct inode *inobuf) {
+    int ret;
+
+    struct inode *idata;
+    idata = ramfs_idata_by_inode(sb, ino);
+    if (!idata) return ENOENT;
+
+    memcpy(inobuf, idata, sizeof(struct inode));
+    return 0;
+}
+
+/*
+ *    Searches given `dir` for part between `basename` and `basename_end`
+ */
+static int ramfs_get_inode_by_basename(struct ramfs_directory *dir, inode_t *ino, const char *basename, size_t basename_len)
+{
+    const char *funcname = "ramfs_get_inode_by_basename";
+    logmsgdf("%s(dir=*%x, basename='%s'[:%d]\n",
+             funcname, (uint)dir, basename, basename_len);
+
+    uint32_t hash = strhash(basename, basename_len);
+
+    /* directory hashtable: get direntry */
+    struct ramfs_direntry *de = dir->ht[ hash % dir->htcap ];
+
+    while (de) {
+        if ((de->de_hash == hash)
+            && !strncmp(basename, de->de_name, basename_len))
+        {
+            if (ino) *ino = de->de_ino;
+            return 0;
+        }
+        de = de->htnext;
+    }
+
+    if (ino) *ino = 0;
+    return ENOENT;
+}
+
+
+static int ramfs_lookup_inode(mountnode *sb, inode_t *result, const char *path, size_t pathlen)
+{
+    const char *funcname = "ramfs_lookup_inode";
+    logmsgdf("%s(path='%s', pathlen=%d)\n", funcname, path, pathlen);
+    struct ramfs_data *data = sb->sb_data;
+
+    //     "some/longdirectoryname/to/examplefilename"
+    //           ^                ^
+    //       basename        basename_end
+    const char *basename = path;
+    const char *basename_end = path;
+    inode_t ino;
+    int ret = 0;
+
+    if ((basename[0] == 0) || (pathlen == 0)) {
+        if (result) *result = sb->sb_root_ino;
+        return 0;
+    }
+
+    struct inode *root_idata = ramfs_idata_by_inode(sb, sb->sb_root_ino);
+    return_err_if(!root_idata, EKERN,
+            "%s: no idata for root_ino=%d\n", funcname, sb->sb_root_ino);
+    return_err_if(! S_ISDIR(root_idata->i_mode), EKERN,
+            "%s: root_ino is not a directory", funcname);
+
+    struct ramfs_directory *dir = root_idata->i_data;
+
+    for (;;) {
+        while (true) {
+            if ((pathlen <= (size_t)(basename_end - path + 1))
+                || (basename_end[0] == '\0'))
+            {
+                /* basename is "examplefilename" now */
+                logmsgdf("%s: basename found\n");
+                ret = ramfs_get_inode_by_basename(dir, &ino, basename, basename_end - basename);
+                if (result) *result = (ret ? 0 : ino);
+                return ret;
+            }
+            if (basename_end[0] == FS_SEP)
+                break;
+
+            ++basename_end;
+        }
+
+        ret = ramfs_get_inode_by_basename(dir, &ino, basename, basename_end - basename);
+        if (ret) {
+            if (result) *result = 0;
+            return ret;
+        }
+        if (basename_end[1] == '\0') {
+            logmsgdf("%s: trailing /, assuming a directory");
+            if (result) *result = ino;
+            return 0;
+        }
+
+        inode *idata = ramfs_idata_by_inode(sb, ino);
+        return_err_if(!idata, EKERN,
+                "%s: No inode for inode index %d on mountpoint *%p", funcname, ino, (uint)sb);
+        return_dbg_if(! S_ISDIR(idata->i_mode), ENOTDIR, "%s: ENOTDIR\n", funcname);
+
+        dir = idata->i_data;
+
+        while (*++basename_end == FS_SEP);
+        basename = basename_end;
+    }
+}
+
+
+static int ramfs_link_inode(
+        mountnode *sb, inode_t ino, inode_t dirino, const char *name, size_t namelen)
+{
+    const char *funcname = "ramfs_link_inode";
+    char buf[UCHAR_MAX];
+    strncpy(buf, name, namelen);
+
+    int ret;
+    struct inode *dir_idata = ramfs_idata_by_inode(sb, dirino);
+    return_err_if(!dir_idata, EKERN, "%s: no idata for inode %d", funcname, dirino);
+    return_dbg_if(!S_ISDIR(dir_idata->i_mode), ENOTDIR,
+                  "%s: dirino is not a directory", funcname);
+
+    struct ramfs_directory *dir = dir_idata->i_data;
+    return_err_if(!dir, EKERN, "%s: no directory data in dirino %d\n", dirino);
+
+    struct inode *idata = ramfs_idata_by_inode(sb, ino);
+    return_dbg_if(!idata, ENOENT, "%s: no idata for ino %d\n", funcname, ino);
+
+    ret = ramfs_directory_new_entry(sb, dir, buf, idata);
+    return_dbg_if(ret, ret, "%s: ramfs_directory_new_entry(ino=%d in dirino=%d) failed\n",
+                  funcname, ino, dirino);
+
+    ++idata->i_nlinks;
+    return 0;
+}
+
 
 static int ramfs_make_directory(mountnode *sb, inode_t *ino, const char *path, mode_t mode) {
     const char *funcname = "ramfs_make_directory";
@@ -671,6 +871,43 @@ error_exit:
     return ret;
 }
 
+
+static int ramfs_make_node(mountnode *sb, inode_t *ino, mode_t mode, void *info) {
+    const char *funcname = "ramfs_make_node";
+    int ret;
+
+    return_dbg_if(S_ISDIR(mode) || S_ISLNK(mode), EINVAL, "%s(DIR or LNK)\n", funcname);
+
+    struct inode *idata;
+    ret = ramfs_inode_new(sb, &idata, mode);
+    return_dbg_if(ret, ret, "%s: ramfs_inode_new() failed", funcname);
+
+    if (S_ISCHR(mode) || S_ISBLK(mode)) {
+        dev_t dev = (dev_t)(size_t)info;
+        idata->as.dev.maj = gnu_dev_major(dev);
+        idata->as.dev.min = gnu_dev_minor(dev);
+    }
+
+    if (ino) *ino = idata->i_no;
+    return 0;
+}
+
+static int ramfs_free_inode(mountnode *sb, inode_t ino) {
+    int ret;
+    struct ramfs_data *fsdata = sb->sb_data;
+
+    struct inode *idata;
+    idata = ramfs_idata_by_inode(sb, ino);
+    if (!idata) return ENOENT;
+
+    ramfs_inode_free(idata);
+
+    /* remove it from B-tree */
+    btree_free_leaf(fsdata->inodes_btree, ino);
+    return 0;
+}
+
+
 static int ramfs_read_superblock(mountnode *sb) {
     const char *funcname = "ramfs_read_superblock";
     logmsgdf("%s()\n", funcname);
@@ -690,8 +927,8 @@ static int ramfs_read_superblock(mountnode *sb) {
         logmsgef("%s: ramfs_make_directory() failed", funcname);
         goto enomem_exit;
     }
-    data->root_ino = root_ino;
-    logmsgdf("%s: data->root_ino = %d\n", funcname, root_ino);
+    sb->sb_root_ino = root_ino;
+    logmsgdf("%s: sb->root_ino = %d\n", funcname, root_ino);
 
     return 0;
 
@@ -700,100 +937,6 @@ enomem_exit:
     return ret;
 }
 
-
-/*
- *    Searches given `dir` for part between `basename` and `basename_end`
- */
-static int ramfs_get_inode_by_basename(struct ramfs_directory *dir, inode_t *ino, const char *basename, size_t basename_len)
-{
-    const char *funcname = "ramfs_get_inode_by_basename";
-    logmsgdf("%s(dir=*%x, basename='%s'[:%d]\n",
-             funcname, (uint)dir, basename, basename_len);
-
-    uint32_t hash = strhash(basename, basename_len);
-
-    /* directory hashtable: get direntry */
-    struct ramfs_direntry *de = dir->ht[ hash % dir->htcap ];
-
-    while (de) {
-        if ((de->de_hash == hash)
-            && !strncmp(basename, de->de_name, basename_len))
-        {
-            if (ino) *ino = de->de_ino;
-            return 0;
-        }
-        de = de->htnext;
-    }
-
-    if (ino) *ino = 0;
-    return ENOENT;
-}
-
-
-static int ramfs_lookup_inode(mountnode *sb, inode_t *result, const char *path, size_t pathlen)
-{
-    const char *funcname = "ramfs_lookup_inode";
-    logmsgdf("%s(path='%s', pathlen=%d)\n", funcname, path, pathlen);
-    struct ramfs_data *data = sb->sb_data;
-
-    //     "some/longdirectoryname/to/examplefilename"
-    //           ^                ^
-    //       basename        basename_end
-    const char *basename = path;
-    const char *basename_end = path;
-    inode_t ino;
-    int ret = 0;
-
-    if ((basename[0] == 0) || (pathlen == 0)) {
-        if (result) *result = data->root_ino;
-        return 0;
-    }
-
-    struct inode *root_idata = ramfs_idata_by_inode(sb, data->root_ino);
-    return_err_if(!root_idata, EKERN,
-            "%s: no idata for root_ino=%d\n", funcname, data->root_ino);
-    return_err_if(! S_ISDIR(root_idata->i_mode), EKERN,
-            "%s: root_ino is not a directory", funcname);
-
-    struct ramfs_directory *dir = root_idata->i_data;
-
-    for (;;) {
-        while (true) {
-            if ((pathlen <= (basename_end - path + 1)) || (basename_end[0] == '\0')) {
-                /* basename is "examplefilename" now */
-                logmsgdf("%s: basename found\n");
-                ret = ramfs_get_inode_by_basename(dir, &ino, basename, basename_end - basename);
-                if (result) *result = (ret ? 0 : ino);
-                return ret;
-            }
-            if (basename_end[0] == FS_SEP)
-                break;
-
-            ++basename_end;
-        }
-
-        ret = ramfs_get_inode_by_basename(dir, &ino, basename, basename_end - basename);
-        if (ret) {
-            if (result) *result = 0;
-            return ret;
-        }
-        if (basename_end[1] == '\0') {
-            logmsgdf("%s: trailing /, assuming a directory");
-            if (result) *result = ino;
-            return 0;
-        }
-
-        inode *idata = ramfs_idata_by_inode(sb, ino);
-        return_err_if(!idata, EKERN,
-                "%s: No inode for inode index %d on mountpoint *%p", funcname, ino, (uint)sb);
-        return_dbg_if(! S_ISDIR(idata->i_mode), ENOTDIR, "%s: ENOTDIR\n", funcname);
-
-        dir = idata->i_data;
-
-        while (*++basename_end == FS_SEP);
-        basename = basename_end;
-    }
-}
 
 static int ramfs_get_direntry(mountnode *sb, inode_t dirnode, void **iter, struct dirent *dirent) {
     const char *funcname = "ramfs_get_direntry";
@@ -875,6 +1018,34 @@ static int ramfs_get_direntry(mountnode *sb, inode_t dirnode, void **iter, struc
  *  VFS operations
  */
 
+void vfs_register_filesystem(fsdriver *fs) {
+    if (!theFileSystems) {
+        theFileSystems = fs;
+        fs->lst.next = fs->lst.prev = fs;
+        return;
+    }
+
+    /* insert just before theFileSystems in circular list */
+    fsdriver *lastfs = theFileSystems->lst.prev;
+    fs->lst.next = theFileSystems;
+    fs->lst.prev = lastfs;
+    lastfs->lst.next = fs;
+    theFileSystems->lst.prev = fs;
+};
+
+fsdriver *vfs_fs_by_id(uint fs_id) {
+    fsdriver *fs = theFileSystems;
+    if (!fs) return NULL;
+
+    do {
+        if (fs->fs_id == fs_id)
+            return fs;
+    } while ((fs = fs->lst.next) != theFileSystems);
+    return NULL;
+}
+
+
+
 static const char * vfs_match_mountpath(mountnode *parent_mnt, mountnode **match_mnt, const char *path) {
     mountnode *child_mnt = parent_mnt->sb_children;
     while (child_mnt) {
@@ -928,7 +1099,20 @@ int vfs_mountnode_by_path(const char *path, mountnode **mntnode, const char **re
     return 0;
 }
 
-err_t vfs_mount(dev_t source, const char *target, const mount_opts_t *opts) {
+
+static int vfs_path_dirname_len(const char *path) {
+    if (!path) return -1;
+
+    char *last_sep = strrchr(path, FS_SEP);
+    if (!last_sep) return 0;
+
+    while (last_sep[-1] == FS_SEP)
+        --last_sep;
+    return (int)(last_sep - path);
+}
+
+
+int vfs_mount(dev_t source, const char *target, const mount_opts_t *opts) {
     if (theRootMnt == NULL) {
         if ((target[0] != '/') || (target[1] != '\0')) {
              logmsgef("vfs_mount: mount('%s') with no root", target);
@@ -946,6 +1130,7 @@ err_t vfs_mount(dev_t source, const char *target, const mount_opts_t *opts) {
         sb->sb_children = NULL;
         sb->sb_mntpath = "";
         sb->sb_mntpath_hash = 0;
+        sb->sb_dev = source;
         sb->sb_fs = fs;
 
         int ret = fs->ops->read_superblock(sb);
@@ -954,8 +1139,9 @@ err_t vfs_mount(dev_t source, const char *target, const mount_opts_t *opts) {
         theRootMnt = sb;
         return 0;
     }
+
     logmsge("vfs_mount: TODO: non-root");
-    return -110;
+    return ETODO;
 }
 
 
@@ -976,6 +1162,76 @@ int vfs_mkdir(const char *path, mode_t mode) {
 
     ret = sb->sb_fs->ops->make_directory(sb, NULL, localpath, mode);
     return_err_if(ret, ret, "mkdir: failed (%d)\n", ret);
+
+    return 0;
+}
+
+
+static int vfs_inode_get(mountnode *sb, inode_t ino, struct inode *idata) {
+    const char *funcname = "vfs_inode_get";
+    int ret;
+    return_log_if(!idata, EINVAL, "%s(NULL", funcname);
+    return_dbg_if(!sb->sb_fs->ops->inode_data, ENOSYS,
+                  "%s: no %s.inode_data()\n", funcname, sb->sb_fs->name);
+
+    ret = sb->sb_fs->ops->inode_data(sb, ino, idata);
+    return_dbg_if(ret, ret, "%s: %s.inode_data failed\n", funcname, sb->sb_fs->name);
+
+    return 0;
+}
+
+int vfs_mknod(const char *path, mode_t mode, dev_t dev) {
+    const char *funcname = "vfs_mknod";
+    int ret;
+    return_log_if(S_ISDIR(mode), EINVAL, "Error: %s(IFDIR), use vfs_mkdir\n", funcname);
+    return_log_if(S_ISLNK(mode), EINVAL, "Error: %s(IFLNK), use vfs_symlink\n", funcname);
+    if ((S_IFMT & mode) == 0)
+        mode |= S_IFREG;
+
+    mountnode *sb = NULL;
+    const char *fspath = NULL;
+    inode_t ino = 0, dirino = 0;
+
+    /* get filesystem and fspath */
+    ret = vfs_mountnode_by_path(path, &sb, &fspath);
+    return_dbg_if(ret, ret, "%s(%s) failed(%d)\n", funcname, path, ret);
+
+    return_dbg_if(!sb->sb_fs->ops->make_inode, ENOSYS,
+                  "%s: %s does not support .make_inode()\n", funcname, sb->sb_fs->name);
+    return_dbg_if(!sb->sb_fs->ops->link_inode, ENOSYS,
+            "%s: no %s.link_inode()\n", funcname, sb->sb_fs->name);
+
+    /* get dirino */
+    int dirnamelen = vfs_path_dirname_len(fspath);
+    ret = ramfs_lookup_inode(sb, &dirino, fspath, dirnamelen);
+    return_dbg_if(ret, ret, "%s: no dirino for %s\n", funcname, fspath);
+
+    struct inode idata;
+    vfs_inode_get(sb, dirino, &idata);
+    return_dbg_if(!S_ISDIR(idata.i_mode), ENOTDIR,
+                 "%s: dirino=%d is not a directory\n", funcname, dirino);
+
+    /* create the inode */
+    void *mkinfo = NULL;
+    if (S_ISCHR(mode) || S_ISBLK(mode))
+        mkinfo = (void *)(size_t)dev;
+
+    ret = sb->sb_fs->ops->make_inode(sb, &ino, mode, mkinfo);
+    return_dbg_if(ret, ret,
+            "%s(%s): %s.make_inode(mode=0x%x) failed\n", funcname, path, sb->sb_fs->name, mode);
+
+    /* insert the inode */
+    const char *de_name = fspath + dirnamelen;
+    while (de_name[0] == FS_SEP) ++de_name;
+    logmsgdf("%s: inserting ino=%d as '%s'\n", funcname, ino, de_name);
+
+    ret = sb->sb_fs->ops->link_inode(sb, ino, dirino, de_name, SIZE_MAX);
+    if (ret) {
+        logmsgdf("%s: %s.link_inode() failed(%d)\n", funcname, sb->sb_fs->name, ret);
+        if (sb->sb_fs->ops->free_inode)
+            sb->sb_fs->ops->free_inode(sb, ino);
+        return ret;
+    }
 
     return 0;
 }
@@ -1008,7 +1264,6 @@ void print_ls(const char *path) {
         }
 
         k_printf("%d\t%s\n", de.d_ino, de.d_name);
-        logmsgdf("%d\t%s\n", de.d_ino, de.d_name);
     } while (iter);
 
     /* the end of enumeration */
@@ -1038,5 +1293,4 @@ void vfs_setup(void) {
     returnv_err_if(ret, "root mount on sysfs failed (%d)", ret);
 
     k_printf("%s on / mounted successfully\n", theRootMnt->sb_fs->name);
-    // */
 }

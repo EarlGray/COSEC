@@ -35,9 +35,10 @@
 #define EPIPE           32      /* Broken pipe */
 #define EDOM            33      /* Math argument out of domain of func */
 #define ERANGE          34      /* Math result not representable */
+#define ENOSYS          35      /* Not supported */
 
-#define ETODO           255     /* Not implemented yet */
-#define EKERN           254     /* Kernel bug */
+#define ETODO           39      /* Not implemented yet */
+#define EKERN           40      /* Kernel bug */
 
 #endif //__COSEC_ERRNO_H__
 

@@ -51,8 +51,9 @@ const char * const sys_errlist[] = {
     [EROFS]   = "EROFS: Read-only file system",
     [EMLINK]  = "EMLINK: Too many links",
     [EPIPE]   = "EPIPE: Broken pipe",
-    [EDOM]    = "EDOM: Math argument out of]domain of fun",
+    [EDOM]    = "EDOM: Math argument out of domain of fun",
     [ERANGE]  = "ERANGE: Math result not representable ",
+    [ENOSYS]  = "ENOSYS: Functionality is not supported",
 
     [EKERN]   = "EKERN: Internal kernel error",
     [ETODO]   = "ETODO: Not implemented yet",
@@ -63,15 +64,14 @@ static char unknown_error[UKNERR_BUF_LEN] = "unknown error: ";
 static size_t unknown_err_len = 0;
 
 char const *strerror(int err) {
-
     if ((0 <= err) && (err < sizeof(sys_errlist)/sizeof(size_t))) {
         const char *res = sys_errlist[err];
-        logmsgf("strerror: err=%d, *%x='%s'\n", err, (uint)res, res);
+        logmsgdf("strerror: err=%d, *%x='%s'\n", err, (uint)res, res);
         if (res)
             return res;
     }
 
-    logmsgf("strerror: unknown error %d\n", err);
+    logmsgdf("strerror: unknown error %d\n", err);
 
     if (!unknown_err_len)
         unknown_err_len = strlen(unknown_error);

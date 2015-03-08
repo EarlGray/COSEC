@@ -250,26 +250,60 @@ void kshell_init() {
 }
 
 const struct kshell_command main_commands[] = {
-    {   .name = "init",     .handler = kshell_init,  .description = "userspace init()",
+    { .name = "init",
+        .handler = kshell_init,
+        .description = "userspace init()",
         .options = "just init!" },
-    {   .name = "test",     .handler = kshell_test,  .description = "test utility",
+    { .name = "test",
+        .handler = kshell_test,
+        .description = "test utility",
         .options = "sprintf kbd timer serial tasks ring3 usleep" },
-    {   .name = "info",     .handler = kshell_info,  .description = "various info",
+    { .name = "info",
+        .handler = kshell_info,
+        .description = "various info",
         .options = "stack gdt pmem colors cpu pci irq mods mboot" },
-    {   .name = "mem",      .handler = kshell_mem,   .description = "mem <start_addr> <size = 0x100>" },
-    {   .name = "io",       .handler = kshell_io,    .description = "io[bwd][rw] <port> [<value>]",
-        .options = "br/wr/dr <port> -- read port; bw/ww/dw <port> <value> - write value to port" },
-    {   .name = "heap",     .handler = kshell_heap,  .description = "heap utility", .options = "info alloc free check" },
-    {   .name = "vfs",      .handler = kshell_vfs,   .description = "vfs utility",  .options = "mounted mkdir ls ", },
-    {   .name = "set",      .handler = kshell_set,   .description = "manage global variables", .options = "color prompt" },
-    {   .name = "elf",      .handler = kshell_elf,   .description = "inspect ELF formats", .options = "sections syms" },
-    {   .name = "panic",    .handler = kshell_panic, .description = "test The Red Screen of Death"     },
-    {   .name = "help",     .handler = kshell_help,  .description = "show this help"   },
-    {   .name = "time",     .handler = kshell_time,  .description = "system time", .options = ""  },
+    { .name = "mem",
+        .handler = kshell_mem,
+        .description = "mem <start_addr> <size = 0x100>" },
+    { .name = "io",
+        .handler = kshell_io,
+        .description = "io[bwd][rw] <port> [<value>]",
+        .options = "\n\tbr/wr/dr <port> -- read port;"
+                   "\n\tbw/ww/dw <port> <value> - write value to port" },
+    { .name = "heap",
+        .handler = kshell_heap,
+        .description = "heap utility",
+        .options = "info alloc free check" },
+    { .name = "vfs",
+        .handler = kshell_vfs,
+        .description = "vfs utility",
+        .options = "mounted mkdir ls ", },
+    { .name = "set",
+        .handler = kshell_set,
+        .description = "manage global variables",
+        .options = "color prompt" },
+    { .name = "elf",
+        .handler = kshell_elf,
+        .description = "inspect ELF formats",
+        .options = "sections syms" },
+    { .name = "panic",
+        .handler = kshell_panic,
+        .description = "test The Red Screen of Death"     },
+    { .name = "help",
+        .handler = kshell_help,
+        .description = "show this help"   },
+    { .name = "time",
+        .handler = kshell_time,
+        .description = "system time",
+        .options = ""  },
 #if COSEC_LUA
-    {   .name = "lua",      .handler = kshell_lua,  .description = "Lua REPL", .options = "" },
+    { .name = "lua",
+        .handler = kshell_lua,
+        .description = "Lua REPL",
+        .options = "" },
 #endif
-    {   .name = NULL,       .handler = 0    }
+    { .name = NULL,
+        .handler = 0    }
 };
 
 void test_strs(void);
@@ -306,6 +340,13 @@ void kshell_vfs(const struct kshell_command __unused *this, const char *arg) {
 
         int ret = vfs_mkdir(arg, 0755);
         if (ret) k_printf("mkdir failed: %s\n", strerror(ret));
+    } else
+    if (!strncmp(arg, "mknod", 5)) {
+        arg += 5;
+        while (isspace(*arg)) ++arg;
+
+        int ret = vfs_mknod(arg, 0644, 0);
+        if (ret) k_printf("mknod failed: %s\n", strerror(ret));
     } else {
         k_printf("Options: %s\n", this->options);
     }
