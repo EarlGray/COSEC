@@ -17,5 +17,6 @@ struct mount_opts_t {
 };
 
 err_t vfs_mount(dev_t source, const char *target, const mount_opts_t *opts);
+int vfs_mkdir(const char *path, mode_t mode);
 
 #endif // __VFS_H__

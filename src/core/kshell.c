@@ -260,7 +260,7 @@ const struct kshell_command main_commands[] = {
     {   .name = "io",       .handler = kshell_io,    .description = "io[bwd][rw] <port> [<value>]",
         .options = "br/wr/dr <port> -- read port; bw/ww/dw <port> <value> - write value to port" },
     {   .name = "heap",     .handler = kshell_heap,  .description = "heap utility", .options = "info alloc free check" },
-    {   .name = "vfs",      .handler = kshell_vfs,   .description = "vfs utility",  .options = "write read", },
+    {   .name = "vfs",      .handler = kshell_vfs,   .description = "vfs utility",  .options = "mkdir", },
     {   .name = "set",      .handler = kshell_set,   .description = "manage global variables", .options = "color prompt" },
     {   .name = "elf",      .handler = kshell_elf,   .description = "inspect ELF formats", .options = "sections syms" },
     {   .name = "panic",    .handler = kshell_panic, .description = "test The Red Screen of Death"     },
@@ -293,7 +293,19 @@ void kshell_ls(const struct kshell_command __unused *this, const char *arg) {
 }
 
 void kshell_vfs(const struct kshell_command __unused *this, const char *arg) {
-    logmsgef("TODO: vfs");
+    if (!strncmp(arg, "mkdir", 5)) {
+        arg += 5;
+        while (isspace(*arg)) ++arg;
+        if (arg[0] == 0) {
+            k_printf("mkdir: needs name\n");
+            return;
+        }
+
+        int ret = vfs_mkdir(arg, 0755);
+        if (ret) k_printf("mkdir: failed(%d)\n", ret);
+    } else {
+        k_printf("");
+    }
 }
 
 void kshell_mount() {
