@@ -16,6 +16,8 @@ struct mount_opts_t {
     bool readonly:1;
 };
 
-err_t vfs_mount(dev_t source, const char *target, const mount_opts_t *opts);
-
+int vfs_mount(dev_t source, const char *target, const mount_opts_t *opts);
+int vfs_mkdir(const char *path, mode_t mode);
+int vfs_mknod(const char *path, mode_t mode, dev_t dev);
+  
 #endif // __VFS_H__
