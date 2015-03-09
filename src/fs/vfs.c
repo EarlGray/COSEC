@@ -729,11 +729,11 @@ static int ramfs_lookup_inode(mountnode *sb, inode_t *result, const char *path, 
 
     for (;;) {
         while (true) {
-            if ((pathlen <= (size_t)(basename_end - path + 1))
+            if ((pathlen <= (size_t)(basename_end - path))
                 || (basename_end[0] == '\0'))
             {
                 /* basename is "examplefilename" now */
-                logmsgdf("%s: basename found\n");
+                //logmsgdf("%s: basename found\n", basename);
                 ret = ramfs_get_inode_by_basename(dir, &ino, basename, basename_end - basename);
                 if (result) *result = (ret ? 0 : ino);
                 return ret;
@@ -828,8 +828,6 @@ static int ramfs_make_directory(mountnode *sb, inode_t *ino, const char *path, m
         if (!basename) /* it's a subdirectory of top directory */
             basename = path;
 
-        while (*basename == FS_SEP) ++basename;
-
         inode_t parino = 0;
         struct inode *par_idata = NULL;
 
@@ -850,6 +848,8 @@ static int ramfs_make_directory(mountnode *sb, inode_t *ino, const char *path, m
             ret = ENOTDIR;
             goto error_exit;
         }
+
+        while (*basename == FS_SEP) ++basename;
 
         parent_dir = par_idata->i_data;
         ret = ramfs_directory_new_entry(sb, parent_dir, basename, idata);
