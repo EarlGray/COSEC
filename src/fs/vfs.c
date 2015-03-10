@@ -9,6 +9,7 @@
 #include <fs/vfs.h>
 #include <dev/devices.h>
 #include <conf.h>
+#include <attrs.h>
 
 #define __DEBUG
 #include <log.h>
@@ -52,6 +53,7 @@ struct inode {
     index_t i_no;               /* inode index */
     mode_t  i_mode;             /* inode type + unix permissions */
     count_t i_nlinks;
+    off_t   i_size;             /* data size if any */
     void   *i_data;             /* fs- and type-specific info */
 
     union {
@@ -125,6 +127,19 @@ struct fs_ops {
     int (*inode_data)(mountnode *sb, inode_t ino, struct inode *idata);
 
     /**
+     * \brief  reads/writes data from an inode blocks
+     * @param pos       position (in bytes) to read from/write to
+     * @param buf       a buffer to copy data to/from
+     * @param buflen    the buffer length
+     * @param written   if not NULL, returns number of actually copied bytes;
+     */
+    int (*read_inode)(mountnode *sb, inode_t ino, off_t pos,
+                      char *buf, size_t buflen, size_t *written);
+
+    int (*write_inode)(mountnode *sb, inode_t ino, off_t pos,
+                       const char *buf, size_t buflen, size_t *written);
+
+    /**
      * \brief  iterates through directory and fills `dir`.
      * @param ino   the directory inode index;
      * @param iter  an iterator pointer; `*iter` must be set to NULL before the first call;
@@ -156,6 +171,17 @@ struct fs_ops {
      */
     int (*unlink_inode)(mountnode *sb, const char *path, size_t pathlen);
 };
+
+void vfs_register_filesystem(fsdriver *fs);
+fsdriver * vfs_fs_by_id(uint fs_id);
+
+int vfs_mountnode_by_path(const char *path, mountnode **mntnode, const char **relpath);
+int vfs_mount(dev_t source, const char *target, const mount_opts_t *opts);
+int vfs_mkdir(const char *path, mode_t mode);
+
+static int vfs_inode_get(mountnode *sb, inode_t ino, struct inode *idata);
+static int vfs_path_dirname_len(const char *path);
+static const char * vfs_match_mountpath(mountnode *parent_mnt, mountnode **match_mnt, const char *path);
 
 
 /*
@@ -246,6 +272,8 @@ struct fs_ops ramfs_fsops = {
     .make_inode         = ramfs_make_node,
     .link_inode         = ramfs_link_inode,
     .inode_data         = ramfs_inode_data,
+    .read_inode         = NULL, /* TODO */
+    .write_inode        = NULL, /* TODO */
 };
 
 struct fsdriver ramfs_driver = {
@@ -517,6 +545,7 @@ static int ramfs_directory_new_entry(
         mountnode *sb, struct ramfs_directory *dir,
         const char *name, struct inode *idata)
 {
+    UNUSED(sb);
     logmsgf("ramfs_directory_new_entry(%s)\n", name);
     int ret = 0;
     struct ramfs_direntry *de = kmalloc(sizeof(struct ramfs_direntry));
@@ -876,7 +905,7 @@ static int ramfs_make_node(mountnode *sb, inode_t *ino, mode_t mode, void *info)
     const char *funcname = "ramfs_make_node";
     int ret;
 
-    return_dbg_if(S_ISDIR(mode) || S_ISLNK(mode), EINVAL, "%s(DIR or LNK)\n", funcname);
+    //return_dbg_if(S_ISDIR(mode) || S_ISLNK(mode), EINVAL, "%s(DIR or LNK)\n", funcname);
 
     struct inode *idata;
     ret = ramfs_inode_new(sb, &idata, mode);
@@ -1158,7 +1187,7 @@ int vfs_mkdir(const char *path, mode_t mode) {
     logmsgdf("vfs_mkdir: localpath = '%s'\n", localpath);
 
     return_log_if(!sb->sb_fs->ops->make_directory, EBADF,
-                  "mkdir: %s filesystem cannot mkdir\n", sb->sb_fs->name);
+                  "mkdir: no %s.make_directory()\n", sb->sb_fs->name);
 
     ret = sb->sb_fs->ops->make_directory(sb, NULL, localpath, mode);
     return_err_if(ret, ret, "mkdir: failed (%d)\n", ret);
@@ -1236,6 +1265,58 @@ int vfs_mknod(const char *path, mode_t mode, dev_t dev) {
     return 0;
 }
 
+int vfs_inode_read(
+        mountnode *sb, inode_t ino, off_t pos,
+        char *buf, size_t buflen, size_t *written)
+{
+    const char *funcname = "vfs_inode_read";
+    int ret;
+    return_err_if(!buf, EINVAL, "%s(NULL)", funcname);
+
+    struct inode idata;
+
+    return_dbg_if(!sb->sb_fs->ops->inode_data, ENOSYS,
+            "%s: no %s.inode_data\n", funcname, sb->sb_fs->name);
+    return_dbg_if(!sb->sb_fs->ops->read_inode, ENOSYS,
+            "%s: no %s.read_inode\n", funcname, sb->sb_fs->name);
+
+    ret = sb->sb_fs->ops->inode_data(sb, ino, &idata);
+    return_dbg_if(ret, ret,
+            "%s: %s.inode_data(%d) failed(%d)\n", funcname, sb->sb_fs->name, ino, ret);
+
+    return_dbg_if(S_ISDIR(idata.i_mode), EISDIR, "%s(inode=%d): EISDIR\n", funcname, ino);
+
+    if (pos >= idata.i_size) {
+        if (written) *written = 0;
+        return 0;
+    }
+
+    return sb->sb_fs->ops->read_inode(sb, ino, pos, buf, buflen, written);
+}
+
+int vfs_inode_write(
+        mountnode *sb, inode_t ino, off_t pos,
+        const char *buf, size_t buflen, size_t *written)
+{
+    const char *funcname = "vfs_inode_write";
+    int ret;
+    return_err_if(!buf, EINVAL, "%s(NULL)", funcname);
+
+    struct inode idata;
+
+    return_dbg_if(!sb->sb_fs->ops->inode_data, ENOSYS,
+            "%s: no %s.inode_data\n", funcname, sb->sb_fs->name);
+    return_dbg_if(!sb->sb_fs->ops->write_inode, ENOSYS,
+            "%s: no %s.write_inode\n", funcname, sb->sb_fs->name);
+
+    ret = sb->sb_fs->ops->inode_data(sb, ino, &idata);
+    return_dbg_if(ret, ret,
+            "%s; %s.inode_data(%d) failed(%d)\n", funcname, sb->sb_fs->name, ino, ret);
+
+    return_dbg_if(S_ISDIR(idata.i_mode), EISDIR, "%s(inode=%d): EISDIR\n", funcname, ino);
+
+    return sb->sb_fs->ops->write_inode(sb, ino, pos, buf, buflen, written);
+}
 
 
 void print_ls(const char *path) {
@@ -1257,11 +1338,7 @@ void print_ls(const char *path) {
     iter = NULL; /* must be NULL at the start of enumeration */
     do {
         ret = sb->sb_fs->ops->get_direntry(sb, ino, &iter, &de);
-
-        if (ret) {
-             logmsgef("ls error: %d", ret);
-             return;
-        }
+        returnv_err_if(ret, "ls error: %s", strerror(ret));
 
         k_printf("%d\t%s\n", de.d_ino, de.d_name);
     } while (iter);

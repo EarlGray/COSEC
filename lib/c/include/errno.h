@@ -4,8 +4,6 @@
 #include <sys/errno.h>
 
 int get_errno(void);
-char const *strerror(int err);
-
 extern const char * const sys_errlist[];
 
 #define errno get_errno()

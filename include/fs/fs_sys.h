@@ -23,7 +23,7 @@
 #define SYS_CLOSE       0x3F
 
 struct mount_info_struct {
-    const char *source;
+    dev_t       source;
     const char *target;
     const char *fstype;
     uint flags;

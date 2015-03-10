@@ -14,7 +14,6 @@
 # define __noreturn  __attribute__((noreturn))
 # define __alloc     __attribute__((malloc))
 # define __unused    __attribute__((unused))
-# define UNUSED(v)   (void)v
 
 # define __align(x)  __attribute__((align(x)))
 # define __packed    __attribute__((packed))

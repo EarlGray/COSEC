@@ -9,8 +9,8 @@
 
 pde_t thePageDirectory[N_PDE] __attribute__((aligned (PAGE_SIZE)));
 
-int pg_fault(void) {
-    k_printf("\n#PF\n");
+void pg_fault(void) {
+    logmsgf("\n#PF\n");
 
     ptr_t fault_addr;
     asm volatile ("movl %%cr2, %0   \n" : "=r"(fault_addr) );
@@ -20,8 +20,8 @@ int pg_fault(void) {
 
     uint* op_addr = (uint *)(context + CONTEXT_SIZE + sizeof(uint));
 
-    printf("Fault 0x%x from %x:%x accessing *%x\n",
-            fault_error, op_addr[1], op_addr[0], fault_addr);
+    logmsgef("Fault 0x%x from %x:%x accessing *%x\n",
+             fault_error, op_addr[1], op_addr[0], fault_addr);
 
     cpu_hang();
 }

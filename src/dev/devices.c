@@ -1,8 +1,6 @@
 #include <stdlib.h>
 
 #include <dev/devices.h>
-#include <dev/block.h>
-
 #include <log.h>
 
 /*
@@ -10,6 +8,7 @@
  */
 
 static device_t *chr0devclass_get_device(mindev_t mindev) {
+    UNUSED(mindev);
     return NULL;
 }
 

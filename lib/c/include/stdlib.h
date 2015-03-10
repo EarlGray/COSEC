@@ -3,7 +3,8 @@
 
 #include <stdint.h>
 #include <stddef.h>
-//#include <limits.h>
+
+# define UNUSED(v)   (void)v
 
 #define NULL ((void *)0)
 
