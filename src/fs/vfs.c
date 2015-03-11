@@ -64,7 +64,7 @@ struct inode {
             size_t indir2nd_block;
             size_t indir3rd_block;
         } reg;
-        struct { } dir;
+        //struct { } dir;
         struct {
             majdev_t maj;
             mindev_t min;
@@ -73,16 +73,16 @@ struct inode {
             char short_symlink[ MAX_SHORT_SYMLINK_SIZE ];
             const char *long_symlink;
         } symlink;
-        struct { } socket;
-        struct { } namedpipe;
+        //struct { } socket;
+        //struct { } namedpipe;
     } as;
 };
 
 
 struct fsdriver {
-    const char *name;
-    uint fs_id;
-    fs_ops *ops;
+    const char  *name;
+    uint        fs_id;
+    fs_ops      *ops;
 
     struct {
         fsdriver *prev, *next;
@@ -1082,7 +1082,7 @@ static const char * vfs_match_mountpath(mountnode *parent_mnt, mountnode **match
         size_t mountpath_len = strlen(mountpath);
         if (!strncmp(path, mountpath, mountpath_len)) {
             const char *nextpath = path + mountpath_len;
-            if (nextpath[0] == '0')
+            if (nextpath[0] == '\0')
                 break;
 
             while (nextpath[0] == FS_SEP)
@@ -1179,7 +1179,7 @@ int vfs_mkdir(const char *path, mode_t mode) {
     mountnode *sb;
     const char *localpath;
 
-    mode &= !S_IFMT;
+    mode &= ~S_IFMT;
     mode |= S_IFDIR;
 
     ret = vfs_mountnode_by_path(path, &sb, &localpath);
@@ -1316,6 +1316,52 @@ int vfs_inode_write(
     return_dbg_if(S_ISDIR(idata.i_mode), EISDIR, "%s(inode=%d): EISDIR\n", funcname, ino);
 
     return sb->sb_fs->ops->write_inode(sb, ino, pos, buf, buflen, written);
+}
+
+
+int vfs_inode_stat(mountnode *sb, inode_t ino, struct stat *stat) {
+    const char *funcname = __FUNCTION__;
+    int ret;
+    return_log_if(!stat, EINVAL, "%s(NULL)\n", funcname);
+
+    struct inode idata;
+
+    return_dbg_if(!sb->sb_fs->ops->inode_data, ENOSYS,
+             "%s: no %s.inode_data\n", funcname, sb->sb_fs->name);
+    ret = sb->sb_fs->ops->inode_data(sb, ino, &idata);
+    return_dbg_if(ret, ret,
+            "%s: %s.inode_data() failed(%d)\n", funcname, sb->sb_fs->name, ret);
+
+    memset(stat, 0, sizeof(struct stat));
+    stat->st_dev = sb->sb_dev;
+    stat->st_ino = ino;
+    stat->st_mode = idata.i_mode;
+    stat->st_nlink = idata.i_nlinks;
+    stat->st_rdev = (S_ISCHR(idata.i_mode) || S_ISBLK(idata.i_mode) ?
+                        gnu_dev_makedev(idata.as.dev.maj, idata.as.dev.min) : 0);
+    stat->st_size = idata.i_size;
+    return 0;
+}
+
+int vfs_stat(const char *path, struct stat *stat) {
+    const char *funcname = "vfs_stat";
+    int ret;
+
+    mountnode *sb = NULL;
+    const char *fspath;
+    inode_t ino = 0;
+
+    ret = vfs_mountnode_by_path(path, &sb, &fspath);
+    return_dbg_if(ret, ret,
+            "%s: no localpath and superblock for path '%s'\n", funcname, path);
+
+    return_dbg_if(!sb->sb_fs->ops->lookup_inode, ENOSYS,
+            "%s: no %s.lookup_inode\n", funcname, sb->sb_fs->name);
+    ret = sb->sb_fs->ops->lookup_inode(sb, &ino, fspath, SIZE_MAX);
+    return_dbg_if(ret, ret,
+            "%s: %s.lookup_inode failed(%d)\n", funcname, sb->sb_fs->name, ret);
+
+    return vfs_inode_stat(sb, ino, stat);
 }
 
 

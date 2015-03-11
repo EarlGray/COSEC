@@ -321,32 +321,47 @@ const struct kshell_subcmd  test_cmds[] = {
 
 void kshell_vfs(const struct kshell_command __unused *this, const char *arg) {
     if (!strncmp(arg, "ls", 2)) {
-        arg += 2;
-        while (isspace(*arg)) ++arg;
+        arg += 2; while (isspace(*arg)) ++arg;
         print_ls(arg);
     } else
     if (!strncmp(arg, "mounted", 7)) {
-        arg += 7;
         print_mount();
     } else
     if (!strncmp(arg, "mkdir", 5)) {
-        arg += 5;
-        while (isspace(*arg)) ++arg;
+        arg += 5; while (isspace(*arg)) ++arg;
 
-        if (arg[0] == 0) {
-            k_printf("mkdir: needs name\n");
-            return;
-        }
+        if (arg[0] == 0) { k_printf("mkdir: needs name\n"); return; }
 
         int ret = vfs_mkdir(arg, 0755);
         if (ret) k_printf("mkdir failed: %s\n", strerror(ret));
     } else
     if (!strncmp(arg, "mknod", 5)) {
-        arg += 5;
-        while (isspace(*arg)) ++arg;
+        arg += 5; while (isspace(*arg)) ++arg;
 
         int ret = vfs_mknod(arg, 0644, 0);
         if (ret) k_printf("mknod failed: %s\n", strerror(ret));
+    } else
+    if (!strncmp(arg, "stat", 4)) {
+        arg += 4; while (isspace(*arg)) ++arg;
+
+        char mode[11];
+
+        struct stat stat;
+        int ret = vfs_stat(arg, &stat);
+        if (ret) { k_printf("stat failed: %s\n", strerror(ret)); return ; }
+
+        k_printf("  st_dev    = 0x%x\n", stat.st_dev);
+        k_printf("  st_ino    = %d\n", stat.st_ino);
+
+        strmode(stat.st_mode, mode);
+        k_printf("  st_mode   = %s", mode);
+        switch (mode[0]) {
+            case 'c': case 'b':
+                k_printf("; %d:%d", gnu_dev_major(stat.st_rdev), gnu_dev_minor(stat.st_rdev));
+                break;
+        }
+        k_printf("\n  st_nlink  = %d\n", stat.st_nlink);
+        k_printf("  st_size   = %d\n", stat.st_size);
     } else {
         k_printf("Options: %s\n", this->options);
     }

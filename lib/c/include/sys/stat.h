@@ -86,7 +86,7 @@ static void strmode(mode_t mode, char *bp) {
     else *bp++ = '?';
 
     int i;
-    const char *mask = "xwrxwrxwr";
+    const char *mask = "rwxrwxrwx";
     for (i = 0; i < 9; ++i) {
         bp[i] = ((mode & (1 << (8 - i))) ? mask[i] : '-');
     }
