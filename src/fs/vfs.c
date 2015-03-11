@@ -58,11 +58,11 @@ struct inode {
 
     union {
         struct {
-            size_t block_coout; // how many blocks its data takes
-            size_t directblock[ N_DIRECT_BLOCKS ];  // numbers of first DIRECT_BLOCKS blocks
-            size_t indir1st_block;
-            size_t indir2nd_block;
-            size_t indir3rd_block;
+            off_t block_coout;                     // how many blocks its data takes
+            off_t directblock[ N_DIRECT_BLOCKS ];  // numbers of first DIRECT_BLOCKS blocks
+            off_t indir1st_block;
+            off_t indir2nd_block;
+            off_t indir3rd_block;
         } reg;
         //struct { } dir;
         struct {
@@ -179,6 +179,7 @@ int vfs_mountnode_by_path(const char *path, mountnode **mntnode, const char **re
 int vfs_mount(dev_t source, const char *target, const mount_opts_t *opts);
 int vfs_mkdir(const char *path, mode_t mode);
 
+static off_t vfs_inode_block_by_index(struct inode *idata, off_t bno, size_t blksz);
 static int vfs_inode_get(mountnode *sb, inode_t ino, struct inode *idata);
 static int vfs_path_dirname_len(const char *path);
 static const char * vfs_match_mountpath(mountnode *parent_mnt, mountnode **match_mnt, const char *path);
@@ -260,6 +261,10 @@ static int ramfs_make_node(mountnode *sb, inode_t *ino, mode_t mode, void *info)
 static int ramfs_free_inode(mountnode *sb, inode_t ino);
 static int ramfs_link_inode(mountnode *sb, inode_t ino, inode_t dirino, const char *name, size_t namelen);
 static int ramfs_inode_data(mountnode *sb, inode_t ino, struct inode *idata);
+static int ramfs_read_inode(mountnode *sb, inode_t ino, off_t pos,
+                            char *buf, size_t buflen, size_t *written);
+static int ramfs_write_inode(mountnode *sb, inode_t ino, off_t pos,
+                             const char *buf, size_t buflen, size_t *written);
 
 static void ramfs_inode_free(struct inode *idata);
 
@@ -272,8 +277,8 @@ struct fs_ops ramfs_fsops = {
     .make_inode         = ramfs_make_node,
     .link_inode         = ramfs_link_inode,
     .inode_data         = ramfs_inode_data,
-    .read_inode         = NULL, /* TODO */
-    .write_inode        = NULL, /* TODO */
+    .read_inode         = ramfs_read_inode,
+    .write_inode        = ramfs_write_inode,
 };
 
 struct fsdriver ramfs_driver = {
@@ -1042,6 +1047,30 @@ static int ramfs_get_direntry(mountnode *sb, inode_t dirnode, void **iter, struc
     return 0;
 }
 
+static int ramfs_read_inode(
+        mountnode *sb, inode_t ino, off_t pos,
+        char *buf, size_t buflen, size_t *written)
+{
+    return ETODO;
+}
+
+
+static int ramfs_write_inode(
+        mountnode *sb, inode_t ino, off_t pos,
+        const char *buf, size_t buflen, size_t *written)
+{
+    const char *funcname = "ramfs_write_inode";
+    struct inode *idata;
+
+    idata = ramfs_idata_by_inode(sb, ino);
+    return_dbg_if(!idata, ENOENT, "%s(ino = %d): ENOENT\n", funcname, ino);
+
+    /* TODO : block storage */
+
+    return ETODO;
+}
+
+
 
 /*
  *  VFS operations
@@ -1209,6 +1238,7 @@ static int vfs_inode_get(mountnode *sb, inode_t ino, struct inode *idata) {
     return 0;
 }
 
+
 int vfs_mknod(const char *path, mode_t mode, dev_t dev) {
     const char *funcname = "vfs_mknod";
     int ret;
@@ -1284,7 +1314,14 @@ int vfs_inode_read(
     return_dbg_if(ret, ret,
             "%s: %s.inode_data(%d) failed(%d)\n", funcname, sb->sb_fs->name, ino, ret);
 
-    return_dbg_if(S_ISDIR(idata.i_mode), EISDIR, "%s(inode=%d): EISDIR\n", funcname, ino);
+    switch (idata.i_mode & S_IFMT) {
+        case S_IFCHR:   logmsgef("%s(ino=%d -- CHR): ETODO", funcname, ino); return ETODO;
+        case S_IFBLK:   logmsgef("%s(ino=%d -- BLK): ETODO", funcname, ino); return ETODO;
+        case S_IFSOCK:  logmsgef("%s(ino=%d -- SOCK): ETODO", funcname, ino); return ETODO;
+        case S_IFIFO:   logmsgef("%s(ino=%d -- FIFO): ETODO", funcname, ino); return ETODO;
+        case S_IFLNK:   /* TODO: read link path, read its inode */ return ETODO;
+        case S_IFDIR:   logmsgdf("%s(ino=%d): EISDIR\n", funcname, ino); return EISDIR;
+    }
 
     if (pos >= idata.i_size) {
         if (written) *written = 0;
