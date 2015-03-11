@@ -7,6 +7,7 @@
 #include <conf.h>
 #include <log.h>
 
+typedef void (*btree_leaf_free_f)(void *);
 
 /* this structure is a "hierarchical" lookup table from any large index to some pointer */
 struct btree_node {
@@ -20,7 +21,7 @@ struct btree_node {
 static struct btree_node * btree_new(size_t fanout);
 
 /* frees a bnode and all its children */
-static void btree_free(struct btree_node *bnode, void (*free_leaf)(void *));
+static void btree_free(struct btree_node *bnode, btree_leaf_free_f free_leaf);
 
 /* look up a value by index */
 static void * btree_get_index(struct btree_node *bnode, size_t index);
@@ -43,7 +44,7 @@ static struct btree_node * btree_new(size_t fanout) {
     return bnode;
 }
 
-static void btree_free(struct btree_node *bnode, void (*free_leaf)(void *)) {
+static void btree_free(struct btree_node *bnode, btree_leaf_free_f free_leaf) {
     size_t i;
     for (i = 0; i < bnode->bt_fanout; ++i) {
         if (bnode->bt_level == 0) {
@@ -194,6 +195,8 @@ static int btree_free_leaf(struct btree_node *bnode, inode_t index) {
     /* if bt_used drops to 0, delete the bnode */
     return ETODO;
 }
+
+
 /*
  *  ramfs
  */
@@ -388,7 +391,7 @@ static int ramfs_data_new(mountnode *sb) {
 static void ramfs_data_free(mountnode *sb) {
     struct ramfs_data *data = sb->sb_data;
 
-    btree_free(data->inodes_btree, ramfs_inode_free);
+    btree_free(data->inodes_btree, (btree_leaf_free_f)ramfs_inode_free);
 
     kfree(sb->sb_data);
     sb->sb_data = NULL;
@@ -817,7 +820,6 @@ static int ramfs_read_inode(
 {
     return ETODO;
 }
-
 
 static int ramfs_write_inode(
         mountnode *sb, inode_t ino, off_t pos,

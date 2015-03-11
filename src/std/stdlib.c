@@ -645,6 +645,6 @@ char *getenv(const char *name) {
     if (!strcmp(name, "UNAME")) {
         return "COSEC";
     }
-    logmsgef("TODO: getenv('%s')", name);
+    logmsgf("TODO: getenv('%s')", name);
     return NULL;
 }
