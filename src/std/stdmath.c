@@ -1,6 +1,9 @@
 #include <math.h>
 #include <log.h>
 
+#warning "TODO: stdmath.c"
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+
 double floor(double x) {
     logmsge("TODO: floor()");
     return x;

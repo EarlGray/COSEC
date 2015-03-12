@@ -2,6 +2,9 @@
 #include <fs/vfs.h>
 #include <log.h>
 
+#warning "TODO: remove #pragma GCC diagnostic ignored -Wunused-parameter"
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+
 int sys_mount(mount_info_t *mnt) {
     return vfs_mount(mnt->source, mnt->target, mnt->fstype);
 }

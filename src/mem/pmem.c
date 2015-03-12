@@ -14,6 +14,8 @@
 #include <arch/i386.h>
 #include <arch/mboot.h>
 
+#include <fs/devices.h>
+
 #include <string.h>
 #include <stdbool.h>
 
@@ -320,8 +322,80 @@ void pmem_info(void) {
 }
 
 
+/*
+ *  FS character memory device 1:1, /dev/mem
+ */
+
+static const char *chrram_mem_get_roblock(device *cmem, off_t block) {
+    UNUSED(cmem);
+    size_t addr = block * PAGE_SIZE;
+    return (const char *)addr;
+}
+
+static char *chrram_mem_get_rwblock(device *cmem, off_t block) {
+    UNUSED(cmem);
+    size_t addr = block * PAGE_SIZE;
+    return (char *)addr;
+}
+
+static size_t chrram_mem_blocksize(device *cmem) {
+    UNUSED(cmem);
+    return PAGE_SIZE;
+}
+
+static off_t chrram_mem_size(device *cmem) {
+    UNUSED(cmem);
+    off_t msize = mboot_uppermem_kb();
+    ulong usize = ((ulong)msize * 1024) / PAGE_SIZE;
+    /* TODO: check for off_t boundary */
+    msize = (off_t)usize;
+    return msize;
+}
+
+static int chrram_read_buf(device *cmem, char *buf, size_t buflen, size_t *written, off_t pos) {
+    UNUSED(cmem);
+    /* TODO: check memory boundaries */
+    memcpy(buf, (void *)pos, buflen);
+
+    if (written) *written = buflen;
+    return 0;
+}
+static int chrram_write_buf(device *cmem, const char *buf, size_t buflen, size_t *written, off_t pos) {
+    UNUSED(cmem);
+    /* TODO: check memory boundaries */
+    memcpy((void *)pos, buf, buflen);
+
+    if (written) *written = buflen;
+    return 0;
+}
+
+struct device_operations chrram_mem_ops = {
+    .dev_get_roblock    = chrram_mem_get_roblock,
+    .dev_get_rwblock    = chrram_mem_get_rwblock,
+    .dev_forget_block   = NULL,
+    .dev_size_of_block  = chrram_mem_blocksize,
+    .dev_size_in_blocks = chrram_mem_size,
+
+    .dev_read_buf   = chrram_read_buf,
+    .dev_write_buf  = chrram_write_buf,
+    .dev_has_data   = NULL,
+};
+
+struct device  chrram_mem = {
+    .dev_type       = DEV_CHR,
+    .dev_clss       = CHR_VIRT,
+    .dev_no         = CHRMEM_MEM,
+    .dev_fsname     = "mem",
+
+    .dev_ops        = &chrram_mem_ops,
+};
+
+device * get_cmem_device(void) {
+    return &chrram_mem;
+}
+
+
 void vmem_setup(void) {
-    
 }
 
 void memory_setup(void) {

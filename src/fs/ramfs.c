@@ -49,7 +49,7 @@ static void btree_free(struct btree_node *bnode, btree_leaf_free_f free_leaf) {
     for (i = 0; i < bnode->bt_fanout; ++i) {
         if (bnode->bt_level == 0) {
             struct inode *idata = bnode->bt_children[i];
-            if (idata && (idata != &invalid_inode))
+            if (idata && (idata != &theInvalidInode))
                 if (free_leaf) free_leaf(idata);
         } else {
             struct btree_node *bchild = bnode->bt_children[i];
@@ -217,7 +217,7 @@ static int ramfs_write_inode(mountnode *sb, inode_t ino, off_t pos,
 static void ramfs_inode_free(struct inode *idata);
 
 
-struct fs_ops ramfs_fsops = {
+struct filesystem_operations  ramfs_fsops = {
     .read_superblock    = ramfs_read_superblock,
     .lookup_inode       = ramfs_lookup_inode,
     .make_directory     = ramfs_make_directory,
@@ -229,7 +229,7 @@ struct fs_ops ramfs_fsops = {
     .write_inode        = ramfs_write_inode,
 };
 
-struct fsdriver ramfs_driver = {
+struct filesystem_driver  ramfs_driver = {
     .name = "ramfs",
     .fs_id = RAMFS_ID,
     .ops = &ramfs_fsops,
@@ -379,8 +379,8 @@ static int ramfs_data_new(mountnode *sb) {
         return ENOMEM;
     }
     /* fill inode 0 */
-    invalid_inode.i_no = 0;
-    btree_set_leaf(bnode, &invalid_inode);
+    theInvalidInode.i_no = 0;
+    btree_set_leaf(bnode, &theInvalidInode);
 
     data->inodes_btree = bnode;
 

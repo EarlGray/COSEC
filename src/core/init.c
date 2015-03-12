@@ -1,12 +1,12 @@
 #include <arch/i386.h>
 #include <arch/mboot.h>
 
-#include <dev/devices.h>
 #include <dev/kbd.h>
 #include <dev/timer.h>
 #include <dev/screen.h>
 
 #include <mem/pmem.h>
+#include <fs/devices.h>
 #include <fs/vfs.h>
 
 #include <kshell.h>

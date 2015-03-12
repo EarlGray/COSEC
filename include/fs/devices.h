@@ -1,6 +1,7 @@
 #ifndef __DRIVERS_TABLE_H__
 #define __DRIVERS_TABLE_H__
 
+#include <stdbool.h>
 #include <stdint.h>
 
 #define N_CHR           30
@@ -26,6 +27,17 @@ enum char_device_family {
     CHR_FRAMEBUF    = 29,
 };
 
+enum chrmem_device {
+    CHRMEM_MEM      = 1,
+    CHRMEM_NULL     = 3,
+    CHRMEM_PORT     = 4,
+    CHRMEM_ZERO     = 5,
+    CHRMEM_FULL     = 7,
+    CHRMEM_RAND     = 8,
+    CHRMEM_URAND    = 9,
+    CHRMEM_KMSG     = 11,
+};
+
 enum char_virtual_devices {
     CHR0_UNSPECIFIED = 0,
     CHR0_SYSFS       = 1,
@@ -42,35 +54,59 @@ enum block_device_family {
     BLK_SCSI_CDROM  = 11,
 };
 
-typedef enum devicetype_e devicetype_e;
-typedef index_t majdev_t, mindev_t;
+typedef enum devicetype_e   devicetype_e;
+typedef index_t     majdev_t, mindev_t;
 
-typedef struct devclass_t  devclass_t;
-typedef struct device_t    device_t;
+typedef struct devclass  devclass;
+typedef struct device    device;
 
-struct devclass_t {
+struct devclass {
     devicetype_e  dev_type;
     majdev_t      dev_maj;
     const char   *dev_class_name;
 
-    device_t *(*get_device)(mindev_t num);
-    void (*init_devclass)(void);
+    device  *(*get_device)(mindev_t num);
+    void     (*init_devclass)(void);
 };
 
-struct device_t {
-    devicetype_e dev_type;  // character or block
-    majdev_t dev_clss;      // generic driver
-    mindev_t dev_no;        // device index in the family
-    const char devfs_name;  // how it should appear in /dev
 
-    union {
-        struct chardevice_t {
-        } as_chardev;
+struct device_operations {
+    /**
+     * \brief  gets a cached block from device in read-only mode
+     */
+    const char *(*dev_get_roblock)(device *dev, off_t block);
 
-        struct blockdevice_t {
-        } as_blockdev;
-    };
+    /**
+     * \brief  get a cached block from device in read-write mode
+     *         the block will be dirty after `dev_release_block()`.
+     */
+    char *      (*dev_get_rwblock)(device *dev, off_t block);
+
+    /**
+     * \brief  tells a device that the gotten block will not be used anymore.
+     */
+    int         (*dev_forget_block)(device *dev, off_t block);
+
+    size_t      (*dev_size_of_block)(device *dev);
+
+    off_t       (*dev_size_in_blocks)(device *dev);
+
+    /* mostly character devices operations */
+    int     (*dev_read_buf)(device *dev, char *buf, size_t buflen, size_t *written, off_t pos);
+    int     (*dev_write_buf)(device *dev, const char *buf, size_t buflen, size_t *written, off_t pos);
+    bool    (*dev_has_data)(device *dev);
 };
+
+struct device {
+    devicetype_e    dev_type;   // character or block
+    majdev_t        dev_clss;   // generic driver
+    mindev_t        dev_no;     // device index in the family
+    const char *    dev_fsname; // how it should appear in /dev
+
+    struct device_operations  dev_ops;  // yep, devopses should care about devices
+};
+
+device * device_by_devno(devicetype_e  ty, dev_t devno);
 
 void dev_setup(void);
 

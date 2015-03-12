@@ -95,6 +95,10 @@ void mboot_modules_info(count_t *count, module_t **modules) {
     *modules = mboot.mods_addr;
 }
 
+uint mboot_uppermem_kb(void) {
+    return mboot.mem_upper;
+}
+
 void print_mboot_info(void) {
     k_printf("Booted with: %s\n", mboot.bootloader_name);
     k_printf("Kernel args: %s\n", mboot.cmdline);

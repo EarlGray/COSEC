@@ -6,12 +6,12 @@
 #include <sys/dirent.h>
 #include <sys/stat.h>
 
-#include <dev/devices.h>
 #include <conf.h>
 #include <attrs.h>
 
 #include <fs/vfs.h>
 #include <fs/ramfs.h>
+#include <fs/devices.h>
 
 #define __DEBUG
 #include <log.h>
@@ -31,7 +31,7 @@ fsdriver * theFileSystems = NULL;
 struct superblock *theRootMnt = NULL;
 
 /* should be inode #0 */
-struct inode invalid_inode;
+struct inode theInvalidInode;
 
 
 /*

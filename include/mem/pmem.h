@@ -35,4 +35,7 @@ typedef struct vm_area vm_area_t;
 
 void memory_setup(void);
 
+struct device;
+struct device * get_cmem_device(void);
+
 #endif // __PHYS_MEM_H__

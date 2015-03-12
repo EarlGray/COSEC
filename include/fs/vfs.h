@@ -7,7 +7,7 @@
 #include <sys/dirent.h>
 #include <sys/types.h>
 
-#include <dev/devices.h>
+#include <fs/devices.h>
 
 #define FS_SEP  '/'
 
@@ -15,9 +15,9 @@ typedef uint16_t uid_t, gid_t;
 typedef size_t inode_t;
 
 typedef struct superblock   mountnode;
-typedef struct fs_ops       fs_ops;
 typedef struct inode        inode;
-typedef struct fsdriver     fsdriver;
+typedef struct filesystem_driver        fsdriver;
+typedef struct filesystem_operations    fs_ops;
 
 
 struct superblock {
@@ -74,7 +74,7 @@ struct inode {
 };
 
 
-struct fsdriver {
+struct filesystem_driver {
     const char  *name;
     uint        fs_id;
     fs_ops      *ops;
@@ -86,7 +86,7 @@ struct fsdriver {
 
 
 
-struct fs_ops {
+struct filesystem_operations {
     /**
      * \brief  probes the superblock on sb->sb_dev,
      * @param mountnode     the superblock to initialize
@@ -175,7 +175,7 @@ struct mount_opts_t {
     bool readonly:1;
 };
 
-extern struct inode invalid_inode;
+extern struct inode theInvalidInode;
 
 void vfs_register_filesystem(fsdriver *fs);
 fsdriver * vfs_fs_by_id(uint fs_id);

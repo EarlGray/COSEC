@@ -18,6 +18,7 @@
 #include <linux/elf.h>
 
 #include <fs/vfs.h>
+#include <fs/devices.h>
 #include <log.h>
 
 #include <kshell.h>
@@ -62,7 +63,7 @@ panic(const char *fatal_error) {
     print_centered(buf);
 
     // original ascii-art from: http://brainbox.cc/repository/trunk/sixty-four/multiboot/include/kernel.h
-	k_printf("\n"
+    k_printf("\n"
 "              ___  _____ \n"
 "            .'/,-Y\"     \"~-. \n"
 "            l.Y             ^. \n"
@@ -234,7 +235,6 @@ void kshell_mem(const struct kshell_command *, const char *);
 void kshell_vfs(const struct kshell_command *, const char *);
 void kshell_io(const struct kshell_command *, const char *);
 void kshell_ls();
-void kshell_mount();
 void kshell_time();
 void kshell_panic();
 #if COSEC_LUA
@@ -277,7 +277,14 @@ const struct kshell_command main_commands[] = {
     { .name = "vfs",
         .handler = kshell_vfs,
         .description = "vfs utility",
-        .options = "mounted ls stat mkdir mknod", },
+        .options =
+            "\n  mounted                 -- list mountpoints;"
+            "\n  ls /absolute/dir/path   -- print directory entries list;"
+            "\n  stat /abs/path/to/flie  -- print `struct stat *` info;"
+            "\n  mkdir /abs/path/to/dir  -- create a directory;"
+            "\n  mknod /abs/path/to/file -- create a regular file;"
+            "\n  mkdev [c|d] <maj>:<min> /abs/path/to/dev -- create a device file"
+        },
     { .name = "set",
         .handler = kshell_set,
         .description = "manage global variables",
@@ -319,57 +326,7 @@ const struct kshell_subcmd  test_cmds[] = {
     { .name = 0, .handler = 0    },
 };
 
-void kshell_vfs(const struct kshell_command __unused *this, const char *arg) {
-    if (!strncmp(arg, "ls", 2)) {
-        arg += 2; while (isspace(*arg)) ++arg;
-        print_ls(arg);
-    } else
-    if (!strncmp(arg, "mounted", 7)) {
-        print_mount();
-    } else
-    if (!strncmp(arg, "mkdir", 5)) {
-        arg += 5; while (isspace(*arg)) ++arg;
 
-        if (arg[0] == 0) { k_printf("mkdir: needs name\n"); return; }
-
-        int ret = vfs_mkdir(arg, 0755);
-        if (ret) k_printf("mkdir failed: %s\n", strerror(ret));
-    } else
-    if (!strncmp(arg, "mknod", 5)) {
-        arg += 5; while (isspace(*arg)) ++arg;
-
-        int ret = vfs_mknod(arg, 0644, 0);
-        if (ret) k_printf("mknod failed: %s\n", strerror(ret));
-    } else
-    if (!strncmp(arg, "stat", 4)) {
-        arg += 4; while (isspace(*arg)) ++arg;
-
-        char mode[11];
-
-        struct stat stat;
-        int ret = vfs_stat(arg, &stat);
-        if (ret) { k_printf("stat failed: %s\n", strerror(ret)); return ; }
-
-        k_printf("  st_dev    = 0x%x\n", stat.st_dev);
-        k_printf("  st_ino    = %d\n", stat.st_ino);
-
-        strmode(stat.st_mode, mode);
-        k_printf("  st_mode   = %s", mode);
-        switch (mode[0]) {
-            case 'c': case 'b':
-                k_printf("; %d:%d", gnu_dev_major(stat.st_rdev), gnu_dev_minor(stat.st_rdev));
-                break;
-        }
-        k_printf("\n  st_nlink  = %d\n", stat.st_nlink);
-        k_printf("  st_size   = %d\n", stat.st_size);
-    } else {
-        k_printf("Options: %s\n", this->options);
-    }
-}
-
-void kshell_mount() {
-    print_mount();
-}
 
 /* return number of first different symbol or endchar */
 static inline size_t strcmpsz(const char *s1, const char *s2, char endchar) {
@@ -411,9 +368,11 @@ bool kshell_autocomplete(char *buf) {
     return false;
 }
 
+
 /*
  *  parsing ELF
  */
+
 const char* str_shdr_type[] = {
     [SHT_NULL] =        "NULL",
     [SHT_PROGBITS] =    "PROGBIT",
@@ -727,6 +686,76 @@ void kshell_time() {
             (uint)t.tm_hour, (uint)t.tm_min, (uint)t.tm_sec);
 }
 
+
+void kshell_vfs(const struct kshell_command __unused *this, const char *arg) {
+    if (!strncmp(arg, "ls", 2)) {
+        arg += 2; while (isspace(*arg)) ++arg;
+        print_ls(arg);
+    } else
+    if (!strncmp(arg, "mounted", 7)) {
+        print_mount();
+    } else
+    if (!strncmp(arg, "mkdir", 5)) {
+        arg += 5; while (isspace(*arg)) ++arg;
+
+        if (arg[0] == 0) { k_printf("mkdir: needs name\n"); return; }
+
+        int ret = vfs_mkdir(arg, 0755);
+        if (ret) k_printf("mkdir failed: %s\n", strerror(ret));
+    } else
+    if (!strncmp(arg, "mknod", 5)) {
+        arg += 5; while (isspace(*arg)) ++arg;
+
+        int ret = vfs_mknod(arg, 0644, 0);
+        if (ret) k_printf("mknod failed: %s\n", strerror(ret));
+    } else
+    if (!strncmp(arg, "mkdev", 5)) {
+        arg += 5; while (isspace(*arg)) ++arg;
+        mode_t mode = 0755;
+        switch (arg[0]) {
+            case 'c': mode |= S_IFCHR; break;
+            case 'b': mode |= S_IFBLK; break;
+            default: k_printf("A device type letter expected: 'c' (chardev) or 'b' (blockdev)"); return;
+        }
+        while (isspace(*++arg));
+        char *eptr;
+        long maj = strtol(arg, &eptr, 0);
+        returnv_err_if(eptr == arg, "A device major number expected"); 
+        arg = eptr;
+        returnv_err_if(arg[0] != ':', "A semicolor expected");
+        long min = strtol(++arg, &eptr, 0);
+        returnv_err_if(eptr == arg, "A device minor number expected");
+        arg = eptr;
+        while (isspace(*arg)) ++arg;
+
+        int ret = vfs_mknod(arg, mode, gnu_dev_makedev(maj, min));
+        if (ret) { k_printf("vfs_mknod() failed: %s", strerror(ret)); }
+    } else
+    if (!strncmp(arg, "stat", 4)) {
+        arg += 4; while (isspace(*arg)) ++arg;
+
+        char mode[11];
+
+        struct stat stat;
+        int ret = vfs_stat(arg, &stat);
+        if (ret) { k_printf("stat failed: %s\n", strerror(ret)); return ; }
+
+        k_printf("  st_dev    = %d:%d\n", gnu_dev_major(stat.st_dev), gnu_dev_minor(stat.st_dev));
+        k_printf("  st_ino    = %d\n", stat.st_ino);
+
+        strmode(stat.st_mode, mode);
+        k_printf("  st_mode   = %s", mode);
+        switch (mode[0]) {
+            case 'c': case 'b':
+                k_printf("; %d:%d", gnu_dev_major(stat.st_rdev), gnu_dev_minor(stat.st_rdev));
+                break;
+        }
+        k_printf("\n  st_nlink  = %d\n", stat.st_nlink);
+        k_printf("  st_size   = %d\n", stat.st_size);
+    } else {
+        k_printf("Options: %s\n", this->options);
+    }
+}
 #ifdef COSEC_LUA
 int syslua_heapinfo() {
     kheap_info();
