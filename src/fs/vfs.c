@@ -462,7 +462,7 @@ void vfs_setup(void) {
     vfs_register_filesystem(ramfs_fs_driver());
 
     /* mount actual filesystems */
-    dev_t fsdev = gnu_dev_makedev(CHR_VIRT, CHR0_UNSPECIFIED);
+    dev_t fsdev = gnu_dev_makedev(CHR_MEMDEV, CHRMEM_MEM);
     mount_opts_t mntopts = { .fs_id = RAMFS_ID };
     ret = vfs_mount(fsdev, "/", &mntopts);
     returnv_err_if(ret, "root mount on sysfs failed (%d)", ret);

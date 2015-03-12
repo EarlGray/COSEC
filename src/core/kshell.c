@@ -715,21 +715,21 @@ void kshell_vfs(const struct kshell_command __unused *this, const char *arg) {
         switch (arg[0]) {
             case 'c': mode |= S_IFCHR; break;
             case 'b': mode |= S_IFBLK; break;
-            default: k_printf("A device type letter expected: 'c' (chardev) or 'b' (blockdev)"); return;
+            default: k_printf("A device type expected: 'c' (chardev) or 'b' (blockdev)\n"); return;
         }
         while (isspace(*++arg));
         char *eptr;
         long maj = strtol(arg, &eptr, 0);
         returnv_err_if(eptr == arg, "A device major number expected"); 
         arg = eptr;
-        returnv_err_if(arg[0] != ':', "A semicolor expected");
+        returnv_err_if(arg[0] != ':', "A semicolon expected");
         long min = strtol(++arg, &eptr, 0);
         returnv_err_if(eptr == arg, "A device minor number expected");
         arg = eptr;
         while (isspace(*arg)) ++arg;
 
         int ret = vfs_mknod(arg, mode, gnu_dev_makedev(maj, min));
-        if (ret) { k_printf("vfs_mknod() failed: %s", strerror(ret)); }
+        if (ret) { k_printf("vfs_mknod() failed: %s\n", strerror(ret)); }
     } else
     if (!strncmp(arg, "stat", 4)) {
         arg += 4; while (isspace(*arg)) ++arg;
