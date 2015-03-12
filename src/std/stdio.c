@@ -12,6 +12,9 @@
 
 #include <log.h>
 
+#warning "TODO: fopen, freopen, fscanf, ..."
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+
 extern int theErrNo;
 
 struct FILE_struct { };

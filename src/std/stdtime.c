@@ -2,6 +2,10 @@
 #include <stdlib.h>
 #include <log.h>
 
+#warning "TODO: difftime, gmtime, localtime, strftime, clock"
+#pragma GCC diagnostic ignored "-Wunused"
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+
 double difftime(time_t time1, time_t time0) {
     return (double)time1 - (double)time0;
 }

@@ -15,6 +15,9 @@
 
 #include <log.h>
 
+#warning "TODO: remove #pragma GCC diagnostic ignored -Wunused-parameter"
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+
 int theErrNo = 0;
 
 const char * const sys_errlist[] = {
