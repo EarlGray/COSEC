@@ -103,10 +103,20 @@ struct device {
     mindev_t        dev_no;     // device index in the family
     const char *    dev_fsname; // how it should appear in /dev
 
-    struct device_operations  dev_ops;  // yep, devopses should care about devices
+    struct device_operations  *dev_ops;  // yep, devopses should care about devices
 };
 
+/**
+ * \brief  blocking read from a block device at `pos`
+ */
+int bdev_blocking_read(dev_t devno, off_t pos, char *buf, size_t buflen, size_t *written);
+int cdev_blocking_read(dev_t devno, off_t pos, char *buf, size_t buflen, size_t *written);
+
+/**
+ * \brief  get device structure
+ */
 device * device_by_devno(devicetype_e  ty, dev_t devno);
+
 
 void dev_setup(void);
 

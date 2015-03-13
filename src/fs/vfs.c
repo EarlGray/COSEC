@@ -310,6 +310,7 @@ int vfs_mknod(const char *path, mode_t mode, dev_t dev) {
     return 0;
 }
 
+
 int vfs_inode_read(
         mountnode *sb, inode_t ino, off_t pos,
         char *buf, size_t buflen, size_t *written)
@@ -329,9 +330,14 @@ int vfs_inode_read(
     return_dbg_if(ret, ret,
             "%s: %s.inode_data(%d) failed(%d)\n", funcname, sb->sb_fs->name, ino, ret);
 
+    dev_t devno;
     switch (idata.i_mode & S_IFMT) {
-        case S_IFCHR:   logmsgef("%s(ino=%d -- CHR): ETODO", funcname, ino); return ETODO;
-        case S_IFBLK:   logmsgef("%s(ino=%d -- BLK): ETODO", funcname, ino); return ETODO;
+        case S_IFCHR:
+            devno = gnu_dev_makedev(idata.as.dev.maj, idata.as.dev.min);
+            return cdev_blocking_read(devno, pos, buf, buflen, written);
+        case S_IFBLK:
+            devno = gnu_dev_makedev(idata.as.dev.maj, idata.as.dev.min);
+            return bdev_blocking_read(devno, pos, buf, buflen, written);
         case S_IFSOCK:  logmsgef("%s(ino=%d -- SOCK): ETODO", funcname, ino); return ETODO;
         case S_IFIFO:   logmsgef("%s(ino=%d -- FIFO): ETODO", funcname, ino); return ETODO;
         case S_IFLNK:   /* TODO: read link path, read its inode */ return ETODO;

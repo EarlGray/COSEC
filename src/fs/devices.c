@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <string.h>
 
 #include <mem/pmem.h>
 
@@ -60,6 +61,92 @@ devclass  blk1_device_family = {
     .get_device     = get_ram_block_device,
     .init_devclass  = NULL,
 };
+
+
+/*
+ *  Generic device operations
+ */
+
+int cdev_blocking_read(dev_t devno, off_t pos, char *buf, size_t buflen, size_t *written) {
+    const char *funcname = "cdev_blocking_read";
+
+    return ETODO;
+}
+
+int bdev_blocking_read(dev_t devno, off_t pos, char *buf, size_t buflen, size_t *written) {
+    const char *funcname = "bdev_blocking_read";
+
+    int ret = 0;
+    size_t i;
+    size_t bytes_done = 0;
+
+    struct device *dev = device_by_devno(DEV_BLK, devno);
+    if (!dev) { ret = ENODEV; goto error_exit; }
+
+    if (!dev->dev_ops->dev_size_of_block)  { ret = ENOSYS; goto error_exit; }
+    if (!dev->dev_ops->dev_size_in_blocks) { ret = ENOSYS; goto error_exit; }
+    if (!dev->dev_ops->dev_get_roblock)    { ret = ENOSYS; goto error_exit; }
+
+    size_t blksz = dev->dev_ops->dev_size_of_block(dev);
+    off_t maxblock = dev->dev_ops->dev_size_in_blocks(dev);
+
+    size_t startoffset = pos % blksz;
+    size_t startbytes = (startoffset ? blksz - startoffset : 0);
+    size_t nfullblocks = (buflen - startbytes) / blksz;
+    size_t finalbytes = (buflen - startbytes) % blksz;
+
+    off_t curblock = pos / blksz;
+    const char *blockdata = NULL;
+
+    if (startbytes) {
+        if (curblock >= maxblock) { ret = ENXIO; goto error_exit; }
+
+        blockdata = dev->dev_ops->dev_get_roblock(dev, curblock);
+        if (!curblock) { ret = ENXIO; goto error_exit; }
+
+        memcpy(buf, blockdata + startoffset, startbytes);
+
+        if (dev->dev_ops->dev_forget_block)
+            dev->dev_ops->dev_forget_block(dev, curblock);
+        bytes_done += startbytes;
+        buf += startbytes;
+        ++curblock;
+    }
+
+    for (i = 0; i < nfullblocks; ++i) {
+        if (curblock >= maxblock) { ret = ENXIO; goto error_exit; }
+
+        blockdata = dev->dev_ops->dev_get_roblock(dev, curblock);
+        if (!curblock) { ret = ENXIO; goto error_exit; }
+
+        memcpy(buf, blockdata, blksz);
+
+        if (dev->dev_ops->dev_forget_block)
+            dev->dev_ops->dev_forget_block(dev, curblock);
+        bytes_done += blksz;
+        buf += blksz;
+        ++curblock;
+    }
+
+    if (finalbytes) {
+        if (curblock >= maxblock) { ret = ENXIO; goto error_exit; }
+
+        blockdata = dev->dev_ops->dev_get_roblock(dev, curblock);
+        if (!curblock) { ret = ENXIO; goto error_exit; }
+
+        memcpy(buf, blockdata, finalbytes);
+
+        if (dev->dev_ops->dev_forget_block)
+            dev->dev_ops->dev_forget_block(dev, curblock);
+        bytes_done += finalbytes;
+        buf += finalbytes;
+    }
+
+error_exit:
+    logmsgdf("%s: ret=%d, bytes_done=%d\n", ret, bytes_done);
+    if (written) *written = bytes_done;
+    return ret;
+}
 
 
 /*
