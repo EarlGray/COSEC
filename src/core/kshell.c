@@ -550,7 +550,9 @@ void kshell_info(const struct kshell_command *this, const char *arg) {
         k_printf("Colors:\n");
         int i = 0;
         for (i = 0; i < 16; ++i) {
-            char attr = get_cursor_attr();
+            char attr;
+            vcsa_get_attribute(0, &attr);
+
             k_printf("%x) ", i);
             set_cursor_attr(i); k_printf("aaaa ");
             set_cursor_attr((uint8_t)(i << 4)); k_printf("bbbb");
@@ -634,8 +636,11 @@ void kshell_set(const struct kshell_command *this, const char *arg) {
         const char *end = get_int_opt(arg, &attr, 16);
         if (end != arg)
             set_cursor_attr(attr);
-        else
-            printf("color = %x\n", (uint)get_cursor_attr());
+        else {
+            char attr;
+            vcsa_get_attribute(0, &attr);
+            printf("color = %x\n", (uint)attr);
+        }
     } else
     if (!strncmp(arg, "prompt", 6)) {
         if (*(arg + 6))

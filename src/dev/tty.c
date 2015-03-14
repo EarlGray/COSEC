@@ -16,6 +16,9 @@ struct tty_device {
 };
 
 
+mindev_t theActiveTTY;
+
+
 static int tty_read() {
     return ETODO;
 }
@@ -56,6 +59,8 @@ static device * get_tty_device(mindev_t devno) {
 static void init_tty_family(void) {
     const char *funcname = "init_tty_family";
     logmsgf("%s()\n", funcname);
+
+    theActiveTTY = 0;
 }
 
 struct devclass tty_family = {

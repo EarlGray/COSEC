@@ -14,6 +14,9 @@
   *     VGA 80x25 'driver'
  ***/
 
+#define VIDEO_MEM	        0x000B8000
+#define VIDEOMEM	        ((uint8_t *)VIDEO_MEM)
+
 #define DEFAULT_CURSOR_ATTR 0x07
 
 static uint16_t cursorX = 0;
@@ -22,42 +25,34 @@ static uint8_t  cursorAttr = DEFAULT_CURSOR_ATTR;
 
 inline uint16_t get_cursor_x(void) {    return cursorX;   }
 inline uint16_t get_cursor_y(void) {    return cursorY;   }
-inline uint8_t get_cursor_attr() {      return cursorAttr; }
+inline uint8_t get_cursor_attr()   {    return cursorAttr; }
 
 inline void set_cursor_x(uint16_t X) {  cursorX = X;  }
 inline void set_cursor_y(uint16_t Y) {  cursorY = Y;  }
 inline void set_cursor_attr(uint8_t attr) {  cursorAttr = attr;   }
 inline void set_default_cursor_attr(void) {  cursorAttr = DEFAULT_CURSOR_ATTR; }
 
+inline void move_cursor_next_line();
+inline void move_cursor_to(uint16_t cx, uint16_t cy);
+void scroll_up_line();
 
 void update_hw_cursor(void)
 {
     unsigned temp = cursorY * SCR_WIDTH + cursorX;
 
-     /* This sends a command to indicies 14 and 15 in the
-     *  CRT Control Register of the VGA controller. These
-     *  are the high and low bytes of the index that show
-     *  where the hardware cursor is to be 'blinking'. */
-     outb(0x3D4, 14);
-     outb(0x3D5, temp >> 8);
-     outb(0x3D4, 15);
-     outb(0x3D5, temp);
+    /* This sends a command to indicies 14 and 15 in the
+    *  CRT Control Register of the VGA controller. These
+    *  are the high and low bytes of the index that show
+    *  where the hardware cursor is to be 'blinking'. */
+    outb(0x3D4, 14);
+    outb(0x3D5, temp >> 8);
+    outb(0x3D4, 15);
+    outb(0x3D5, temp);
 }
 
-
-void set_background(uint8_t bkgd) {
-    uint8_t *vc = (uint8_t *)videomem;
-    int i, j;
-    for (i = 0; i < SCR_HEIGHT; ++i)
-        for (j = 0; j < SCR_WIDTH; ++j)
-        {
-            vc[1] = bkgd;
-            vc = vc + 2;
-        }
-}
 
 void clear_screen(void) {
-    uint8_t *pos = videomem;
+    uint8_t *pos = VIDEOMEM;
     int i;
     for (i = 0; i < (SCR_WIDTH * SCR_HEIGHT); ++i)
     {
@@ -139,16 +134,6 @@ inline void cprint(char c) {
     };
 }
 
-void sprint_at(int x, int y, const char *s) {
-    const char *p = s;
-    while (*p)
-    {
-        set_char_at(x, y, *p, cursorAttr);
-        ++p;
-        ++x;
-    }
-}
-
 
 /*
  *   k_printf
@@ -158,6 +143,8 @@ inline char get_digit(uint8_t digit) {
     if (digit < 10) return('0' + digit);
     else return('A' + digit - 10);
 }
+
+void print_uint(uint x, uint8_t base);
 
 void print_int(int x, uint8_t base) {
     if (x < 0) {
@@ -328,16 +315,86 @@ void print_centered(const char *s) {
 /*
  *   VCS devices family
  */
-#define N_VCSA_DEVICES  8
 
-uint vcsa_visible;
+/* global state */
+int active_vcs;
+
+struct {
+    uint line, col;
+} vcs_data[ N_VCSA_DEVICES ];
 
 device vcs_devices[ N_VCSA_DEVICES ];
 device vcsa_devices[ N_VCSA_DEVICES ];
 
 char vcsa_buf[ 2 * SCR_WIDTH * SCR_HEIGHT * (N_VCSA_DEVICES - 1) ];
 
+
 #define GET_VCSA_BUF(n) (vcsa_buf + (2 * SCR_WIDTH * SCR_HEIGHT * (n - 1)))
+
+
+void vcsa_set_attribute(int vcsno, uint8_t attr) {
+    returnv_dbg_if(vcsno <= 0 || N_VCSA_DEVICES <= vcsno, "");
+
+    char *buf = (vcsno ? GET_VCSA_BUF(vcsno) : (char *)VIDEO_MEM);
+    buf[ 2 * (SCR_WIDTH * vcs_data[vcsno].line + vcs_data[vcsno].col) + 1 ] = attr;
+}
+
+void vcsa_get_attribute(int vcsno, uint8_t *attr) {
+    if (!(0 <= vcsno && vcsno < N_VCSA_DEVICES)) return;
+
+    char *buf = (vcsno ? GET_VCSA_BUF(vcsno) : (char *)VIDEO_MEM);
+    if (attr)
+        *attr = buf[ 2 * (SCR_WIDTH * vcs_data[vcsno].line + vcs_data[vcsno].col) + 1 ];
+}
+
+void vcsa_set_cursor(int vcsno, int x, int y) {
+    if (!(0 <= vcsno && vcsno < N_VCSA_DEVICES)) return;
+
+    vcs_data[vcsno].col = x;
+    vcs_data[vcsno].line = y;
+
+    if (vcsno == active_vcs)
+        vcsa_set_cursor(0, x, y);
+    if (vcsno == 0)
+        move_cursor_to(x, y);
+}
+
+void vcsa_get_cursor(int vcsno, int *x, int *y) {
+    if (!(0 <= vcsno && vcsno < N_VCSA_DEVICES)) return;
+
+    if (x) *x = vcs_data[vcsno].col;
+    if (y) *y = vcs_data[vcsno].line;
+}
+
+void vcsa_clear(int vcsno) {
+    if (!(0 <= vcsno && vcsno < N_VCSA_DEVICES)) return;
+    int i;
+
+    char *buf = (vcsno ? GET_VCSA_BUF(vcsno) : (char *)VIDEO_MEM);
+    uint8_t attr;
+
+    vcsa_get_attribute(vcsno, &attr);
+
+    for (i = 0; i < SCR_WIDTH * SCR_HEIGHT; ++i) {
+        buf[ 2 * i ] = ' ';
+        buf[ 2 * i + 1] = attr;
+    }
+
+    vcs_data[vcsno].col = vcs_data[vcsno].line = 0;
+
+    if (vcsno == active_vcs)
+        vcsa_clear(0);
+}
+
+void vcsa_switch(int vcsno) {
+    if (!(0 < vcsno && vcsno < N_VCSA_DEVICES)) return;
+    if (vcsno == active_vcs) return;
+
+    memcpy(VIDEOMEM, GET_VCSA_BUF(vcsno), SCR_WIDTH * SCR_HEIGHT * 2);
+    vcsa_set_cursor(0, vcs_data[vcsno].col, vcs_data[vcsno].line);
+
+    active_vcs = vcsno;
+}
 
 static const char *vcsa_get_roline(device *dev, off_t line);
 static char *vcsa_get_line(device *dev, off_t line);
@@ -373,7 +430,7 @@ static int vcsa_refresh_line(device *dev, off_t line) {
     return_dbg_if((line < 0) || (SCR_HEIGHT <= line), ENXIO,
             "%s(line=%d)\n", funcname, (int)line);
 
-    if (dev->dev_no - 0x80 == vcsa_visible) {
+    if (dev->dev_no - 0x80 == (mindev_t)active_vcs) {
         size_t bufoffset = 2 * SCR_WIDTH * line;
         char *vmem = (char *)VIDEO_MEM + bufoffset;
         char *bmem = GET_VCSA_BUF(dev->dev_no - 0x80) + bufoffset;
@@ -461,7 +518,6 @@ static int vcsa_write(device *dev, const char *buf, size_t buflen, size_t *writt
     return 0;
 }
 
-/* static int vcsa_ioctl(device *dev, int ioctl_code, va_arg ap); */
 
 struct device_operations vcs_ops = {
     .dev_get_roblock = NULL,
@@ -474,7 +530,7 @@ struct device_operations vcs_ops = {
     .dev_write_buf = vcsa_write,
     .dev_has_data = NULL, /* always available for reading */
 
-    .dev_ioctlv = NULL /* TODO: vcsa_ioctl, */
+    .dev_ioctlv = NULL,
 };
 
 struct device_operations vcsa_ops = {
@@ -490,11 +546,11 @@ struct device_operations vcsa_ops = {
     .dev_write_buf = vcsa_write,
     .dev_has_data = NULL,  /* always available for reading */
 
-    .dev_ioctlv = NULL /* TODO: vcsa_ioctl, */
+    .dev_ioctlv = NULL,
 };
 
 static device * get_vcs_device(mindev_t dev_no) {
-    if ((0 <= dev_no) && (dev_no < N_VCSA_DEVICES)) {
+    if (dev_no < N_VCSA_DEVICES) {
         return vcs_devices + dev_no;
     }
     if ((0x80 <= dev_no) && (dev_no < 0x80 + N_VCSA_DEVICES)) {
@@ -530,7 +586,7 @@ void init_vcs_devices(void) {
         }
     }
 
-    vcsa_visible = 1;
+    active_vcs = 1;
 }
 
 devclass vcs_device_class = {

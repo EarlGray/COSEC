@@ -15,9 +15,6 @@
 
 #include <log.h>
 
-#warning "TODO: remove #pragma GCC diagnostic ignored -Wunused-parameter"
-#pragma GCC diagnostic ignored "-Wunused-parameter"
-
 int theErrNo = 0;
 
 const char * const sys_errlist[] = {
@@ -67,7 +64,7 @@ static char unknown_error[UKNERR_BUF_LEN] = "unknown error: ";
 static size_t unknown_err_len = 0;
 
 char const *strerror(int err) {
-    if ((0 <= err) && (err < sizeof(sys_errlist)/sizeof(size_t))) {
+    if ((0 <= err) && ((size_t)err < sizeof(sys_errlist)/sizeof(size_t))) {
         const char *res = sys_errlist[err];
         logmsgdf("strerror: err=%d, *%x='%s'\n", err, (uint)res, res);
         if (res)
@@ -151,7 +148,7 @@ long strtol(const char *nptr, char **endptr, int base) {
             } else if (getbasedigit(*c, 8) != -1) {
                 base = 8;
             } else {
-                if (endptr) *endptr = c;
+                if (endptr) *endptr = (char *)c;
                 return 0;
             }
         }

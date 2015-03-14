@@ -121,7 +121,13 @@ struct device_operations {
      */
     bool    (*dev_has_data)(device *dev);
 
-    int     (*dev_ioctlv)(device *dev, int ioctl_code, va_list ap);
+    /**
+     * \brief  Miscellaneous device-specific actions
+     * @param ioctl_code    a device-specific action code;
+     * @param ret           a pointer that ioctl result may be returned through;
+     * @param ap            action-specific data;
+     */
+    int     (*dev_ioctlv)(device *dev, int ioctl_code, size_t *ret, va_list ap);
 };
 
 struct device {

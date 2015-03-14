@@ -385,7 +385,6 @@ struct device  chrram_mem = {
     .dev_type       = DEV_CHR,
     .dev_clss       = CHR_VIRT,
     .dev_no         = CHRMEM_MEM,
-    .dev_fsname     = "mem",
 
     .dev_ops        = &chrram_mem_ops,
 };

@@ -214,7 +214,9 @@ void poll_serial() {
 void test_serial(const char *arg) {
     logmsgf("IRQs state = 0x%x\n", (uint)irq_get_mask());
 
-    uint8_t saved_color = get_cursor_attr();
+    uint8_t saved_color;
+    vcsa_get_attribute(0, &saved_color);
+
     k_printf("Use <Esc> to quit, <Del> for register info, <F1> to toggle char/code mode\n");
     serial_setup();
 
@@ -228,7 +230,8 @@ void test_serial(const char *arg) {
 
     kbd_set_onpress(null);
     serial_set_on_receive(null);
-    set_cursor_attr(saved_color);
+
+    vcsa_set_attribute(0, saved_color);
 }
 
 void test_kbd(void) {
