@@ -3,6 +3,7 @@
 
 #include <mem/pmem.h>
 
+#include <dev/screen.h>
 #include <fs/devices.h>
 #include <log.h>
 
@@ -192,5 +193,11 @@ device * device_by_devno(devicetype_e  ty, dev_t devno) {
 
 
 void dev_setup(void) {
-    devclass_register(&chr0_device_family);
+    /* character devices */
+    devclass_register( &chr0_device_family );
+    devclass_register( &chr1_device_family );
+
+    devclass_register( get_vcs_family() );
+
+    /* block devices */
 }

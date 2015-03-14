@@ -150,8 +150,10 @@ long strtol(const char *nptr, char **endptr, int base) {
                 base = 16; ++c;
             } else if (getbasedigit(*c, 8) != -1) {
                 base = 8;
-            } else
-                goto error_exit;
+            } else {
+                if (endptr) *endptr = c;
+                return 0;
+            }
         }
         else base = 10;
     }

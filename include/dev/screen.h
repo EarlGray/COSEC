@@ -38,4 +38,7 @@ void print_int(int x, uint8_t base);
 
 void print_centered(const char *s);
 
+typedef struct devclass devclass;
+devclass * get_vcs_family(void);
+
 #endif // __SYS_CONSOLE_H__

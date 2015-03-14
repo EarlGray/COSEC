@@ -9,6 +9,7 @@
 #include <string.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <time.h>
 
 #include <dev/timer.h>
 #include <dev/kbd.h>
@@ -103,14 +104,16 @@ void intr_profile(uint64_t ts) {
 
 
 static void on_timer(uint counter) {
-    if (counter % 1000 == 0) {
+    if (counter % 100 == 0) {
         uint ts[2] = { 0 };
         i386_rdtsc((uint64_t *)ts);
-        logmsgf("%d: rdtsc=%x %x ", counter, ts[1], ts[0]);
+        logmsgif("%d: rdtsc=%x %x ", counter, ts[1], ts[0]);
 #if INTR_PROFILING
-        logmsgf(" tick=%x %x, icnt = %x", intr_ticks.u32[1], intr_ticks.u32[0], intr_count);
+        logmsgif(" tick=%x %x, icnt = %x", intr_ticks.u32[1], intr_ticks.u32[0], intr_count);
 #endif
-        logmsg("\n");
+        struct tm tm;
+        time_ymd_from_rtc(&tm);
+        logmsgif(" %d:%d:%d", tm.tm_hour, tm.tm_min, tm.tm_sec);
     }
 }
 

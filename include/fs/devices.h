@@ -3,6 +3,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdarg.h>
 
 #define N_CHR           30
 #define N_BLK           12
@@ -12,6 +13,7 @@ enum devicetype_e {
     DEV_BLK = 1,
 };
 
+/* major numbers */
 enum char_device_family {
     CHR_VIRT        = 0,
     CHR_MEMDEV      = 1,
@@ -27,6 +29,13 @@ enum char_device_family {
     CHR_FRAMEBUF    = 29,
 };
 
+/* chrdev maj=0 */
+enum char_virtual_devices {
+    CHR0_UNSPECIFIED = 0,
+    CHR0_SYSFS       = 1,
+};
+
+/* chrdev maj=1 */
 enum chrmem_device {
     CHRMEM_MEM      = 1,
     CHRMEM_NULL     = 3,
@@ -38,11 +47,8 @@ enum chrmem_device {
     CHRMEM_KMSG     = 11,
 };
 
-enum char_virtual_devices {
-    CHR0_UNSPECIFIED = 0,
-    CHR0_SYSFS       = 1,
-};
 
+/* major numbers */
 enum block_device_family {
     BLK_VIRT        = 0,
     BLK_RAM         = 1,
@@ -87,21 +93,41 @@ struct device_operations {
      */
     int         (*dev_forget_block)(device *dev, off_t block);
 
+    /** \brief returns block size in bytes */
     size_t      (*dev_size_of_block)(device *dev);
 
+    /** \brief returns (block) device size in blocks */
     off_t       (*dev_size_in_blocks)(device *dev);
 
     /* mostly character devices operations */
+    /**
+     * \brief   non-blocing read from (mostly character) device
+     * @param written   *written contains number of actually written bytes if not NULL;
+     * @param pos       read offset for devices that support offset;
+     * @return  0 if data available;
+     *          EAGAIN if no data pending;
+     *          other error if device is in broken state;
+     */
     int     (*dev_read_buf)(device *dev, char *buf, size_t buflen, size_t *written, off_t pos);
+
+    /**
+     * \brief
+     */
     int     (*dev_write_buf)(device *dev, const char *buf, size_t buflen, size_t *written, off_t pos);
+
+    /**
+     * \brief  returns true if there are data pending for a character device
+     *         If it's NULL, it usually means that the device may be read anytime.
+     */
     bool    (*dev_has_data)(device *dev);
+
+    int     (*dev_ioctlv)(device *dev, int ioctl_code, va_list ap);
 };
 
 struct device {
     devicetype_e    dev_type;   // character or block
     majdev_t        dev_clss;   // generic driver
     mindev_t        dev_no;     // device index in the family
-    const char *    dev_fsname; // how it should appear in /dev
 
     struct device_operations  *dev_ops;  // yep, devopses should care about devices
 };

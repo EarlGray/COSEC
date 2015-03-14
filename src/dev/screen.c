@@ -1,4 +1,5 @@
 #include <dev/screen.h>
+#include <fs/devices.h>
 
 #include <arch/i386.h>
 #include <log.h>
@@ -321,4 +322,226 @@ void print_centered(const char *s) {
     int i;
     for (i = 0; i < margin; ++i) k_printf(" ");
     k_printf("%s\n", s);
+}
+
+
+/*
+ *   VCS devices family
+ */
+#define N_VCSA_DEVICES  8
+
+uint vcsa_visible;
+
+device vcs_devices[ N_VCSA_DEVICES ];
+device vcsa_devices[ N_VCSA_DEVICES ];
+
+char vcsa_buf[ 2 * SCR_WIDTH * SCR_HEIGHT * (N_VCSA_DEVICES - 1) ];
+
+#define GET_VCSA_BUF(n) (vcsa_buf + (2 * SCR_WIDTH * SCR_HEIGHT * (n - 1)))
+
+static const char *vcsa_get_roline(device *dev, off_t line);
+static char *vcsa_get_line(device *dev, off_t line);
+static int vcsa_refresh_line(device *dev, off_t line);
+static int vcsa_read(device *dev, char *buf, size_t buflen, size_t *written, off_t pos);
+static int vcsa_write(device *dev, const char *buf, size_t buflen, size_t *written, off_t pos);
+
+static size_t vcsa_linesize() { return SCR_WIDTH * 2; }
+static off_t vcsa_lines() { return SCR_HEIGHT; }
+
+
+static const char *vcsa_get_roline(device *dev, off_t line) {
+    return (const char *)vcsa_get_line(dev, line);
+}
+
+static char *vcsa_get_line(device *dev, off_t line) {
+    const char *funcname = "vcsa_get_line";
+    return_dbg_if((dev->dev_no < 0x80) || (dev->dev_no >= (0x80 + N_VCSA_DEVICES)), NULL,
+            "%s(devno=%d)\n", funcname, dev->devno);
+    return_dbg_if((line < 0) || (SCR_HEIGHT <= line), NULL,
+            "%s(line=%d)\n", funcname, (int)line);
+
+    if (dev->dev_no == 0x80)
+        return (char *)VIDEO_MEM + 2 * SCR_WIDTH * line;
+
+    return GET_VCSA_BUF(dev->dev_no - 0x80);
+}
+
+static int vcsa_refresh_line(device *dev, off_t line) {
+    const char *funcname = "vcsa_refresh_line";
+    return_dbg_if((dev->dev_no < 0x80) || (dev->dev_no >= (0x80 + N_VCSA_DEVICES)), ENODEV,
+            "%s(devno=%d)\n", funcname, dev->devno);
+    return_dbg_if((line < 0) || (SCR_HEIGHT <= line), ENXIO,
+            "%s(line=%d)\n", funcname, (int)line);
+
+    if (dev->dev_no - 0x80 == vcsa_visible) {
+        size_t bufoffset = 2 * SCR_WIDTH * line;
+        char *vmem = (char *)VIDEO_MEM + bufoffset;
+        char *bmem = GET_VCSA_BUF(dev->dev_no - 0x80) + bufoffset;
+        memcpy(vmem, bmem, 2 * SCR_WIDTH);
+    }
+    return 0;
+}
+
+static int vcsa_read(device *dev, char *buf, size_t buflen, size_t *written, off_t pos) {
+    const char *funcname = "vcsa_refresh_line";
+    int vcs_index = (dev->dev_no >= 0x80 ? dev->dev_no - 0x80 : dev->dev_no);
+    return_dbg_if((vcs_index < 0) || (vcs_index >= N_VCSA_DEVICES), ENODEV,
+            "%s(devno=%d)\n", funcname, dev->dev_no);
+
+    size_t scrsize = SCR_WIDTH * SCR_HEIGHT;
+    size_t vsize = 2 * scrsize;
+
+    bool vcsa_mode = (dev->dev_no < 0x80 ? false : true);
+    size_t vpos = (vcsa_mode ? pos : 2 * pos);
+    if (vpos > vsize) {
+        if (written) *written = 0;
+        return ENXIO;
+    }
+
+    char *vbuf = (vcs_index > 0 ? (char *)VIDEO_MEM : GET_VCSA_BUF(vcs_index)) + vpos;
+
+    size_t bytes_to_read = buflen;
+    if (vcsa_mode) {
+        if (vpos + buflen > vsize)
+            bytes_to_read = vsize - vpos;
+    } else {
+        if (pos + buflen > scrsize)
+            bytes_to_read = scrsize - pos;
+    }
+
+    size_t bytes_done = 0;
+    while (bytes_done < bytes_to_read) {
+        *buf = *vbuf;
+         ++buf; ++vbuf;
+         if (!vcsa_mode) ++vbuf; /* skip cell attrs */
+         ++bytes_done;
+    }
+
+    if (written) *written = bytes_done;
+    return 0;
+}
+
+static int vcsa_write(device *dev, const char *buf, size_t buflen, size_t *written, off_t pos) {
+    const char *funcname = "vcsa_write";
+
+    int vcs_index = (dev->dev_no >= 0x80 ? dev->dev_no - 0x80 : dev->dev_no);
+    return_dbg_if((vcs_index < 0) || (vcs_index >= N_VCSA_DEVICES), ENODEV,
+            "%s(devno=%d)\n", funcname, dev->dev_no);
+
+    const size_t scrsize = SCR_WIDTH * SCR_HEIGHT;
+    const size_t vsize = 2 * scrsize;
+
+    const bool vcsa_mode = (dev->dev_no < 0x80 ? false : true);
+    const size_t vpos = (vcsa_mode ? pos : 2 * pos);
+    if (vpos > vsize) {
+        if (written) *written = 0;
+        return ENXIO;
+    }
+
+    char *vbuf = (vcs_index > 0 ? (char *)VIDEO_MEM : GET_VCSA_BUF(vcs_index)) + vpos;
+
+    size_t bytes_to_write = buflen;
+    if (vcsa_mode) {
+        if (vsize < vpos + bytes_to_write)
+            bytes_to_write = vsize - vpos;
+    } else {
+        if (scrsize < pos + bytes_to_write)
+            bytes_to_write = scrsize - pos;
+    }
+
+    size_t bytes_done = 0;
+    while (bytes_done < bytes_to_write) {
+        *vbuf = *buf;
+        ++vbuf; ++buf;
+        if (!vcsa_mode) ++vbuf;
+        ++bytes_done;
+    }
+
+    if (written) *written = bytes_done;
+    return 0;
+}
+
+/* static int vcsa_ioctl(device *dev, int ioctl_code, va_arg ap); */
+
+struct device_operations vcs_ops = {
+    .dev_get_roblock = NULL,
+    .dev_get_rwblock = NULL,
+    .dev_forget_block = NULL,
+    .dev_size_of_block = NULL,
+    .dev_size_in_blocks = NULL,
+
+    .dev_read_buf = vcsa_read,
+    .dev_write_buf = vcsa_write,
+    .dev_has_data = NULL, /* always available for reading */
+
+    .dev_ioctlv = NULL /* TODO: vcsa_ioctl, */
+};
+
+struct device_operations vcsa_ops = {
+    /* VCSA as a block device interpretation:
+     *  A VCSA block corresponds to a line; */
+    .dev_get_roblock = vcsa_get_roline,
+    .dev_get_rwblock = vcsa_get_line,
+    .dev_forget_block = vcsa_refresh_line,
+    .dev_size_of_block = vcsa_linesize,
+    .dev_size_in_blocks = vcsa_lines,
+
+    .dev_read_buf = vcsa_read,
+    .dev_write_buf = vcsa_write,
+    .dev_has_data = NULL,  /* always available for reading */
+
+    .dev_ioctlv = NULL /* TODO: vcsa_ioctl, */
+};
+
+static device * get_vcs_device(mindev_t dev_no) {
+    if ((0 <= dev_no) && (dev_no < N_VCSA_DEVICES)) {
+        return vcs_devices + dev_no;
+    }
+    if ((0x80 <= dev_no) && (dev_no < 0x80 + N_VCSA_DEVICES)) {
+        return vcsa_devices - 0x80 + dev_no;
+    }
+    return NULL;
+}
+
+void init_vcs_devices(void) {
+    int i, j;
+    memset(vcsa_buf, 0, sizeof(vcsa_buf));
+
+    for (i = 0; i < N_VCSA_DEVICES; ++i) {
+        /* init /dev/vcsI, /dev/vcsaI */
+        device *vcs_dev = vcs_devices + i;
+        device *vcsa_dev = vcsa_devices + i;
+
+        vcs_dev->dev_type = vcsa_dev->dev_type = DEV_CHR;
+        vcs_dev->dev_clss = vcsa_dev->dev_clss = CHR_VCS;
+
+        vcs_dev->dev_no = i;
+        vcsa_dev->dev_no = i + 0x80;
+
+        vcs_dev->dev_ops = &vcs_ops;
+        vcsa_dev->dev_ops = &vcsa_ops;
+
+        if (i == 0) continue;
+
+        char *buf = (i ? GET_VCSA_BUF(i) : (char *)VIDEO_MEM);
+        for (j = 0; j < SCR_HEIGHT * SCR_WIDTH; ++j) {
+            buf[ 2 * j ] = ' ';
+            buf[ 2 * j + 1] = cursorAttr;
+        }
+    }
+
+    vcsa_visible = 1;
+}
+
+devclass vcs_device_class = {
+    .dev_type       = DEV_CHR,
+    .dev_maj        = CHR_VCS,
+    .dev_class_name = "VGA text buffers",
+
+    .get_device     = get_vcs_device,
+    .init_devclass  = init_vcs_devices,
+};
+
+devclass * get_vcs_family(void) {
+    return &vcs_device_class;
 }
