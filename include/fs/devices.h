@@ -84,7 +84,7 @@ struct device_operations {
 
     /**
      * \brief  get a cached block from device in read-write mode
-     *         the block will be dirty after `dev_release_block()`.
+     *         the block will be dirty after `dev_forget_block()`.
      */
     char *      (*dev_get_rwblock)(device *dev, off_t block);
 
