@@ -236,7 +236,7 @@ struct filesystem_driver  ramfs_driver = {
     .lst = { 0 },
 };
 
-struct fsdriver * ramfs_fs_driver(void) {
+fsdriver * ramfs_fs_driver(void) {
     return &ramfs_driver;
 }
 

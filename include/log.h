@@ -12,7 +12,7 @@ int logging_setup();
 int vlprintf(const char *fmt, va_list ap);
 int lprintf(const char *fmt, ...);
 
-void k_printf(const char *fmt, ...);
+int k_printf(const char *fmt, ...);
 
 #define logmsg(msg) lprintf(msg)
 #define logmsgf(...) lprintf(__VA_ARGS__)

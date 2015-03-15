@@ -247,7 +247,7 @@ ptr_t cpu_stack(void);
 #define intrs_disable()        i386_intrs_disable()
 #define cpu_halt()             i386_halt()
 
-inline static void __noreturn cpu_hang(void) { i386_hang(); }
+static void __noreturn cpu_hang(void) { i386_hang(); }
 
 #define inb(port, value)       i386_inb(port, value)    
 #define outb(port, value)      i386_outb(port, value)   

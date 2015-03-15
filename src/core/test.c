@@ -156,7 +156,7 @@ inline static void print_serial_info(uint16_t port) {
 }
 
 void on_serial_received(uint8_t b) {
-    set_cursor_attr(0x0A);
+    vcsa_set_attribute(CONSOLE_VCSA, 0x0A);
 
     if (serialcode_mode) {
         k_printf(" %x", (uint)b);
@@ -167,7 +167,6 @@ void on_serial_received(uint8_t b) {
           default: cprint(b);
         }
     }
-    update_hw_cursor();
 }
 
 static void on_press(scancode_t scan) {
@@ -190,9 +189,8 @@ static void on_press(scancode_t scan) {
     while (! serial_is_transmit_empty(COM1_PORT));
     serial_write(COM1_PORT, c);
     
-    set_cursor_attr(0x0C);
+    vcsa_set_attribute(CONSOLE_VCSA, 0x0C);
     cprint(c);
-    update_hw_cursor();
 }
 
 void poll_serial() {
@@ -203,9 +201,8 @@ void poll_serial() {
         if (serial_is_received(COM1_PORT)) {
             uint8_t b = serial_read(COM1_PORT);
 
-            set_cursor_attr(0x0A);
+            vcsa_set_attribute(CONSOLE_VCSA, 0x0A);
             cprint(b);
-            update_hw_cursor();
         }
     }
     kbd_set_onpress(null);
@@ -214,8 +211,7 @@ void poll_serial() {
 void test_serial(const char *arg) {
     logmsgf("IRQs state = 0x%x\n", (uint)irq_get_mask());
 
-    uint8_t saved_color;
-    vcsa_get_attribute(0, &saved_color);
+    uint8_t saved_color = vcsa_get_attribute(VIDEOMEM_VCSA);
 
     k_printf("Use <Esc> to quit, <Del> for register info, <F1> to toggle char/code mode\n");
     serial_setup();
@@ -239,7 +235,7 @@ void test_kbd(void) {
     uint8_t key = 0;
     while (key != 1) {
         key = kbd_wait_scan(true);
-        printf("%x->%x\t", (uint)key, (uint)translate_from_scan(null, key));
+        k_printf("%x->%x\t", (uint)key, (uint)translate_from_scan(null, key));
     }
     k_printf("\n");
 }

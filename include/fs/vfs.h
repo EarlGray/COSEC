@@ -178,13 +178,12 @@ struct mount_opts_t {
 extern struct inode theInvalidInode;
 
 void vfs_register_filesystem(fsdriver *fs);
-fsdriver * vfs_fs_by_id(uint fs_id);
+fsdriver * vfs_filesystem_by_id(uint fs_id);
 
 int vfs_mountnode_by_path(const char *path, mountnode **mntnode, const char **relpath);
 int vfs_mount(dev_t source, const char *target, const mount_opts_t *opts);
 
-
-int vfs_mount(dev_t source, const char *target, const mount_opts_t *opts);
+int vfs_stat(const char *path, struct stat *stat);
 int vfs_mkdir(const char *path, mode_t mode);
 int vfs_mknod(const char *path, mode_t mode, dev_t dev);
   

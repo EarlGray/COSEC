@@ -15,30 +15,30 @@
  ***/
 
 #define VIDEO_MEM	        0x000B8000
-#define VIDEOMEM	        ((uint8_t *)VIDEO_MEM)
+#define VIDEOBUF	        ((uint8_t *)VIDEO_MEM)
 
-#define DEFAULT_CURSOR_ATTR 0x07
+/* global state */
+int active_vcs = CONSOLE_VCSA;
 
-static uint16_t cursorX = 0;
-static uint16_t cursorY = 0;
-static uint8_t  cursorAttr = DEFAULT_CURSOR_ATTR;
+struct {
+    uint line, col;
+    uint8_t attr;
+} vcs_data[ N_VCSA_DEVICES ];
 
-inline uint16_t get_cursor_x(void) {    return cursorX;   }
-inline uint16_t get_cursor_y(void) {    return cursorY;   }
-inline uint8_t get_cursor_attr()   {    return cursorAttr; }
+device vcs_devices[ N_VCSA_DEVICES ];
+device vcsa_devices[ N_VCSA_DEVICES ];
 
-inline void set_cursor_x(uint16_t X) {  cursorX = X;  }
-inline void set_cursor_y(uint16_t Y) {  cursorY = Y;  }
-inline void set_cursor_attr(uint8_t attr) {  cursorAttr = attr;   }
-inline void set_default_cursor_attr(void) {  cursorAttr = DEFAULT_CURSOR_ATTR; }
+char vcsa_buf[ 2 * SCR_WIDTH * SCR_HEIGHT * N_VCSA_DEVICES ];
 
-inline void move_cursor_next_line();
-inline void move_cursor_to(uint16_t cx, uint16_t cy);
-void scroll_up_line();
 
-void update_hw_cursor(void)
-{
-    unsigned temp = cursorY * SCR_WIDTH + cursorX;
+#define GET_VCSA_BUF(n) (vcsa_buf + (2 * SCR_WIDTH * SCR_HEIGHT * n))
+
+int vcs_current(void) {
+    return active_vcs;
+}
+
+static inline void move_hw_cursor(uint cursorX, uint cursorY) {
+    uint temp = cursorY * SCR_WIDTH + cursorX;
 
     /* This sends a command to indicies 14 and 15 in the
     *  CRT Control Register of the VGA controller. These
@@ -51,349 +51,176 @@ void update_hw_cursor(void)
 }
 
 
-void clear_screen(void) {
-    uint8_t *pos = VIDEOMEM;
-    int i;
-    for (i = 0; i < (SCR_WIDTH * SCR_HEIGHT); ++i)
-    {
-        pos[0] = 0x20;
-        pos[1] = cursorAttr;
-        pos += 2;
-    }
-    move_cursor_to(0, 0);
-}
-
-
-inline void move_cursor_next() {
-    ++cursorX;
-    if (cursorX >= SCR_WIDTH) {
-        cursorX = 0;
-        move_cursor_next_line();
-    }
-    update_hw_cursor();
-}
-
-inline void move_cursor_to(uint16_t cx, uint16_t cy) {
-    set_cursor_x(cx);
-    set_cursor_y(cy);
-    update_hw_cursor();
-}
-
-inline void move_cursor_next_line() {
-    if (cursorY + 1 >= SCR_HEIGHT)
-        scroll_up_line();
-    else ++cursorY;
-}
-
-void scroll_up_line() {
-    uint8_t *s = (uint8_t *)VIDEO_MEM;
-    int i, j;
-    for (i = 0; i < SCR_HEIGHT-1; ++i)
-        for (j = 0; j < SCR_WIDTH; ++j)
-        {
-            (*s) = *(s + SCR_WIDTH + SCR_WIDTH);
-            ++s;
-            (*s) = *(s + SCR_WIDTH + SCR_WIDTH);
-            ++s;
-        }
-    for (i = 0; i < SCR_WIDTH; ++i) {
-        *s = 0x20;
-        ++s;
-        *s = cursorAttr;
+inline void print_console_debug(const char *msg) {
+    char *buf = (char *)VIDEOBUF + (SCR_HEIGHT - 1) * SCR_WIDTH * 2;
+    const char *s = msg;
+    while (true) {
+        if ((s - msg) >= SCR_WIDTH) return;
+        if (s[0] == 0) return;
+        buf[0] = s[0];
+        buf[1] = 0x40;
+        buf += 2;
         ++s;
     }
 }
 
-inline void set_char_at(int x, int y, char c, char attr) {
-    uint8_t* p = (uint8_t *)( VIDEO_MEM + ((x + y * SCR_WIDTH) << 1) );
-    p[0] = c;
-    p[1] = attr;
+#define HANG_IFNOT(cond, msg)       \
+if (!(cond)) do {                   \
+    print_console_debug(msg);       \
+    cpu_hang();                     \
+} while (0)
+
+inline void vcsa_set_attribute(int vcsno, uint8_t attr) {
+    if (vcsno == VIDEOMEM_VCSA) vcsno = active_vcs;
+    int vcsind = (vcsno < 0x80 ? vcsno : vcsno - 0x80);
+    returnv_dbg_if(vcsind < 0 || N_VCSA_DEVICES <= vcsind, "");
+
+    vcs_data[vcsno].attr = attr;
 }
 
-inline void cprint(char c) {
-    switch (c) {
-    case '\n':
-        set_cursor_x(0);
-        move_cursor_next_line();
-        break;
-    case '\r':
-        set_cursor_x(0);
-        break;
-    case '\t':
-        set_cursor_x(TAB_INDENT * (1 + get_cursor_x()/TAB_INDENT));
-        break;
-    case '\b':
-        if ((get_cursor_x() == 0) && (get_cursor_y() != 0))
-            move_cursor_to(SCR_WIDTH - 1, get_cursor_y()-1);
-        else
-            set_cursor_x(get_cursor_x() - 1);
-        break;
-    default:
-        set_char_at(get_cursor_x(), get_cursor_y(), c, get_cursor_attr());
-        move_cursor_next();
-    };
-}
+uint8_t vcsa_get_attribute(int vcsno) {
+    if (vcsno == VIDEOMEM_VCSA) vcsno = active_vcs;
 
+    int vcsind = (vcsno < 0x80 ? vcsno : vcsno - 0x80);
+    if (!(0 <= vcsind && vcsind < N_VCSA_DEVICES))
+        return VCSA_DEFAULT_ATTRIBUTE;
 
-/*
- *   k_printf
- */
-
-inline char get_digit(uint8_t digit) {
-    if (digit < 10) return('0' + digit);
-    else return('A' + digit - 10);
-}
-
-void print_uint(uint x, uint8_t base);
-
-void print_int(int x, uint8_t base) {
-    if (x < 0) {
-        cprint('-');
-        x = -x;
-    }
-    print_uint(x, base);
-}
-
-void print_uint(uint x, uint8_t base) {
-#define maxDigits 32    // 4 * 8 max for binary
-    char a[maxDigits] = { 0 };
-    uint8_t n = maxDigits;
-    if (x == 0) {
-        --n;
-        a[n] = '0';
-    } else
-    while (x != 0) {
-        --n;
-        a[n] = get_digit(x % base);
-        x /= base;
-    }
-    while (n < maxDigits) {
-        cprint(a[n]);
-        n++;
-    }
-}
-
-#define CC_NUL 0x00
-#define CC_BEL '\a' /* 0x07 */
-#define CC_BS  '\b' /* 0x08 */
-#define CC_HT  '\t' /* 0x09 */
-#define CC_LF  '\n' /* 0x0a */
-#define CC_VT  0x0b
-#define CC_FF  0x0c
-#define CC_CR  '\r' /* 0x0d */
-#define CC_SO  0x0e
-#define CC_SI  0x0f
-#define CC_CAN 0x18
-#define CC_SUB 0x1a
-#define CC_ESC 0x1b /* ESC [ */
-#define CC_DEL 0x7f
-#define CC_CSI 0x9b
-
-void ecma48_control_sequence(uint num) {
-    if (num == 0) {
-        /* reset attributes */
-        set_cursor_attr(DEFAULT_CURSOR_ATTR);
-    } else if ((0x30 <= num) && (num <= 0x3f)) {
-        /* set foreground color */
-        uint8_t attr = get_cursor_attr();
-        set_cursor_attr((attr & 0xF0) | (num - 0x30));
-    } else if ((0x40 <= num) && (num <= 0x4f)) {
-        /* set background color */
-        uint8_t attr = get_cursor_attr();
-        set_cursor_attr((attr & 0x0F) | ((num - 0x40) << 4));
-    }
-}
-
-const char * ecma48_console_codes(const char *s) {
-    switch (*s) {
-    case CC_LF: case CC_VT: case CC_FF:
-        set_cursor_x(0);
-        move_cursor_next_line();
-        break;
-    case CC_CR:
-        set_cursor_x(0);
-        break;
-    case CC_HT: {
-        uint pos = TAB_INDENT * (1 + get_cursor_x()/TAB_INDENT);
-        if (pos >= SCR_WIDTH) pos = SCR_WIDTH - 1;
-        set_cursor_x(pos);
-        }
-        break;
-    case CC_BS:
-        if ((get_cursor_x() == 0) && (get_cursor_y() != 0))
-            move_cursor_to(SCR_WIDTH - 1, get_cursor_y()-1);
-        else
-            set_cursor_x(get_cursor_x() - 1);
-        break;
-
-    case CC_ESC:
-        switch (*++s) {
-        case '[': {
-            uint code = 0;
-            s = sscan_uint(++s, &code, 16);
-            if (*s == 'm') {
-                ecma48_control_sequence(code);
-                break;
-            }
-            } /* fall through */
-        default:
-            cprint(*s);
-        }
-        break;
-
-    default:
-        return s;
-    }
-    return ++s;
-}
-
-void k_vprintf(const char *fmt, va_list ap) {
-    if (!fmt) return;
-
-    const char *s = fmt;
-    while (*s) {
-        const char *sn = ecma48_console_codes(s);
-        if (sn != s) {
-            s = sn;
-            continue;
-        }
-
-        switch (*s) {
-        case '%':
-            ++s;
-            if (*s == 'l') ++s;
-            switch (*s) {
-            case 'd':
-                print_int(va_arg(ap, int), 10);
-                break;
-            case 'u':
-                print_uint(va_arg(ap, uint), 10);
-                break;
-            case 'x':
-                print_uint(va_arg(ap, uint), 16);
-                break;
-            case 'o':
-                print_uint(va_arg(ap, uint), 8);
-                break;
-            case 'c':
-                cprint(va_arg(ap, int));
-                break;
-            case 's': {
-                ptr_t ptr = va_arg(ap, ptr_t);
-                char *c = (char *)ptr;
-                while (*c)
-                    cprint(*(c++));
-                } break;
-            default:
-                cprint(*s);
-            }
-            break;
-        default:
-            cprint(*s);
-        }
-        ++s;
-    }
-    update_hw_cursor();
-}
-
-void k_printf(const char *fmt, ...) {
-    va_list args;
-    va_start(args, fmt);
-    k_vprintf(fmt, args);
-    va_end(args);
-}
-
-void print_centered(const char *s) {
-    int margin = (SCR_WIDTH - strlen(s))/2;
-    k_printf("\r");
-    int i;
-    for (i = 0; i < margin; ++i) k_printf(" ");
-    k_printf("%s\n", s);
-}
-
-
-/*
- *   VCS devices family
- */
-
-/* global state */
-int active_vcs;
-
-struct {
-    uint line, col;
-} vcs_data[ N_VCSA_DEVICES ];
-
-device vcs_devices[ N_VCSA_DEVICES ];
-device vcsa_devices[ N_VCSA_DEVICES ];
-
-char vcsa_buf[ 2 * SCR_WIDTH * SCR_HEIGHT * (N_VCSA_DEVICES - 1) ];
-
-
-#define GET_VCSA_BUF(n) (vcsa_buf + (2 * SCR_WIDTH * SCR_HEIGHT * (n - 1)))
-
-
-void vcsa_set_attribute(int vcsno, uint8_t attr) {
-    returnv_dbg_if(vcsno <= 0 || N_VCSA_DEVICES <= vcsno, "");
-
-    char *buf = (vcsno ? GET_VCSA_BUF(vcsno) : (char *)VIDEO_MEM);
-    buf[ 2 * (SCR_WIDTH * vcs_data[vcsno].line + vcs_data[vcsno].col) + 1 ] = attr;
-}
-
-void vcsa_get_attribute(int vcsno, uint8_t *attr) {
-    if (!(0 <= vcsno && vcsno < N_VCSA_DEVICES)) return;
-
-    char *buf = (vcsno ? GET_VCSA_BUF(vcsno) : (char *)VIDEO_MEM);
-    if (attr)
-        *attr = buf[ 2 * (SCR_WIDTH * vcs_data[vcsno].line + vcs_data[vcsno].col) + 1 ];
+    return vcs_data[vcsind].attr;
 }
 
 void vcsa_set_cursor(int vcsno, int x, int y) {
-    if (!(0 <= vcsno && vcsno < N_VCSA_DEVICES)) return;
+    if (vcsno == VIDEOMEM_VCSA) vcsno = active_vcs;
+    HANG_IFNOT((0 <= vcsno) && (vcsno < N_VCSA_DEVICES),
+            "vcsa_set_cursor : vcsno");
+    HANG_IFNOT((0 <= x) && (x < SCR_WIDTH),
+            "vcsa_set_cursor : x");
+    HANG_IFNOT((0 <= y) && (y < SCR_HEIGHT),
+            "vcsa_set_cursor : y");
 
     vcs_data[vcsno].col = x;
     vcs_data[vcsno].line = y;
 
-    if (vcsno == active_vcs)
-        vcsa_set_cursor(0, x, y);
-    if (vcsno == 0)
-        move_cursor_to(x, y);
+    if (vcsno == active_vcs) {
+        move_hw_cursor(x, y);
+    }
 }
 
 void vcsa_get_cursor(int vcsno, int *x, int *y) {
-    if (!(0 <= vcsno && vcsno < N_VCSA_DEVICES)) return;
+    if (vcsno == VIDEOMEM_VCSA) vcsno = active_vcs;
+    HANG_IFNOT(0 <= vcsno && vcsno < N_VCSA_DEVICES, "vcsa_get_cursor");
 
     if (x) *x = vcs_data[vcsno].col;
     if (y) *y = vcs_data[vcsno].line;
 }
 
+inline void update_hw_cursor(void) {
+    move_hw_cursor(vcs_data[active_vcs].col, vcs_data[active_vcs].line);
+}
+
+inline void vcsa_refresh(void) {
+    memcpy(VIDEOBUF, GET_VCSA_BUF(active_vcs), SCR_HEIGHT * SCR_WIDTH * 2);
+    update_hw_cursor();
+}
+
 void vcsa_clear(int vcsno) {
-    if (!(0 <= vcsno && vcsno < N_VCSA_DEVICES)) return;
+    if (vcsno == VIDEOMEM_VCSA)
+        vcsno = active_vcs;
+
+    if (!((0 <= vcsno) && (vcsno < N_VCSA_DEVICES))) return;
     int i;
 
-    char *buf = (vcsno ? GET_VCSA_BUF(vcsno) : (char *)VIDEO_MEM);
-    uint8_t attr;
+    uint8_t attr = vcs_data[vcsno].attr;
+    if (!attr)
+        attr = vcs_data[vcsno].attr = VCSA_DEFAULT_ATTRIBUTE;
 
-    vcsa_get_attribute(vcsno, &attr);
+    char *buf = GET_VCSA_BUF(vcsno);
 
     for (i = 0; i < SCR_WIDTH * SCR_HEIGHT; ++i) {
         buf[ 2 * i ] = ' ';
         buf[ 2 * i + 1] = attr;
     }
 
-    vcs_data[vcsno].col = vcs_data[vcsno].line = 0;
+    vcsa_set_cursor(vcsno, 0, 0);
 
     if (vcsno == active_vcs)
-        vcsa_clear(0);
+        vcsa_refresh();
 }
 
 void vcsa_switch(int vcsno) {
-    if (!(0 < vcsno && vcsno < N_VCSA_DEVICES)) return;
+    if (!(0 <= vcsno && vcsno < N_VCSA_DEVICES)) return;
     if (vcsno == active_vcs) return;
 
-    memcpy(VIDEOMEM, GET_VCSA_BUF(vcsno), SCR_WIDTH * SCR_HEIGHT * 2);
-    vcsa_set_cursor(0, vcs_data[vcsno].col, vcs_data[vcsno].line);
-
     active_vcs = vcsno;
+    vcsa_refresh();
+}
+
+
+static void vcsa_scroll_line(int vcsno) {
+    if (vcsno == VIDEOMEM_VCSA) vcsno = active_vcs;
+
+    int i, j;
+    uint8_t *buf = (uint8_t *)(GET_VCSA_BUF(vcsno));
+    uint8_t attr = vcs_data[vcsno].attr;
+
+    for (i = 0; i < SCR_HEIGHT - 1; ++i)
+        for (j = 0; j < SCR_WIDTH; ++j) {
+            buf[0] = buf[ 2 * SCR_WIDTH ];
+            buf[1] = buf[ 2 * SCR_WIDTH + 1];
+            buf += 2;
+        }
+    for (i = 0; i < SCR_WIDTH; ++i) {
+        *buf++ = ' ';
+        *buf++ = attr;
+    }
+    if (vcsno == active_vcs) vcsa_refresh();
+}
+
+inline static void vcsa_newline(int vcsno) {
+    uint ln = vcs_data[vcsno].line;
+
+    /* wrap line */
+    vcs_data[vcsno].col = 0;
+    if ((ln + 1) < SCR_HEIGHT)
+        vcs_data[vcsno].line = ln + 1; /* go down one line */
+    else
+        vcsa_scroll_line(vcsno); /* scroll the buffer */
+}
+
+inline static void vcsa_move_cursor_next(int vcsno) {
+    uint col = vcs_data[vcsno].col;
+    uint ln = vcs_data[vcsno].line;
+
+    ++col;
+    if (col < SCR_WIDTH)
+        /* move to the next position in the same line */
+        vcs_data[vcsno].col = col;
+    else
+        vcsa_newline(vcsno);
+}
+
+void vcsa_cprint(int vcsno, char c) {
+    if (vcsno == VIDEOMEM_VCSA)
+        vcsno = active_vcs;
+
+    HANG_IFNOT((0 <= vcsno) && (vcsno < N_VCSA_DEVICES), "vcsa_cprint failed()");
+
+    uint8_t attr = vcsa_get_attribute(vcsno);
+
+    uint ln = vcs_data[vcsno].line;
+    uint col = vcs_data[vcsno].col;
+
+    char *buf = GET_VCSA_BUF(vcsno);
+    buf += 2 * (SCR_WIDTH * ln + col);
+
+    buf[0] = c;
+    buf[1] = vcs_data[vcsno].attr;
+    if (vcsno == active_vcs) {
+        char *vmem = (char *)VIDEOBUF + 2 * (SCR_WIDTH * ln + col);
+        vmem[0] = buf[0];
+        vmem[1] = buf[1];
+    }
+
+    vcsa_move_cursor_next(vcsno);
 }
 
 static const char *vcsa_get_roline(device *dev, off_t line);
@@ -519,6 +346,10 @@ static int vcsa_write(device *dev, const char *buf, size_t buflen, size_t *writt
 }
 
 
+/*
+ *   VCS devices family
+ */
+
 struct device_operations vcs_ops = {
     .dev_get_roblock = NULL,
     .dev_get_rwblock = NULL,
@@ -561,7 +392,8 @@ static device * get_vcs_device(mindev_t dev_no) {
 
 void init_vcs_devices(void) {
     int i, j;
-    memset(vcsa_buf, 0, sizeof(vcsa_buf));
+
+    active_vcs = CONSOLE_VCSA;
 
     for (i = 0; i < N_VCSA_DEVICES; ++i) {
         /* init /dev/vcsI, /dev/vcsaI */
@@ -577,16 +409,15 @@ void init_vcs_devices(void) {
         vcs_dev->dev_ops = &vcs_ops;
         vcsa_dev->dev_ops = &vcsa_ops;
 
-        if (i == 0) continue;
+        vcs_data[i].attr = VCSA_DEFAULT_ATTRIBUTE;
 
-        char *buf = (i ? GET_VCSA_BUF(i) : (char *)VIDEO_MEM);
-        for (j = 0; j < SCR_HEIGHT * SCR_WIDTH; ++j) {
-            buf[ 2 * j ] = ' ';
-            buf[ 2 * j + 1] = cursorAttr;
+        if (i == active_vcs) {
+            memcpy(GET_VCSA_BUF(i), VIDEOBUF, SCR_HEIGHT * SCR_WIDTH * 2);
+            continue;
         }
-    }
 
-    active_vcs = 1;
+        vcsa_clear(i);
+    }
 }
 
 devclass vcs_device_class = {
@@ -601,3 +432,80 @@ devclass vcs_device_class = {
 devclass * get_vcs_family(void) {
     return &vcs_device_class;
 }
+
+
+/*
+ *  Console printing
+ */
+
+void cprint(char c) {
+    int x, y;
+    switch (c) {
+        case '\n':
+            vcsa_newline(CONSOLE_VCSA);
+            break;
+        case '\r':
+            vcsa_get_cursor(CONSOLE_VCSA, NULL, &y);
+            vcsa_set_cursor(CONSOLE_VCSA, 0, y);
+            break;
+        case '\t':
+            vcsa_get_cursor(CONSOLE_VCSA, &x, &y);
+            x = TAB_INDENT * (1 + x/TAB_INDENT);
+            if (x >= SCR_WIDTH) x = SCR_WIDTH - 1;
+            vcsa_set_cursor(CONSOLE_VCSA, x, y);
+            break;
+        case '\b':
+            vcsa_get_cursor(CONSOLE_VCSA, &x, &y);
+            if ((y == 0) && (x == 0)) break;
+            if (x == 0)
+                vcsa_set_cursor(CONSOLE_VCSA, SCR_WIDTH - 1, y - 1);
+            else
+                vcsa_set_cursor(CONSOLE_VCSA, x - 1, y);
+            break;
+        default:
+            vcsa_cprint(CONSOLE_VCSA, c);
+    }
+
+    if (CONSOLE_VCSA == active_vcs)
+        update_hw_cursor();
+}
+
+#define KBUFLEN    SCR_WIDTH * SCR_HEIGHT
+
+int k_vprintf(const char *fmt, va_list ap) {
+    if (!fmt) return 0;
+
+    char buf[KBUFLEN];
+
+    vsnprintf(buf, KBUFLEN, fmt, ap);
+    buf[KBUFLEN - 1] = '\0';
+
+    char *s = buf;
+    while (s[0]) {
+        cprint(s[0]);
+        ++s;
+    }
+
+    if (active_vcs == CONSOLE_VCSA)
+        vcsa_refresh();
+
+    return 0;
+}
+
+int k_printf(const char *fmt, ...) {
+    int ret;
+    va_list args;
+    va_start(args, fmt);
+    ret = k_vprintf(fmt, args);
+    va_end(args);
+    return ret;
+}
+
+void print_centered(const char *s) {
+    int margin = (SCR_WIDTH - strlen(s))/2;
+    k_printf("\r");
+    int i;
+    for (i = 0; i < margin; ++i) k_printf(" ");
+    k_printf("%s\n", s);
+}
+

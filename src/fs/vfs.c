@@ -104,7 +104,7 @@ void vfs_register_filesystem(fsdriver *fs) {
     theFileSystems->lst.prev = fs;
 };
 
-fsdriver *vfs_fs_by_id(uint fs_id) {
+fsdriver *vfs_filesystem_by_id(uint fs_id) {
     fsdriver *fs = theFileSystems;
     if (!fs) return NULL;
 
@@ -190,7 +190,7 @@ int vfs_mount(dev_t source, const char *target, const mount_opts_t *opts) {
              return -1;
         }
 
-        fsdriver *fs = vfs_fs_by_id(opts->fs_id);
+        fsdriver *fs = vfs_filesystem_by_id(opts->fs_id);
         if (!fs) return -2;
 
         struct superblock *sb = kmalloc(sizeof(struct superblock));

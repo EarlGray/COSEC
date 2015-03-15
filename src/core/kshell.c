@@ -52,8 +52,10 @@ panic(const char *fatal_error) {
 
     char buf [100] = { 0 };
 
-    set_cursor_attr(0x4E);
-    clear_screen();
+    vcsa_switch(CONSOLE_VCSA);
+    vcsa_set_attribute(CONSOLE_VCSA, BACKGROUND(VCSA_ATTR_RED) | BRIGHT(VCSA_ATTR_ORANGE));
+    vcsa_clear(CONSOLE_VCSA);
+
     k_printf("\n");
     print_centered("O_o");
     print_centered("Oops, kernel panic");
@@ -181,7 +183,7 @@ void kshell_readline(char *buf, size_t size, const char *prompt) {
             break;
         case 12:    // Ctrl-L
             *cur = 0;
-            clear_screen();
+            vcsa_clear(CONSOLE_VCSA);
             k_printf(prompt);
             console_write(buf);
             break;
@@ -550,13 +552,12 @@ void kshell_info(const struct kshell_command *this, const char *arg) {
         k_printf("Colors:\n");
         int i = 0;
         for (i = 0; i < 16; ++i) {
-            char attr;
-            vcsa_get_attribute(0, &attr);
+            char attr = vcsa_get_attribute(CONSOLE_VCSA);
 
             k_printf("%x) ", i);
-            set_cursor_attr(i); k_printf("aaaa ");
-            set_cursor_attr((uint8_t)(i << 4)); k_printf("bbbb");
-            set_cursor_attr(attr); k_printf("\n");
+            vcsa_set_attribute(CONSOLE_VCSA, i);                 k_printf("aaaa ");
+            vcsa_set_attribute(CONSOLE_VCSA, (uint8_t)(i << 4)); k_printf("bbbb");
+            vcsa_set_attribute(CONSOLE_VCSA, attr);              k_printf("\n");
         }
         k_printf("\n");
     } else
@@ -635,11 +636,9 @@ void kshell_set(const struct kshell_command *this, const char *arg) {
         int attr;
         const char *end = get_int_opt(arg, &attr, 16);
         if (end != arg)
-            set_cursor_attr(attr);
+            vcsa_set_attribute(CONSOLE_VCSA, attr);
         else {
-            char attr;
-            vcsa_get_attribute(0, &attr);
-            printf("color = %x\n", (uint)attr);
+            printf("color = %x\n", (uint)vcsa_get_attribute(VIDEOMEM_VCSA));
         }
     } else
     if (!strncmp(arg, "prompt", 6)) {
@@ -814,7 +813,7 @@ void kshell_lua_test(void) {
 
     for (;;) {
         kshell_readline(cmd_buf, CMD_SIZE, prompt);
-        set_default_cursor_attr();
+        vcsa_set_attribute(CONSOLE_VCSA, VCSA_DEFAULT_ATTRIBUTE);
         if (!strcasecmp(cmd_buf, "q"))
             break;
 

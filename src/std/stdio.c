@@ -162,9 +162,9 @@ int vfprintf(FILE *stream, const char *format, va_list ap) {
         return ret;
     }
     if (stream == stderr) {
-        set_cursor_attr(0x0C);
+        vcsa_set_attribute(CONSOLE_VCSA, 0x0C);
         ret = vfprintf(stdout, format, ap);
-        set_default_cursor_attr();
+        vcsa_set_attribute(CONSOLE_VCSA, VCSA_DEFAULT_ATTRIBUTE);
         return ret;
     }
 
@@ -186,7 +186,6 @@ int vsnprintf(char *str, size_t size, const char *format, va_list ap) {
     const char *fmt_c = format;
     char *out_c = str;
     char *end = (size == 0 ? 0 : str + size - 1);
-    //k_printf("## vsnprintf('%s')\n", format);
 
     while (*fmt_c) {
         if (end && (out_c >= end)) {
@@ -319,11 +318,11 @@ size_t fwrite(const void *ptr, size_t size, size_t nitems, FILE *stream) {
     }
     if (stream == stderr) {
         logmsgf("fwrite(*%x, %x, %x, stderr)\n", (uint)ptr, size, nitems);
-        set_cursor_attr(4); // RED
+        vcsa_set_attribute(CONSOLE_VCSA, 4); // RED
         for (i = 0; i < size * nitems; ++i) {
             cprint(cptr[i]);
         }
-        set_default_cursor_attr();
+        vcsa_set_attribute(CONSOLE_VCSA, VCSA_DEFAULT_ATTRIBUTE);
         return nitems;
     }
     logmsge("TODO: fwrite(*%x, %x, %x, stream=*%x)\n",

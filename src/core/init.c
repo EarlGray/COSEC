@@ -15,7 +15,7 @@
 #include <log.h>
 
 static void print_welcome(void) {
-    clear_screen();
+    vcsa_clear(CONSOLE_VCSA);
 
     int i;
     for (i = 0; i < 18; ++i) k_printf("\n");

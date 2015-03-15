@@ -6,6 +6,6 @@
 /* ASCII "RAM" */
 #define RAMFS_ID  0x004d4152
 
-struct fsdriver * ramfs_fs_driver(void);
+fsdriver * ramfs_fs_driver(void);
 
 #endif //__COSEC_RAMFS_H__
