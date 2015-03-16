@@ -782,14 +782,16 @@ int syslua_mem(lua_State *L) {
 }
 
 void kshell_lua_test(void) {
-    const char *prompt = "\x1b[36mlua> \x1b[3fm";
+    const char *prompt = "lua> ";
     char cmd_buf[CMD_SIZE];
     lua_State *lua;
     int luastack;
 
     logmsg("starting Lua...\n");
-    k_printf("\x1b[32m###\n###       Lua "LUA_VERSION_MAJOR"."LUA_VERSION_MINOR"\n###\n");
-    k_printf("###  type 'q' to exit\n###\x1b[0m\n");
+    vcsa_set_attribute(CONSOLE_VCSA, VCSA_ATTR_GREEN);
+    k_printf("###\n###       Lua "LUA_VERSION_MAJOR"."LUA_VERSION_MINOR"\n###\n");
+    k_printf("###  type 'q' to exit\n###\n");
+    vcsa_set_attribute(CONSOLE_VCSA, VCSA_DEFAULT_ATTRIBUTE);
 
     lua = luaL_newstate();
     if (!lua)
@@ -812,6 +814,7 @@ void kshell_lua_test(void) {
     luaL_openlibs(lua);
 
     for (;;) {
+        vcsa_set_attribute(CONSOLE_VCSA, BRIGHT(VCSA_ATTR_GREY));
         kshell_readline(cmd_buf, CMD_SIZE, prompt);
         vcsa_set_attribute(CONSOLE_VCSA, VCSA_DEFAULT_ATTRIBUTE);
         if (!strcasecmp(cmd_buf, "q"))
