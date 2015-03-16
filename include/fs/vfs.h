@@ -186,7 +186,7 @@ int vfs_mount(dev_t source, const char *target, const mount_opts_t *opts);
 int vfs_stat(const char *path, struct stat *stat);
 int vfs_mkdir(const char *path, mode_t mode);
 int vfs_mknod(const char *path, mode_t mode, dev_t dev);
-  
+
 
 void print_ls(const char *path);
 void print_mount(void);

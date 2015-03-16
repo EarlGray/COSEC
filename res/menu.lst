@@ -2,14 +2,14 @@
 # (c) Dmytro Sirenko, 2010
 
 default 0
-timeout 2
+timeout 3
 
 title COSEC
-    root (fd0)
+    root (cd)
     kernel --type=multiboot /kernel 
-    modulenounzip /initfs
+    modulenounzip /kernel.nm
+    boot
 
 title Boot from hard drive
-    rootnoverify (hd0)
-    chainloader +1
+    chainloader (hd0)+1
 

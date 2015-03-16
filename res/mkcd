@@ -13,23 +13,43 @@ die () {
 }
 
 [ -d $BLDDIR ] || die "Build directory not found at $BLDDIR"
-which grub-mkrescue >/dev/null || die "grub-mkrescue not available"
 
 mkdir -p $GRUB_DIR
-cp res/grubcd.cfg $GRUB_DIR/grub.cfg 
+cp res/menu.lst $GRUB_DIR/menu.lst
+cp res/menu.lst $GRUB_DIR/grub.conf
+cp res/stage2_eltorito $GRUB_DIR/
 
 cp $BLDDIR/kernel $CD_DIR \
     || die "$BLDDIR/kernel not found"
 
+cp $BLDDIR/kernel.nm $CD_DIR \
+    || die "$BLDDIR/kernel not found"
+
 mkdir -p $SRC_DIR/res
 cp -R include/ lib/ src/ usr/ $SRC_DIR
-cp res/fd.img.bz2 res/grubcd.cfg res/mkcd res/mkinitfs $SRC_DIR/res
+cp res/fd.img.bz2 res/menu.lst res/mkcd res/mkinitfs $SRC_DIR/res
 cp README.md INSTALL.md TODO Makefile $SRC_DIR
 
 echo "Files to delete from iso:"
 find $CD_DIR -name '*.o' -o -name '*.a' -o -name '*tar.gz' -o -name '*.img' | xargs rm
 
 # install xorriso on Ubuntu
-grub-mkrescue -o $CD_IMG $CD_DIR
+#grub-mkrescue -o $CD_IMG $CD_DIR
+
+MKISO=''
+if which xorriso 2>&1 >/dev/null ; then
+    MKISO='xorriso -as mkisofs'
+elif which genisoimage 2>&1 >/dev/null ; then
+    MKISO='genisoimage'
+elif which mkisofs 2>&1 >/dev/null ; then
+    MKISO='mkisofs'
+else
+    die "no xorriso/genisoimage/mkisofs found"
+fi
+echo "MKISO program is '$MKISO'"
+
+$MKISO -R -b boot/grub/stage2_eltorito \
+       -no-emul-boot -boot-load-size 4 \
+       -boot-info-table -o $CD_IMG $CD_DIR
 
 [ "$KEEP" ] || rm -r $CD_DIR
