@@ -14,8 +14,8 @@ ifeq ($(host_os),Darwin)
 crosscompile ?= i386-elf-
 endif
 
-cc      ?= $(crosscompile)gcc
-as      ?= $(crosscompile)gcc
+cc      ?= $(crosscompile)tcc
+as      ?= $(crosscompile)tcc
 ld      ?= $(crosscompile)ld
 ar      ?= $(crosscompile)ar
 ranlib  ?= $(crosscompile)ranlib
@@ -159,10 +159,10 @@ $(build)/$(lds):    $(src_dir)/$(lds).S
 	$(cc) -E $< -o $@ -P -DNOT_CC $(cc_includes)
 
 $(build)/%.o : $(src_dir)/%.c
-	$(cc) -c $< -o $@ $(cc_includes) $(cc_flags) -MT $(subst .d,.c,$@)
+	$(cc) -c $< -o $@ $(cc_includes) $(cc_flags)
 
 $(build)/%.o : $(src_dir)/%.S
-	$(as) -c $< -o $@ $(as_flags) -MT $(subst .d,.c,$@)
+	$(as) -c $< -o $@ $(as_flags)
 
 $(libinit):
 	@cd usr && make

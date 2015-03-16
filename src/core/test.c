@@ -376,7 +376,7 @@ void test_userspace(void) {
     kbd_set_onpress((kbd_event_f)key_press);
 
     /* load TR and LDT */
-    asm ("ltrw %%ax     \n\t"::"a"( tss_sel ));
+    asm ("ltr %%ax     \n\t"::"a"( tss_sel ));
     //asm ("lldt %%ax     \n\t"::"a"( SEL_DEFAULT_LDT ));
     
     /* go userspace */

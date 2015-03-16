@@ -126,7 +126,7 @@ typedef struct {
     "movl %1, %%edi     \n"\
     "movw %2, %%dx      \n"\
     "rep insw           \n"\
-    :: "n"(count), "r"(buf), "m"(port))
+    :: "m"(count), "r"(buf), "m"(port))
 
 #define i386_hang()   asm volatile ("cli \n1: hlt\n\tjmp 1b\n" ::)
         
@@ -152,7 +152,7 @@ typedef struct {
 
 #define i386_esp(p)    asm ("\t movl %%esp, %0 \n" : "=r"(p))
 
-#define i386_load_task_reg(sel) asm ("ltrw %%ax     \n\t"::"a"( sel ));
+#define i386_load_task_reg(sel) asm ("ltr %%ax     \n\t"::"a"( sel ));
 
 extern uint i386_rdtsc(uint64_t *timestamp);
 extern void i386_snapshot(char *buf);
