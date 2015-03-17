@@ -426,7 +426,7 @@ char __pure *strnchr(const char *s, size_t n, int c) {
 char __pure *strnrchr(const char *s, size_t n, int c) {
     char *cur = (char *)s;
     char *last = null;
-    while (*cur && ((cur - s) < (int)n)) {
+    while (*cur && ((size_t)(cur - s) < n)) {
         if ((char)c == *cur)
             last = cur;
         ++cur;
