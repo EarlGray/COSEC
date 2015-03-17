@@ -16,9 +16,7 @@
 #define __DEBUG
 #include <log.h>
 
-static off_t vfs_inode_block_by_index(struct inode *idata, off_t bno, size_t blksz);
 static int vfs_inode_get(mountnode *sb, inode_t ino, struct inode *idata);
-static int vfs_path_dirname_len(const char *path);
 static const char * vfs_match_mountpath(mountnode *parent_mnt, mountnode **match_mnt, const char *path);
 
 
@@ -171,10 +169,10 @@ int vfs_mountnode_by_path(const char *path, mountnode **mntnode, const char **re
 }
 
 
-static int vfs_path_dirname_len(const char *path) {
+int vfs_path_dirname_len(const char *path, size_t pathlen) {
     if (!path) return -1;
 
-    char *last_sep = strrchr(path, FS_SEP);
+    char *last_sep = strnrchr(path, pathlen, FS_SEP);
     if (!last_sep) return 0;
 
     while (last_sep[-1] == FS_SEP)
@@ -276,7 +274,7 @@ int vfs_mknod(const char *path, mode_t mode, dev_t dev) {
             "%s: no %s.lookup_inode()\n", funcname, sb->sb_fs->name);
 
     /* get dirino */
-    int dirnamelen = vfs_path_dirname_len(fspath);
+    int dirnamelen = vfs_path_dirname_len(fspath, SIZE_MAX);
     ret = sb->sb_fs->ops->lookup_inode(sb, &dirino, fspath, dirnamelen);
     return_dbg_if(ret, ret, "%s: no dirino for %s\n", funcname, fspath);
 
@@ -420,6 +418,73 @@ int vfs_stat(const char *path, struct stat *stat) {
             "%s: %s.lookup_inode failed(%d)\n", funcname, sb->sb_fs->name, ret);
 
     return vfs_inode_stat(sb, ino, stat);
+}
+
+int vfs_hardlink(const char *path, const char *newpath) {
+    const char *funcname = __FUNCTION__;
+    int ret;
+
+    mountnode *sb = NULL, *sbn = NULL;
+    const char *fspath, *new_fspath;
+
+    ret = vfs_mountnode_by_path(path, &sb, &fspath);
+    return_dbg_if(ret, ret, "%s: no mountnode for '%s'\n", funcname, path);
+
+    ret = vfs_mountnode_by_path(newpath, &sbn, &new_fspath);
+    return_dbg_if(ret, ret, "%s; no mountnode for '%s'\n", funcname, newpath);
+
+    return_dbg_if(sb != sbn, EXDEV,
+            "%s: '%s' and '%s' on different devices\n", funcname, path, newpath);
+
+    return_dbg_if(!sb->sb_fs->ops->lookup_inode, ENOSYS,
+            "%s: no %s.lookup_inode", funcname, sb->sb_fs->name);
+    return_dbg_if(!sb->sb_fs->ops->link_inode, ENOSYS,
+            "%s: no %s.link_inode", funcname, sb->sb_fs->name);
+
+    inode_t ino, dirino;
+    ret = sb->sb_fs->ops->lookup_inode(sb, &ino, fspath, SIZE_MAX);
+    return_dbg_if(ret, ret,
+            "%s: lookup_inode(%s) failed(%d)\n", funcname, fspath, ret);
+
+    int dlen = vfs_path_dirname_len(new_fspath, SIZE_MAX);
+    return_dbg_if(dlen < 0, EINVAL, "%s: dlen=%d\n", funcname, dlen);
+    size_t dirlen = (size_t)dlen;
+
+    ret = sb->sb_fs->ops->lookup_inode(sb, &dirino, new_fspath, dirlen);
+    return_dbg_if(ret, ret,
+            "%s: lookup_inode(%s[:%d]) failed(%d)", funcname, new_fspath, dirino, ret);
+
+    const char *basename = new_fspath + dirlen;
+    while (basename[0] == FS_SEP) ++basename;
+
+    return sb->sb_fs->ops->link_inode(sb, ino, dirino, basename, SIZE_MAX);
+}
+
+int vfs_unlink(const char *path) {
+    const char *funcname = "vfs_unlink";
+    int ret;
+
+    mountnode *sb = NULL;
+    const char *fspath;
+
+    ret = vfs_mountnode_by_path(path, &sb, &fspath);
+    return_dbg_if(ret, ret,
+            "%s: no mountnode for path '%s'\n", funcname, path);
+
+    return_dbg_if(!sb->sb_fs->ops->unlink_inode, ENOSYS,
+            "%s: no %s.unlink_inode\n", funcname, sb->sb_fs->name);
+
+    return sb->sb_fs->ops->unlink_inode(sb, fspath, SIZE_MAX);
+}
+
+int vfs_rename(const char *oldpath, const char *newpath) {
+    const char *funcname = __FUNCTION__;
+    int ret;
+
+    ret = vfs_hardlink(oldpath, newpath);
+    return_dbg_if(ret, ret, "%s: link() failed(%d)\n", funcname, ret);
+
+    return vfs_unlink(oldpath);
 }
 
 

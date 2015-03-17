@@ -213,16 +213,17 @@ static void console_setup(void) {
  ***/
 typedef void (*void_f)();
 
+struct kshell_subcmd {
+    const char *name;
+    void_f handler;
+};
+
 struct kshell_command {
     const char * name;
     void (*handler)(const struct kshell_command *this, const char *arg);
     const char * description;
     const char * options;
-};
-
-struct kshell_subcmd {
-    const char *name;
-    void_f handler;
+    struct kshell_subcmd *subcmds;
 };
 
 
@@ -286,6 +287,9 @@ const struct kshell_command main_commands[] = {
             "\n  mkdir /abs/path/to/dir  -- create a directory;"
             "\n  mknod /abs/path/to/file -- create a regular file;"
             "\n  mkdev [c|d] <maj>:<min> /abs/path/to/dev -- create a device file"
+            "\n  ln /existing/path /new  -- create a new hard link"
+            "\n  mv /abs/path /new/path  -- rename file"
+            "\n  rm /abs/path            -- unlink path (possibly its inode)"
         },
     { .name = "set",
         .handler = kshell_set,
@@ -756,6 +760,41 @@ void kshell_vfs(const struct kshell_command __unused *this, const char *arg) {
         }
         k_printf("\n  st_nlink  = %d\n", stat.st_nlink);
         k_printf("  st_size   = %d\n", stat.st_size);
+    } else
+    if (!strncmp(arg, "mv", 2)) {
+        arg += 2; while (isspace(*arg)) ++arg;
+
+        char *path2 = strchr(arg, ' ');
+        if (!path2) { k_printf("Error: the new file name not found\n"); return; }
+
+        char *path1 = strndup(arg, path2 - arg);
+
+        while (isspace(*path2)) ++path2;
+
+        int ret = vfs_rename(path1, path2);
+        if (ret) k_printf("Error: %s\n", strerror(ret));
+
+        kfree(path1);
+    } else
+    if (!strncmp(arg, "rm", 2)) {
+        arg += 2; while (isspace(*arg)) ++arg;
+        int ret = vfs_unlink(arg);
+        if (ret) k_printf("rm failed: %s\n", strerror(ret));
+    } else
+    if (!strncmp(arg, "ln", 2)) {
+        arg += 2; while (isspace(*arg)) ++arg;
+
+        char *path2 = strchr(arg, ' ');
+        if (!path2) { k_printf("Error: the new file name not found\n"); return; }
+
+        char *path1 = strndup(arg, path2 - arg);
+
+        while (isspace(*path2)) ++path2;
+
+        int ret = vfs_hardlink(path1, path2);
+        if (ret) k_printf("Error: %s\n", strerror(ret));
+
+        kfree(path1);
     } else {
         k_printf("Options: %s\n", this->options);
     }

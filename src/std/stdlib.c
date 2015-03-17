@@ -380,9 +380,9 @@ size_t __pure strlen(const char *s) {
 
 size_t __pure strnlen(const char *s, size_t maxlen) {
     const char *c = s;
-    index_t i = 0;
-    while ((i++ < maxlen) && *c) ++c;
-    return c - s;
+    while (*c && ((size_t)(c - s) < maxlen))
+        ++c;
+    return (size_t)(c - s);
 }
 
 void* memcpy(void *dest, const void *src, size_t size) {

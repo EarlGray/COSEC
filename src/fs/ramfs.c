@@ -208,9 +208,10 @@ static int ramfs_get_direntry(mountnode *sb, inode_t dirnode, void **iter, struc
 static int ramfs_make_node(mountnode *sb, inode_t *ino, mode_t mode, void *info);
 static int ramfs_free_inode(mountnode *sb, inode_t ino);
 static int ramfs_link_inode(mountnode *sb, inode_t ino, inode_t dirino, const char *name, size_t namelen);
+static int ramfs_unlink_inode(mountnode *sb, const char *path, size_t pathlen);
 static int ramfs_inode_data(mountnode *sb, inode_t ino, struct inode *idata);
-static int ramfs_read_inode(mountnode *sb, inode_t ino, off_t pos,
-                            char *buf, size_t buflen, size_t *written);
+static int ramfs_read_inode();/*mountnode *sb, inode_t ino, off_t pos,
+                            char *buf, size_t buflen, size_t *written); */
 static int ramfs_write_inode(mountnode *sb, inode_t ino, off_t pos,
                              const char *buf, size_t buflen, size_t *written);
 
@@ -224,6 +225,7 @@ struct filesystem_operations  ramfs_fsops = {
     .get_direntry       = ramfs_get_direntry,
     .make_inode         = ramfs_make_node,
     .link_inode         = ramfs_link_inode,
+    .unlink_inode       = ramfs_unlink_inode,
     .inode_data         = ramfs_inode_data,
     .read_inode         = ramfs_read_inode,
     .write_inode        = ramfs_write_inode,
@@ -313,13 +315,18 @@ static int ramfs_directory_insert(struct ramfs_directory *dir,
     return 0;
 }
 
+static void ramfs_direntry_free(struct ramfs_direntry *de) {
+    kfree(de->de_name);
+    kfree(de);
+}
+
 static int ramfs_directory_new_entry(
         mountnode *sb, struct ramfs_directory *dir,
         const char *name, struct inode *idata)
 {
     UNUSED(sb);
     logmsgf("ramfs_directory_new_entry(%s)\n", name);
-    int ret = 0;
+    int ret;
     struct ramfs_direntry *de = kmalloc(sizeof(struct ramfs_direntry));
     if (!de) return ENOMEM;
 
@@ -331,13 +338,80 @@ static int ramfs_directory_new_entry(
 
     ret = ramfs_directory_insert(dir, de);
     if (ret) {
-        kfree(de->de_name);
-        kfree(de);
+        ramfs_direntry_free(de);
         return ret;
     }
 
-    ++ idata->i_nlinks;
     return 0;
+}
+
+static int ramfs_directory_delete_entry(
+        mountnode *sb, struct ramfs_directory *dir, const char *name, size_t namelen)
+{
+    UNUSED(sb);
+    const char *funcname = "ramfs_directory_delete_entry";
+    int ret;
+
+    struct ramfs_direntry *de, *prev_de;
+
+    uint32_t hash = strhash(name, strnlen(name, namelen));
+
+    de = dir->ht[ hash % dir->htcap ];
+    return_dbg_if(!de, ENOENT, "%s(%s): ENOENT\n", funcname, name);
+
+    if ((de->de_hash == hash) && !strcmp(de->de_name, name)) {
+        dir->ht[ hash % dir->htcap ] = de->htnext;
+        -- dir->size;
+        /* TODO : possibly rebalance */
+
+        ramfs_direntry_free(de);
+        return 0;
+    }
+
+    while (de->htnext) {
+        prev_de = de;
+        de = de->htnext;
+
+        if (de->de_hash == hash && !strcmp(name, de->de_name)) {
+            prev_de->htnext = de->htnext;
+            -- dir->size;
+            /* TODO: possibly rebalance */
+
+            ramfs_direntry_free(de);
+            return 0;
+        }
+    }
+
+    return ENOENT;
+}
+
+/*
+ *    Searches given `dir` for part between `basename` and `basename_end`
+ */
+static int ramfs_directory_search(
+        struct ramfs_directory *dir, inode_t *ino, const char *basename, size_t basename_len)
+{
+    const char *funcname = "ramfs_directory_search";
+    logmsgdf("%s(dir=*%x, basename='%s'[:%d]\n",
+             funcname, (uint)dir, basename, basename_len);
+
+    uint32_t hash = strhash(basename, strnlen(basename, basename_len));
+
+    /* directory hashtable: get direntry */
+    struct ramfs_direntry *de = dir->ht[ hash % dir->htcap ];
+
+    while (de) {
+        if ((de->de_hash == hash)
+            && !strncmp(basename, de->de_name, basename_len))
+        {
+            if (ino) *ino = de->de_ino;
+            return 0;
+        }
+        de = de->htnext;
+    }
+
+    if (ino) *ino = 0;
+    return ENOENT;
 }
 
 static void ramfs_directory_free(struct ramfs_directory *dir) {
@@ -472,34 +546,6 @@ static int ramfs_inode_data(mountnode *sb, inode_t ino, struct inode *inobuf) {
     return 0;
 }
 
-/*
- *    Searches given `dir` for part between `basename` and `basename_end`
- */
-static int ramfs_get_inode_by_basename(struct ramfs_directory *dir, inode_t *ino, const char *basename, size_t basename_len)
-{
-    const char *funcname = "ramfs_get_inode_by_basename";
-    logmsgdf("%s(dir=*%x, basename='%s'[:%d]\n",
-             funcname, (uint)dir, basename, basename_len);
-
-    uint32_t hash = strhash(basename, basename_len);
-
-    /* directory hashtable: get direntry */
-    struct ramfs_direntry *de = dir->ht[ hash % dir->htcap ];
-
-    while (de) {
-        if ((de->de_hash == hash)
-            && !strncmp(basename, de->de_name, basename_len))
-        {
-            if (ino) *ino = de->de_ino;
-            return 0;
-        }
-        de = de->htnext;
-    }
-
-    if (ino) *ino = 0;
-    return ENOENT;
-}
-
 
 static int ramfs_lookup_inode(mountnode *sb, inode_t *result, const char *path, size_t pathlen)
 {
@@ -535,7 +581,7 @@ static int ramfs_lookup_inode(mountnode *sb, inode_t *result, const char *path, 
             {
                 /* basename is "examplefilename" now */
                 //logmsgdf("%s: basename found\n", basename);
-                ret = ramfs_get_inode_by_basename(dir, &ino, basename, basename_end - basename);
+                ret = ramfs_directory_search(dir, &ino, basename, basename_end - basename);
                 if (result) *result = (ret ? 0 : ino);
                 return ret;
             }
@@ -545,7 +591,7 @@ static int ramfs_lookup_inode(mountnode *sb, inode_t *result, const char *path, 
             ++basename_end;
         }
 
-        ret = ramfs_get_inode_by_basename(dir, &ino, basename, basename_end - basename);
+        ret = ramfs_directory_search(dir, &ino, basename, basename_end - basename);
         if (ret) {
             if (result) *result = 0;
             return ret;
@@ -596,6 +642,55 @@ static int ramfs_link_inode(
     return 0;
 }
 
+static int ramfs_unlink_inode(mountnode *sb, const char *path, size_t pathlen) {
+    const char *funcname = "ramfS_unlink_inode";
+    int ret;
+
+    int dlen = vfs_path_dirname_len(path, pathlen);
+    return_dbg_if(dlen < 0, EINVAL, "%s: dirlen=%d\n", funcname, dlen);
+    size_t dirlen = (size_t)dlen;
+
+    inode_t ino, parino;
+    struct inode *idata, *dir_idata;
+
+    ret = ramfs_lookup_inode(sb, &parino, path, dirlen);
+    return_dbg_if(ret, ret, "%s: lookup_inode(%s[:%d]) failed(%d)\n", funcname, dirlen, ret);
+
+    dir_idata = ramfs_idata_by_inode(sb, parino);
+    return_dbg_if(!dir_idata, EKERN,
+            "%s: no inode for ino=%d\n", funcname, parino);
+    return_dbg_if(!S_ISDIR(dir_idata->i_mode), ENOTDIR,
+            "%s: %s[:%d] is not a directory", funcname, path, dirlen);
+
+    struct ramfs_directory *dir = dir_idata->i_data;
+    return_dbg_if(!dir, EKERN, "%s: no %s[:%d]->i_data\n", funcname, path, dirlen);
+
+    const char *basename = path + dirlen;
+    while (basename[0] == FS_SEP) {
+        return_dbg_if(dirlen >= pathlen, EINVAL, "%s: no basename\n");
+        ++basename;
+        ++dirlen;
+    }
+
+    ret = ramfs_directory_search(dir, &ino, basename, pathlen - dirlen);
+    return_dbg_if(ret, ret,
+            "%s; directory_search(%s) failed(%d)\n", funcname, basename, ret);
+
+    idata = ramfs_idata_by_inode(sb, ino);
+    return_dbg_if(!idata, EKERN, "%s: no idata for ino=%d\n", funcname, ino);
+    return_dbg_if(S_ISDIR(idata->i_mode), EISDIR, "%s(%s): EISDIR\n", funcname, basename);
+
+    ret = ramfs_directory_delete_entry(sb, dir, basename, pathlen - dirlen);
+    return_dbg_if(ret, ret, "%s: delete_entry(%s) failed(%d)\n", funcname, basename, ret);
+
+    -- idata->i_nlinks;
+    logmsgdf("%s(%s): success, nlinks=%d\n", idata->i_nlinks);
+    if (idata->i_nlinks > 0) return 0;
+
+    /* delete the inode */
+    return ramfs_free_inode(sb, ino);
+}
+
 
 static int ramfs_make_directory(mountnode *sb, inode_t *ino, const char *path, mode_t mode) {
     const char *funcname = "ramfs_make_directory";
@@ -620,6 +715,7 @@ static int ramfs_make_directory(mountnode *sb, inode_t *ino, const char *path, m
             /* it's a root mountpoint, '..' points to '.' */
             ret = ramfs_directory_new_entry(sb, dir, "..", idata);
             if (ret) goto error_exit;
+            ++idata->i_nlinks;
         } else {
             /* look up the parent directory inode */
             logmsge("%s: TODO: lookup parent inode", funcname);
@@ -654,12 +750,14 @@ static int ramfs_make_directory(mountnode *sb, inode_t *ino, const char *path, m
 
         parent_dir = par_idata->i_data;
         ret = ramfs_directory_new_entry(sb, parent_dir, basename, idata);
+        ++idata->i_nlinks;
     }
 
     ret = ramfs_directory_new_entry(sb, dir, ".", idata);
     if (ret) goto error_exit;
 
     idata->i_data = dir;
+    ++idata->i_nlinks;
 
     if (ino) *ino = idata->i_no;
     return 0;
@@ -814,9 +912,11 @@ static int ramfs_get_direntry(mountnode *sb, inode_t dirnode, void **iter, struc
     return 0;
 }
 
-static int ramfs_read_inode(
+static int ramfs_read_inode()
+    /*
         mountnode *sb, inode_t ino, off_t pos,
         char *buf, size_t buflen, size_t *written)
+        */
 {
     return ETODO;
 }
