@@ -931,8 +931,6 @@ static int ramfs_write_inode(
     idata = ramfs_idata_by_inode(sb, ino);
     return_dbg_if(!idata, ENOENT, "%s(ino = %d): ENOENT\n", funcname, ino);
 
-    /* TODO : block storage */
-
     return ETODO;
 }
 

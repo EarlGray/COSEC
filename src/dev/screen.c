@@ -429,7 +429,7 @@ devclass vcs_device_class = {
     .init_devclass  = init_vcs_devices,
 };
 
-devclass * get_vcs_family(void) {
+devclass * get_vcs_devclass(void) {
     return &vcs_device_class;
 }
 

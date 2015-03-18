@@ -197,7 +197,8 @@ void dev_setup(void) {
     devclass_register( &chr0_device_family );
     devclass_register( &chr1_device_family );
 
-    devclass_register( get_vcs_family() );
+    devclass_register( get_vcs_devclass() );
+    devclass_register( get_tty_devclass() );
 
     /* block devices */
 }

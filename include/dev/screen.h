@@ -34,7 +34,7 @@ enum vcsa_color {
 #define VCSA_DEFAULT_ATTRIBUTE  VCSA_ATTR_GREY
 
 typedef struct devclass devclass;
-devclass * get_vcs_family(void);
+devclass * get_vcs_devclass(void);
 
 /*
  *  Direct buffer operation
