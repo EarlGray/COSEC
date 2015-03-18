@@ -20,3 +20,14 @@ Features:
 - posix virtual filesystem (inodes, mountpoints, filelinks), ramfs;
 Nothing more yet (no paging, no processes, no decent userland, no lot of things);
 
+
+Try it!
+-------
+
+You can find a fresh image at https://dmytrish.net/d/cosec.iso
+
+Run:
+
+- using Qemu: `qemu-system-i386 -cdrom cosec.iso`;
+- using http://copy.sh/v86 : choose `cosec.iso` as "CD image" and start emulation;
+- set it as a livecd in a x86 virtual machine of your choice.
