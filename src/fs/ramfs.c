@@ -912,11 +912,10 @@ static int ramfs_get_direntry(mountnode *sb, inode_t dirnode, void **iter, struc
     return 0;
 }
 
-static int ramfs_read_inode()
-    /*
+static int ramfs_read_inode(/*
         mountnode *sb, inode_t ino, off_t pos,
         char *buf, size_t buflen, size_t *written)
-        */
+        */)
 {
     return ETODO;
 }
