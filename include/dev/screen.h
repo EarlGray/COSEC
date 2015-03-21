@@ -58,6 +58,14 @@ void vcsa_move_cursor_back(int vcsno);
 void vcsa_move_cursor_next(int vcsno);
 void vcsa_move_cursor_tabstop(int vcsno);
 
+enum vcsa_eraser {
+    VCSA_ERASE_AFTER_CURSOR,
+    VCSA_ERASE_BEFORE_CURSOR,
+    VCSA_ERASE_WHOLE,
+};
+void vcsa_erase_screen(int vcsno, enum vcsa_eraser method);
+void vcsa_erase_line(int vcsno, enum vcsa_eraser method);
+
 void vcsa_clear(int vcsno);
 void vcsa_switch(int vcsno);
 

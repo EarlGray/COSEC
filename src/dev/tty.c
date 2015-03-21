@@ -76,9 +76,112 @@ static inline void tty_linefeed(int vcsno) {
     vcsa_newline(vcsno);
 }
 
-static int dev_tty_write(device  *dev, const char *buf, size_t buflen, size_t *written, off_t pos) {
+const uint8_t ecma48_to_vga_color[] = {
+    [0] = VCSA_ATTR_BLACK,
+    [1] = VCSA_ATTR_RED,
+    [2] = VCSA_ATTR_GREEN,
+    [3] = VCSA_ATTR_ORANGE,
+    [4] = VCSA_ATTR_BLUE,
+    [5] = VCSA_ATTR_MAGENTA,
+    [6] = VCSA_ATTR_CYAN,
+    [7] = VCSA_ATTR_GREY,
+};
+
+static inline void ecma48_csi(char c, int vcsno, int *a1, int *a2) {
+    const char *funcname = __FUNCTION__;
+    uint8_t attr;
+
+    int arg1 = (a1 ? *a1 : 1);
+    int arg2 = (a2 ? *a2 : 1);
+
+    switch (c) {
+      case 'A': /* CUU -- cursor up by arg1 */
+        arg1 = -arg1; /* fallthrough */
+      case 'B': /* CUD -- cursor down */
+        vcsa_move_cursor_by(vcsno, 0, arg1);
+        break;
+      case 'D': /* CUB -- cursor back */
+        arg1 = - arg1; /* fallthrough */
+      case 'C': /* CUF -- cursor forward */
+        vcsa_move_cursor_by(vcsno, arg1, 0);
+        break;
+      case 'F': /* CPL -- to prev. lines */
+        arg1 = -arg1; /* fallthrough */
+      case 'E': /* CNL -- to next lines */
+        vcsa_move_cursor_by(vcsno, -SCR_WIDTH, arg1);
+        break;
+      case 'G': /* CHA -- move to indicated column in the current row */
+        vcsa_set_cursor(vcsno, arg1, VCS_DO_NOT_MOVE);
+        break;
+      case 'H': /* CUP -- set cursor position to (arg2, arg1) */
+        vcsa_set_cursor(vcsno, arg2, arg1);
+        break;
+      case 'J': /* ED -- erase display */
+        switch (arg1) {
+          case 1:
+            if (*a1) /* erase from 1,1 to the cursor */
+                vcsa_erase_screen(vcsno, VCSA_ERASE_BEFORE_CURSOR);
+            else /* erase from cursor to the end */
+                vcsa_erase_screen(vcsno, VCSA_ERASE_AFTER_CURSOR);
+            break;
+          case 2: /* erase the whole screen */
+            vcsa_erase_screen(vcsno, VCSA_ERASE_WHOLE);
+            break;
+          default:
+            logmsgdf("%s: warn: ESC [ %d J\n", funcname, arg1);
+        }
+        break;
+      case 'K': /* EL -- erase line */
+        switch (arg1) {
+          case 1:
+            if (*a1)
+                vcsa_erase_line(vcsno, VCSA_ERASE_BEFORE_CURSOR);
+            else
+                vcsa_erase_line(vcsno, VCSA_ERASE_AFTER_CURSOR);
+            break;
+          case 2:
+            vcsa_erase_line(vcsno, VCSA_ERASE_WHOLE);
+            break;
+          default:
+            logmsgdf("%s: warn: ESC [ %d K\n", funcname, arg1);
+        }
+        break;
+
+      case 'm':
+        if (!a1) arg1 = 0;
+        attr = vcsa_get_attribute(vcsno);
+        if (0 == arg1) {
+            /* reset attributes */
+            vcsa_set_attribute(vcsno, VCSA_DEFAULT_ATTRIBUTE);
+            break;
+        }
+        if ((30 <= arg1) && (arg1 <= 37)) {
+            /* set foreground color */
+            attr &= 0xf0;
+            attr |= ecma48_to_vga_color[arg1 - 30];
+            vcsa_set_attribute(vcsno, attr);
+            break;
+        }
+        if ((40 <= arg1) && (arg1 <= 47)) {
+            /* set background color */
+            attr &= 0x0f;
+            attr |= ecma48_to_vga_color[arg1 - 40];
+            break;
+        }
+        logmsgf("%s: unknown graphic mode \\x%x\n", funcname, arg1);
+        break;
+      default:
+        logmsgf("%s: unknown sequence CSI \\x%x\n", funcname, (uint)c);
+    }
+}
+
+static int dev_tty_write(
+    device  *dev, const char *buf, size_t buflen, size_t *written, off_t pos
+) {
     UNUSED(pos);
     const char *funcname = __FUNCTION__;
+    int arg1, arg2;
+    bool hasarg1, hasarg2;
 
     struct tty_device *ttydev = dev->dev_data;
     return_log_if(!ttydev, EKERN, "%s: no ttydev", funcname);
@@ -115,14 +218,40 @@ static int dev_tty_write(device  *dev, const char *buf, size_t buflen, size_t *w
                   case 'c': /* RIS, reset */ vcsa_clear(ttyvcs); break;
                   case 'D': /* IND */ vcsa_move_cursor_by(ttyvcs, 0, 1); break;
                   case 'E': /* NEL */ vcsa_newline(ttyvcs); break;
-                  case 'H': /* HTS */ logmsgef("%s: TODO: set tabstop at current column", funcname); break;
-                  case 'M': /* RI  */ vcsa_move_cursor_by(ttyvcs, 0, -1); break; /* reverse linefeed */
+                  case 'H': /* HTS */
+                    logmsgef("%s: TODO: set tabstop at current column", funcname);
+                    break;
+                  case 'M': /* RI -- reverse linefeed */
+                    vcsa_move_cursor_by(ttyvcs, 0, -1);
+                    break;
                   case '[': /* CSI -- Control Sequence Introducer */
                     ++s;
-                    /* TODO: read params */
-                    /* TODO: handle CSIs */
+                    /* read params if present */
+                    arg1 = 1; arg2 = 1;
+                    hasarg1 = false; hasarg2 = false;
+                    if (isdigit(*s)) {
+                        hasarg1 = true;
+                        do {
+                            arg1 *= 10;
+                            arg1 += (*s - '0');
+                            ++s;
+                        } while (isdigit(*s));
+                    }
+                    if (*s == ';') {
+                        hasarg2 = true;
+                        do {
+                            arg2 *= 10;
+                            arg2 += (*s - '0');
+                            ++s;
+                        } while (isdigit(*s));
+                    }
+
+                    ecma48_csi(*s, ttyvcs,
+                               (hasarg1 ? &arg1 : NULL),
+                               (hasarg2 ? &arg2 : NULL));
                     break;
-                  default: logmsgf("%s: unknown sequence ESC \\x%x\n", funcname, (uint)*s); break;
+                  default:
+                    logmsgf("%s: unknown sequence ESC \\x%x\n", funcname, (uint)*s);
                 }
                 break;
               default:

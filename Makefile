@@ -57,7 +57,7 @@ mnt_img     := bootfd
 image       := cosec.img
 cd_img      := cosec.iso
 
-fuse    := $(shell which ext2fuse)
+fuse    := $(shell which ext2fuse 2>/dev/null)
 
 ### Use native mount/umount for a GRUB installation, fuseext2 fails at this
 ifeq ($(strip $(fuse)),)

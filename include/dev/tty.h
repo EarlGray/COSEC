@@ -1,6 +1,8 @@
 #ifndef __COSEC_TTY_H__
 #define __COSEC_TTY_H__
 
+#include <fs/devices.h>
+
 /* C0 control character set */
 enum tty_ctrlchars {
     NUL = 0x00, SOH = 0x01, STX = 0x02, ETX = 0x04,
@@ -18,5 +20,7 @@ enum tty_ctrlchars {
 
 struct devclass;
 struct devclass * get_tty_devclass(void);
+
+int tty_write(mindev_t ttyno, const char *buf, size_t buflen);
 
 #endif // __COSEC_TTY_H__

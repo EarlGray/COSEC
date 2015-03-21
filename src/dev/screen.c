@@ -70,6 +70,10 @@ if (!(cond)) do {                   \
     cpu_hang();                     \
 } while (0)
 
+inline static void clear_vga_sym(char *buf, uint8_t attr) {
+    buf[0] = ' '; buf[1] = attr;
+}
+
 inline void vcsa_set_attribute(int vcsno, uint8_t attr) {
     if (vcsno == VIDEOMEM_VCSA) vcsno = active_vcs;
     int vcsind = (vcsno < 0x80 ? vcsno : vcsno - 0x80);
@@ -92,8 +96,8 @@ void vcsa_set_cursor(int vcsno, int x, int y) {
     if (vcsno == VIDEOMEM_VCSA) vcsno = active_vcs;
     HANG_IFNOT((0 <= vcsno) && (vcsno < N_VCSA_DEVICES),
             "vcsa_set_cursor : vcsno");
-    HANG_IFNOT(x < SCR_WIDTH, "vcsa_set_cursor : x");
-    HANG_IFNOT(y < SCR_HEIGHT, "vcsa_set_cursor : y");
+    if (x >= SCR_WIDTH)  x = SCR_WIDTH - 1;
+    if (y >= SCR_HEIGHT) y = SCR_HEIGHT - 1;
 
     if (x >= 0) vcs_data[vcsno].col = x;
     if (y >= 0) vcs_data[vcsno].line = y;
@@ -120,24 +124,74 @@ inline void vcsa_refresh(void) {
     update_hw_cursor();
 }
 
+void vcsa_erase_line(int vcsno, enum vcsa_eraser method) {
+    int j;
+    int x = vcs_data[vcsno].col;
+    int y = vcs_data[vcsno].line;
+    uint8_t attr = vcs_data[vcsno].attr;
+
+    char *buf = GET_VCSA_BUF(vcsno) + 2 * SCR_WIDTH * y;
+
+    for (j = 0; j < SCR_WIDTH; ++j) {
+        if (j < x) {
+            if (method != VCSA_ERASE_AFTER_CURSOR)
+                clear_vga_sym(buf, attr);
+        } else {
+            if (method != VCSA_ERASE_BEFORE_CURSOR)
+                clear_vga_sym(buf, attr);
+        }
+
+        buf += 2;
+    }
+
+    if (vcsno == active_vcs)
+        vcsa_refresh();
+}
+
+void vcsa_erase_screen(int vcsno, enum vcsa_eraser method) {
+    int i, j;
+    int x = vcs_data[vcsno].col;
+    int y = vcs_data[vcsno].line;
+    uint8_t attr = vcs_data[vcsno].attr;
+
+    char *buf = GET_VCSA_BUF(vcsno);
+
+    for (i = 0; i < SCR_HEIGHT; ++i) {
+        for (j = 0; j < SCR_WIDTH; ++j) {
+            if (i < y) {
+                if (method != VCSA_ERASE_AFTER_CURSOR)
+                    clear_vga_sym(buf, attr);
+            } else if (i > y) {
+                if (method != VCSA_ERASE_BEFORE_CURSOR)
+                    clear_vga_sym(buf, attr);
+            } else {
+                if (j < x) {
+                    if (method != VCSA_ERASE_AFTER_CURSOR)
+                        clear_vga_sym(buf, attr);
+                } else {
+                    if (method != VCSA_ERASE_BEFORE_CURSOR)
+                        clear_vga_sym(buf, attr);
+                }
+            }
+            buf += 2;
+        }
+    }
+
+    if (vcsno == active_vcs)
+        vcsa_refresh();
+}
+
 void vcsa_clear(int vcsno) {
     if (vcsno == VIDEOMEM_VCSA)
         vcsno = active_vcs;
 
     if (!((0 <= vcsno) && (vcsno < N_VCSA_DEVICES))) return;
-    int i;
 
     uint8_t attr = vcs_data[vcsno].attr;
     if (!attr)
         attr = vcs_data[vcsno].attr = VCSA_DEFAULT_ATTRIBUTE;
 
-    char *buf = GET_VCSA_BUF(vcsno);
-
-    for (i = 0; i < SCR_WIDTH * SCR_HEIGHT; ++i) {
-        buf[ 2 * i ] = ' ';
-        buf[ 2 * i + 1] = attr;
-    }
-
+    vcsa_erase_screen(vcsno, VCSA_ERASE_WHOLE);
     vcsa_set_cursor(vcsno, 0, 0);
 
     if (vcsno == active_vcs)
@@ -168,8 +222,8 @@ static void vcsa_scroll_lines(int vcsno, int lines) {
         }
     for (i = 0; i < lines; ++i) {
         for (j = 0; j < SCR_WIDTH; ++j) {
-            *buf++ = ' ';
-            *buf++ = attr;
+            clear_vga_sym(buf, attr);
+            buf += 2;
         }
     }
     if (vcsno == active_vcs) vcsa_refresh();
@@ -453,6 +507,7 @@ static device * get_vcs_device(mindev_t dev_no) {
 
 void init_vcs_devices(void) {
     int i, j;
+    logmsgif(__FUNCTION__);
 
     active_vcs = CONSOLE_VCSA;
 
@@ -506,8 +561,7 @@ void cprint(char c) {
             vcsa_newline(CONSOLE_VCSA);
             break;
         case '\r':
-            vcsa_get_cursor(CONSOLE_VCSA, NULL, &y);
-            vcsa_set_cursor(CONSOLE_VCSA, 0, y);
+            vcsa_set_cursor(CONSOLE_VCSA, 0, VCS_DO_NOT_MOVE);
             break;
         case '\t':
             vcsa_move_cursor_tabstop(CONSOLE_VCSA);
