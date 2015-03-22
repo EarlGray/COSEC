@@ -3,6 +3,8 @@
 
 #include <fs/devices.h>
 
+#define CONSOLE_TTY     0
+
 /* C0 control character set */
 enum tty_ctrlchars {
     NUL = 0x00, SOH = 0x01, STX = 0x02, ETX = 0x04,
@@ -21,6 +23,13 @@ enum tty_ctrlchars {
 struct devclass;
 struct devclass * get_tty_devclass(void);
 
+
 int tty_write(mindev_t ttyno, const char *buf, size_t buflen);
+
+int tty_read(mindev_t ttyno, char *buf, size_t buflen, size_t *written);
+
+#include <dev/kbd.h>
+
+void tty_keyboard_handler(scancode_t sc);
 
 #endif // __COSEC_TTY_H__

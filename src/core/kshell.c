@@ -1,3 +1,8 @@
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <time.h>
+
 #include <arch/i386.h>
 #include <arch/mboot.h>
 #include <arch/multiboot.h>
@@ -5,12 +10,8 @@
 #include <dev/intrs.h>
 #include <dev/screen.h>
 #include <dev/kbd.h>
+#include <dev/tty.h>
 #include <dev/pci.h>
-
-#include <stdlib.h>
-#include <string.h>
-#include <stdio.h>
-#include <time.h>
 
 #include <mem/pmem.h>
 #include <mem/kheap.h>
@@ -954,10 +955,34 @@ void kshell_do(char *command) {
 void kshell_run(void) {
     char cmd_buf[CMD_SIZE] = { 0 };
 
+#if 1
+
+    for (;;) {
+        int ret;
+        size_t nread;
+        ret = tty_write(CONSOLE_TTY, prompt, strlen(prompt));
+        if (ret) { k_printf("ERROR: tty_write: %s\n", strerror(ret)); cpu_hang(); }
+
+        kbd_set_onpress(tty_keyboard_handler);
+        kbd_set_onrelease(tty_keyboard_handler);
+
+        ret = tty_read(CONSOLE_TTY, cmd_buf, CMD_SIZE, &nread);
+        if (ret) k_printf("ERROR: tty_read(nread=%d): %s\n", nread, strerror(ret));
+
+        if (cmd_buf[nread - 1] == '\n') cmd_buf[nread - 1] = 0;
+        else logmsgf("kshell: cmd_buf[last] != \\n\n");
+
+        logmsgf("kshell: nread=%d, cmd='%s'\n", ret, cmd_buf);
+
+        kshell_do(cmd_buf);
+    }
+#else
     console_setup();
 
     for (;;) {
         kshell_readline(cmd_buf, CMD_SIZE, prompt);
         kshell_do(cmd_buf);
     }
+#endif
 }
+

@@ -7,7 +7,7 @@
 
 #include <dev/kbd.h>
 
-#define KEY_COUNT   	128
+#define KEY_COUNT       128
 
 /*************** Keyboard buffer ****************/
 
@@ -66,7 +66,7 @@ struct kbd_layout {
 /** Default qwerty-ASCII translator **/
 const struct kbd_layout qwerty_layout = {
     .key = {
-        { 0, 0, 0 },        { 0, 0, 0},         {'1', '!', 0 },     { '2', '@', 0 }, // 0
+        { 0,   0,   0 },    { 0,   0,   0},     {'1', '!', 0 },     { '2', '@', 0 }, // 0
         { '3', '#', 0 },    { '4', '$', 0 },    { '5', '%', 0 },    { '6', '^', 0 }, // 4
         { '7', '&', 0 },    { '8', '*', 0 },    { '9', '[', 0 },    { '0', ']', 0 }, // 8
         { '-', '_', 0 },    { '=', '+', 0 },    { '\b', '\b', 0 },  { 0, 0, 0 },     // 0xC
@@ -154,7 +154,7 @@ volatile kbd_event_f on_press = null;
 volatile kbd_event_f on_release = null;
 
 inline bool kbd_state_shift(void) {
-	return theKeyboard[0x2A] | theKeyboard[0x36];
+    return theKeyboard[0x2A] | theKeyboard[0x36];
 }
 
 inline bool kbd_state_ctrl(void) {
@@ -162,38 +162,37 @@ inline bool kbd_state_ctrl(void) {
 }
 
 inline bool kbd_state(uint8_t scan_id) {
-	return theKeyboard[scan_id];
+    return theKeyboard[scan_id];
 }
 
 
 void kbd_set_onpress(kbd_event_f onpress) {
-	on_press = onpress;
+    on_press = onpress;
 }
 
 void kbd_set_onrelease(kbd_event_f onrelease) {
-	on_release = onrelease;
+    on_release = onrelease;
 }
 
 
 void keyboard_irq(/*void *stack*/) {
-	uint8_t scan_code = 0;
-	inb(0x60, scan_code);
+    uint8_t scan_code = 0;
+    inb(0x60, scan_code);
     kbd_push_scancode(scan_code);
 
-	if (!(scan_code & 0x80)) {
-		/* on press event */
-		theKeyboard[scan_code] = true;
+    if (!(scan_code & 0x80)) {
+        /* on press event */
+        theKeyboard[scan_code] = true;
 
         if (on_press)
             on_press(scan_code);
-	}	
-	else {
-		/* on release event */
-		theKeyboard[scan_code & 0x7F] = false;
+    } else {
+        /* on release event */
+        theKeyboard[scan_code & 0x7F] = false;
 
         if (on_release)
             on_release(scan_code);
-	}
+    }
 }
 
 void kbd_setup(void) {

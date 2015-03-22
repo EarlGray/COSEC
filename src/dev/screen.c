@@ -303,6 +303,8 @@ inline void vcsa_move_cursor_next(int vcsno) {
         vcs_data[vcsno].col = col;
     else
         vcsa_newline(vcsno);
+
+    if (vcsno == active_vcs) update_hw_cursor();
 }
 
 void vcsa_set_char(int vcsno, char c) {
