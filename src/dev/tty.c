@@ -370,6 +370,7 @@ static int dev_tty_write(
                     arg1 = 1; arg2 = 1;
                     hasarg1 = false; hasarg2 = false;
                     if (isdigit(*s)) {
+                        arg1 = 0;
                         hasarg1 = true;
                         do {
                             arg1 *= 10;
@@ -378,12 +379,14 @@ static int dev_tty_write(
                         } while (isdigit(*s));
                     }
                     if (*s == ';') {
+                        arg2 = 0;
+                        ++s;
                         hasarg2 = true;
-                        do {
+                        while (isdigit(*s)) {
                             arg2 *= 10;
                             arg2 += (*s - '0');
                             ++s;
-                        } while (isdigit(*s));
+                        }
                     }
 
                     ecma48_csi(*s, ttyvcs,
