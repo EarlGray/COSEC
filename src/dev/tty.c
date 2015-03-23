@@ -513,6 +513,7 @@ void tty_keyboard_handler(scancode_t sc) {
     returnv_err_if(!tty, "%s: no active tty", funcname);
 
     if ((0x3b <= sc) && (sc <= 0x42)) {
+        theActiveTTY = (sc - 0x3b);
         vcsa_switch(sc - 0x3b);
         return;
     }
