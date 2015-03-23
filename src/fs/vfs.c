@@ -17,7 +17,9 @@
 #include <log.h>
 
 static int vfs_inode_get(mountnode *sb, inode_t ino, struct inode *idata);
-static const char * vfs_match_mountpath(mountnode *parent_mnt, mountnode **match_mnt, const char *path);
+
+static const char *
+vfs_match_mountpath(mountnode *parent_mnt, mountnode **match_mnt, const char *path);
 
 
 /*
@@ -329,25 +331,40 @@ int vfs_inode_read(
             "%s: %s.inode_data(%d) failed(%d)\n", funcname, sb->sb_fs->name, ino, ret);
 
     dev_t devno;
+    device *dev;
     switch (idata.i_mode & S_IFMT) {
         case S_IFCHR:
             devno = gnu_dev_makedev(idata.as.dev.maj, idata.as.dev.min);
-            return cdev_blocking_read(devno, pos, buf, buflen, written);
+            dev = device_by_devno(DEV_CHR, devno);
+            if (!dev) return ENODEV;
+            return cdev_blocking_read(dev, pos, buf, buflen, written);
         case S_IFBLK:
             devno = gnu_dev_makedev(idata.as.dev.maj, idata.as.dev.min);
-            return bdev_blocking_read(devno, pos, buf, buflen, written);
-        case S_IFSOCK:  logmsgef("%s(ino=%d -- SOCK): ETODO", funcname, ino); return ETODO;
-        case S_IFIFO:   logmsgef("%s(ino=%d -- FIFO): ETODO", funcname, ino); return ETODO;
-        case S_IFLNK:   /* TODO: read link path, read its inode */ return ETODO;
-        case S_IFDIR:   logmsgdf("%s(ino=%d): EISDIR\n", funcname, ino); return EISDIR;
-    }
-
-    if (pos >= idata.i_size) {
-        if (written) *written = 0;
-        return 0;
-    }
-
-    return sb->sb_fs->ops->read_inode(sb, ino, pos, buf, buflen, written);
+            dev = device_by_devno(DEV_BLK, devno);
+            if (!dev) return ENODEV;
+            return bdev_blocking_read(dev, pos, buf, buflen, written);
+        case S_IFSOCK:
+            logmsgef("%s(ino=%d -- SOCK): ETODO", funcname, ino);
+            return ETODO;
+        case S_IFIFO:
+            logmsgef("%s(ino=%d -- FIFO): ETODO", funcname, ino);
+            return ETODO;
+        case S_IFLNK:
+            /* TODO: read link path, read its inode */
+            return ETODO;
+        case S_IFDIR:
+            logmsgdf("%s(ino=%d): EISDIR\n", funcname, ino);
+            return EISDIR;
+        case S_IFREG:
+            if (pos >= idata.i_size) {
+                if (written) *written = 0;
+                return 0;
+            }
+            return sb->sb_fs->ops->read_inode(sb, ino, pos, buf, buflen, written);
+        default:
+            logmsgef("%s: unknown mode & S_IFMT = 0x%x", idata.i_mode & S_IFMT);
+            return EKERN;
+   }
 }
 
 int vfs_inode_write(
@@ -369,9 +386,21 @@ int vfs_inode_write(
     return_dbg_if(ret, ret,
             "%s; %s.inode_data(%d) failed(%d)\n", funcname, sb->sb_fs->name, ino, ret);
 
-    return_dbg_if(S_ISDIR(idata.i_mode), EISDIR, "%s(inode=%d): EISDIR\n", funcname, ino);
-
-    return sb->sb_fs->ops->write_inode(sb, ino, pos, buf, buflen, written);
+    switch (idata.i_mode & S_IFMT) {
+        case S_IFREG:
+            return sb->sb_fs->ops->write_inode(sb, ino, pos, buf, buflen, written);
+        case S_IFDIR:
+            logmsgdf("%s(inode=%d): EISDIR\n", funcname, ino);
+            return EISDIR;
+        case S_IFLNK:
+        case S_IFCHR: case S_IFBLK:
+        case S_IFSOCK: case S_IFIFO:
+            logmsgef("%s(inode.mode=LNK)", funcname);
+            return ETODO;
+        default:
+            logmsgef("%s(mode=0x%x)", funcname, idata.i_mode & S_IFMT);
+            return EKERN;
+    }
 }
 
 

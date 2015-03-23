@@ -278,7 +278,7 @@ const struct kshell_command main_commands[] = {
         .handler = kshell_heap,
         .description = "heap utility",
         .options = "info alloc free check" },
-    { .name = "vfs",
+    { .name = "fs",
         .handler = kshell_vfs,
         .description = "vfs utility",
         .options =
@@ -955,8 +955,9 @@ void kshell_do(char *command) {
 void kshell_run(void) {
     char cmd_buf[CMD_SIZE] = { 0 };
 
-#if 1
+    console_setup();
 
+#if 1
     for (;;) {
         int ret;
         size_t nread;
@@ -972,13 +973,11 @@ void kshell_run(void) {
         if (cmd_buf[nread - 1] == '\n') cmd_buf[nread - 1] = 0;
         else logmsgf("kshell: cmd_buf[last] != \\n\n");
 
-        logmsgf("kshell: nread=%d, cmd='%s'\n", ret, cmd_buf);
+        logmsgf("kshell: nread=%d, cmd='%s'\n", nread, cmd_buf);
 
         kshell_do(cmd_buf);
     }
 #else
-    console_setup();
-
     for (;;) {
         kshell_readline(cmd_buf, CMD_SIZE, prompt);
         kshell_do(cmd_buf);

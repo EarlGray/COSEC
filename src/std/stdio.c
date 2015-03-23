@@ -7,6 +7,7 @@
 
 #include <dev/screen.h>
 #include <dev/kbd.h>
+#include <dev/tty.h>
 
 #include <arch/i386.h>
 
@@ -311,9 +312,8 @@ size_t fwrite(const void *ptr, size_t size, size_t nitems, FILE *stream) {
     size_t i;
     if (stream == stdout) {
         logmsgf("fwrite(*%x, %x, %x, stdout)\n", (uint)ptr, size, nitems);
-        for (i = 0; i < size * nitems; ++i) {
-            cprint(cptr[i]);
-        }
+        /* for (i = 0; i < size * nitems; ++i) { cprint(cptr[i]); } */
+        tty_write(CONSOLE_TTY, ptr, size * nitems);
         return nitems;
     }
     if (stream == stderr) {

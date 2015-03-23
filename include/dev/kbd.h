@@ -3,6 +3,9 @@
 
 #include <stdbool.h>
 
+#define ALT_MOD     0x38
+#define CTRL_MOD    0x1D
+
 typedef uint8_t scancode_t;
 
 bool kbd_state_shift(void);

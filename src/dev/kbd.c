@@ -18,6 +18,7 @@ volatile struct {
     scancode_t buf[KBD_BUF_SIZE];
 } theKbdBuf;
 
+
 inline void kbd_buf_clear(void) {
     theKbdBuf.head = theKbdBuf.tail = 0;
 }
@@ -158,7 +159,7 @@ inline bool kbd_state_shift(void) {
 }
 
 inline bool kbd_state_ctrl(void) {
-    return theKeyboard[0x1D];
+    return theKeyboard[CTRL_MOD];
 }
 
 inline bool kbd_state(uint8_t scan_id) {

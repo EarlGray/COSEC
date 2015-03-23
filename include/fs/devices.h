@@ -142,8 +142,8 @@ struct device {
 /**
  * \brief  blocking read from a block device at `pos`
  */
-int bdev_blocking_read(dev_t devno, off_t pos, char *buf, size_t buflen, size_t *written);
-int cdev_blocking_read(/* dev_t devno, off_t pos, char *buf, size_t buflen, size_t *written */);
+int bdev_blocking_read(device *dev, off_t pos, char *buf, size_t buflen, size_t *written);
+int cdev_blocking_read(/*device *dev, off_t pos, char *buf, size_t buflen, size_t *written */);
 
 /**
  * \brief  get device structure

@@ -70,21 +70,22 @@ devclass  blk1_device_family = {
  *  Generic device operations
  */
 
-int cdev_blocking_read(/* dev_t devno, off_t pos, char *buf, size_t buflen, size_t *written */) {
+int cdev_blocking_read(
+        /* dev_t devno, off_t pos, char *buf, size_t buflen, size_t *written */)
+{
     const char *funcname = "cdev_blocking_read";
 
     return ETODO;
 }
 
-int bdev_blocking_read(dev_t devno, off_t pos, char *buf, size_t buflen, size_t *written) {
-    const char *funcname = "bdev_blocking_read";
+int bdev_blocking_read(
+        device *dev, off_t pos, char *buf, size_t buflen, size_t *written)
+{
+    const char *funcname = __FUNCTION__;
 
     int ret = 0;
     size_t i;
     size_t bytes_done = 0;
-
-    struct device *dev = device_by_devno(DEV_BLK, devno);
-    if (!dev) { ret = ENODEV; goto error_exit; }
 
     if (!dev->dev_ops->dev_size_of_block)  { ret = ENOSYS; goto error_exit; }
     if (!dev->dev_ops->dev_size_in_blocks) { ret = ENOSYS; goto error_exit; }
@@ -151,6 +152,81 @@ error_exit:
     return ret;
 }
 
+
+int bdev_blocking_write(
+        struct device *dev, off_t pos,
+        const char *buf, size_t buflen, size_t *written)
+{
+    const char *funcname = __FUNCTION__;
+
+    int ret = 0;
+    size_t i;
+    size_t bytes_done = 0;
+
+    if (!dev->dev_ops->dev_size_of_block)  { ret = ENOSYS; goto error_exit; }
+    if (!dev->dev_ops->dev_size_in_blocks) { ret = ENOSYS; goto error_exit; }
+    if (!dev->dev_ops->dev_get_roblock)    { ret = ENOSYS; goto error_exit; }
+
+    size_t blksz = dev->dev_ops->dev_size_of_block(dev);
+    off_t maxblock = dev->dev_ops->dev_size_in_blocks(dev);
+
+    size_t startoffset = pos % blksz;
+    size_t startbytes = (startoffset ? blksz - startoffset : 0);
+    size_t nfullblocks = (buflen - startbytes) / blksz;
+    size_t finalbytes = (buflen - startbytes) % blksz;
+
+    off_t curblock = pos / blksz;
+    char *blockdata = NULL;
+
+    if (startbytes) {
+        if (curblock >= maxblock) { ret = ENXIO; goto error_exit; }
+
+        blockdata = dev->dev_ops->dev_get_rwblock(dev, curblock);
+        if (!curblock) { ret = ENXIO; goto error_exit; }
+
+        memcpy(blockdata + startoffset, buf, startbytes);
+
+        if (dev->dev_ops->dev_forget_block)
+            dev->dev_ops->dev_forget_block(dev, curblock);
+        bytes_done += startbytes;
+        buf += startbytes;
+        ++curblock;
+    }
+
+    for (i = 0; i < nfullblocks; ++i) {
+        if (curblock >= maxblock) { ret = ENXIO; goto error_exit; }
+
+        blockdata = dev->dev_ops->dev_get_rwblock(dev, curblock);
+        if (!curblock) { ret = ENXIO; goto error_exit; }
+
+        memcpy(blockdata, buf, blksz);
+
+        if (dev->dev_ops->dev_forget_block)
+            dev->dev_ops->dev_forget_block(dev, curblock);
+        bytes_done += blksz;
+        buf += blksz;
+        ++curblock;
+    }
+
+    if (finalbytes) {
+        if (curblock >= maxblock) { ret = ENXIO; goto error_exit; }
+
+        blockdata = dev->dev_ops->dev_get_rwblock(dev, curblock);
+        if (!curblock) { ret = ENXIO; goto error_exit; }
+
+        memcpy(blockdata, buf, finalbytes);
+
+        if (dev->dev_ops->dev_forget_block)
+            dev->dev_ops->dev_forget_block(dev, curblock);
+        bytes_done += finalbytes;
+        buf += finalbytes;
+    }
+
+error_exit:
+    logmsgdf("%s: ret=%d, bytes_done=%d\n", ret, bytes_done);
+    if (written) *written = bytes_done;
+    return ret;
+}
 
 /*
  *  Device tables bookkeeping

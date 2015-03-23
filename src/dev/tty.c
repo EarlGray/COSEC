@@ -440,8 +440,8 @@ static int dev_tty_read(
         while (true) {
             eol_at = tty_inpq_strchr((tty_inpqueue *)&tty->tty_inpq, '\n');
             if (eol_at < 0) {
-                //logmsgdf(".");
-                cpu_halt(); /* tty_inpq may change here */
+                /* tty_inpq may change here */
+                cpu_halt();
                 continue;
             }
             logmsgdf("%s: awake\n", funcname);
@@ -497,7 +497,7 @@ struct device_operations  tty_ops = {
     .dev_ioctlv     = dev_tty_ioctl,
 };
 
-#define MAX_CHARS_FROM_SCAN     10
+#define MAX_CHARS_FROM_SCAN     4
 
 static int ecma48_code_from_scancode(uint8_t sc, char buf[]) {
     /* TODO: adapt qwerty_layout[] to multichar sequences */
@@ -509,10 +509,15 @@ void tty_keyboard_handler(scancode_t sc) {
     const char *funcname = __FUNCTION__;
     int ret;
     tty_inpqueue *inpq;
-    logmsgdf("%s(scancode=%d)\n", funcname, (int)sc);
+    //logmsgdf("%s(scancode=%d)\n", funcname, (int)sc);
 
     tty_device *tty = theTTYlist[ theActiveTTY ];
     returnv_err_if(!tty, "%s: no active tty", funcname);
+
+    if ((0x3b <= sc) && (sc <= 0x42)) {
+        vcsa_switch(sc - 0x3b);
+        return;
+    }
 
     char buf[MAX_CHARS_FROM_SCAN];
 
@@ -544,7 +549,7 @@ void tty_keyboard_handler(scancode_t sc) {
 
         inpq = (tty_inpqueue *)&tty->tty_inpq;
         tty_inpq_push(inpq, buf, ret);
-        logmsgdf("%s: ANSI mode, tty_inpq_push(0x%x)\n", funcname, (int)buf[0]);
+        //logmsgdf("%s: ANSI mode, tty_inpq_push(0x%x)\n", funcname, (int)buf[0]);
         break;
       default:
         logmsgef("%s: unknown keyboard mode %d\n", funcname, tty->tty_kbmode);

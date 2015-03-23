@@ -912,6 +912,68 @@ static int ramfs_get_direntry(mountnode *sb, inode_t dirnode, void **iter, struc
     return 0;
 }
 
+
+/*
+ *  ramfs block management
+ */
+static char * ramfs_block_by_index(struct inode *idata, off_t index) {
+    const char *funcname = __FUNCTION__;
+
+    if (index < N_DIRECT_BLOCKS) {
+        return (char *)idata->as.reg.directblock[index];
+    }
+
+    const char *ind1blk = (const char *)idata->as.reg.indir1st_block;
+    if (!ind1blk)
+        return NULL;
+
+    if ((index - N_DIRECT_BLOCKS) < PAGE_SIZE/sizeof(off_t)) {
+        return (char *)ind1blk[index - N_DIRECT_BLOCKS];
+    }
+
+    logmsgef("%s: index > N_DIRECT_BLOCKS+PAGE_SIZE/sizeof(off_t)", funcname);
+    return NULL;
+}
+
+static char * ramfs_block_by_index_or_new(struct inode *idata, off_t index) {
+    const char *funcname = __FUNCTION__;
+    char *blkdata;
+    off_t n_indblocks = PAGE_SIZE/sizeof(off_t);
+
+    if (index < N_DIRECT_BLOCKS) {
+        blkdata = (char *)idata->as.reg.directblock[index];
+        if (!blkdata) {
+            blkdata = pmem_alloc(1);
+            idata->as.reg.directblock[index] = (off_t)blkdata;
+        }
+        return blkdata;
+    }
+
+    index -= N_DIRECT_BLOCKS;
+    if (index < n_indblocks) {
+        off_t *ind1blk = (off_t *)idata->as.reg.indir1st_block;
+        if (!ind1blk) {
+            ind1blk = pmem_alloc(1);
+            idata->as.reg.indir1st_block = (off_t)ind1blk;
+        }
+
+        blkdata = (char *)ind1blk[ index ];
+        if (!blkdata) {
+            blkdata = pmem_alloc(1);
+            ind1blk[ index ] = (off_t)blkdata;
+        }
+        return blkdata;
+    }
+
+    index -= n_indblocks;
+    if (index < n_indblocks * n_indblocks) {
+
+    }
+
+    return NULL;
+}
+
+
 static int ramfs_read_inode(/*
         mountnode *sb, inode_t ino, off_t pos,
         char *buf, size_t buflen, size_t *written)
@@ -924,11 +986,27 @@ static int ramfs_write_inode(
         mountnode *sb, inode_t ino, off_t pos,
         const char *buf, size_t buflen, size_t *written)
 {
-    const char *funcname = "ramfs_write_inode";
+    const char *funcname = __FUNCTION__;
     struct inode *idata;
+    size_t offset;
+    off_t i;
+    off_t blkindex;
 
     idata = ramfs_idata_by_inode(sb, ino);
     return_dbg_if(!idata, ENOENT, "%s(ino = %d): ENOENT\n", funcname, ino);
+
+    if (pos % PAGE_SIZE) {
+        blkindex = pos / PAGE_SIZE;
+        char *blkdata = ramfs_block_by_index_or_new(idata, blkindex);
+
+        memcpy(blkdata + pos % PAGE_SIZE, buf, PAGE_SIZE - (pos % PAGE_SIZE));
+    }
+
+    while (blkindex < ((pos + buflen) / PAGE_SIZE)) {
+        char *blkdata = ramfs_block_by_index(idata, blkindex);
+
+        ++blkindex;
+    }
 
     return ETODO;
 }
