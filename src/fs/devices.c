@@ -70,14 +70,6 @@ devclass  blk1_device_family = {
  *  Generic device operations
  */
 
-int cdev_blocking_read(
-        /* dev_t devno, off_t pos, char *buf, size_t buflen, size_t *written */)
-{
-    const char *funcname = "cdev_blocking_read";
-
-    return ETODO;
-}
-
 int bdev_blocking_read(
         device *dev, off_t pos, char *buf, size_t buflen, size_t *written)
 {

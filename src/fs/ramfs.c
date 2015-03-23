@@ -3,8 +3,11 @@
 #include <sys/types.h>
 #include <sys/errno.h>
 
+#include <mem/pmem.h>
 #include <fs/ramfs.h>
 #include <conf.h>
+
+#define __DEBUG
 #include <log.h>
 
 typedef void (*btree_leaf_free_f)(void *);
@@ -916,6 +919,10 @@ static int ramfs_get_direntry(mountnode *sb, inode_t dirnode, void **iter, struc
 /*
  *  ramfs block management
  */
+inline static char * ramfs_new_block() {
+    return pmem_alloc(1);
+}
+
 static char * ramfs_block_by_index(struct inode *idata, off_t index) {
     const char *funcname = __FUNCTION__;
 
@@ -927,8 +934,8 @@ static char * ramfs_block_by_index(struct inode *idata, off_t index) {
     if (!ind1blk)
         return NULL;
 
-    if ((index - N_DIRECT_BLOCKS) < PAGE_SIZE/sizeof(off_t)) {
-        return (char *)ind1blk[index - N_DIRECT_BLOCKS];
+    if ((size_t)(index - N_DIRECT_BLOCKS) < PAGE_SIZE/sizeof(off_t)) {
+        return (char *)(size_t)ind1blk[index - N_DIRECT_BLOCKS];
     }
 
     logmsgef("%s: index > N_DIRECT_BLOCKS+PAGE_SIZE/sizeof(off_t)", funcname);
@@ -943,8 +950,12 @@ static char * ramfs_block_by_index_or_new(struct inode *idata, off_t index) {
     if (index < N_DIRECT_BLOCKS) {
         blkdata = (char *)idata->as.reg.directblock[index];
         if (!blkdata) {
-            blkdata = pmem_alloc(1);
+            blkdata = ramfs_new_block();
             idata->as.reg.directblock[index] = (off_t)blkdata;
+
+            ++idata->as.reg.block_coout;
+            logmsgdf("%s: ino=%d, block %d set to *%x\n",
+                    funcname, idata->i_no, index, (uint)blkdata);
         }
         return blkdata;
     }
@@ -953,33 +964,96 @@ static char * ramfs_block_by_index_or_new(struct inode *idata, off_t index) {
     if (index < n_indblocks) {
         off_t *ind1blk = (off_t *)idata->as.reg.indir1st_block;
         if (!ind1blk) {
-            ind1blk = pmem_alloc(1);
+            ind1blk = (off_t *)ramfs_new_block();
             idata->as.reg.indir1st_block = (off_t)ind1blk;
+            logmsgdf("%s: ino=%d, ind1st block set to *%x\n",
+                    funcname, idata->i_no, (uint)ind1blk);
         }
 
         blkdata = (char *)ind1blk[ index ];
         if (!blkdata) {
-            blkdata = pmem_alloc(1);
+            blkdata = ramfs_new_block();
             ind1blk[ index ] = (off_t)blkdata;
+
+            ++idata->as.reg.block_coout;
+            logmsgdf("%s: ino=%d, block %d set to *%x\n", funcname, 
+                    idata->i_no, N_DIRECT_BLOCKS + index, (uint)blkdata);
         }
         return blkdata;
     }
 
-    index -= n_indblocks;
-    if (index < n_indblocks * n_indblocks) {
-
-    }
-
+    logmsgef("%s: ETODO: who on earth needs the second level of indirection?", funcname);
     return NULL;
 }
 
 
-static int ramfs_read_inode(/*
+static int ramfs_read_inode(
         mountnode *sb, inode_t ino, off_t pos,
         char *buf, size_t buflen, size_t *written)
-        */)
 {
-    return ETODO;
+    const char *funcname = __FUNCTION__;
+    int ret = 0;
+
+    struct inode *idata = ramfs_idata_by_inode(sb, ino);
+    return_dbg_if(!idata, ENOENT, "%s(ino = %d): ENOENT\n", funcname, ino);
+
+    off_t blkindex = pos / PAGE_SIZE;
+    size_t nread = 0;
+
+    if (pos >= idata->i_size)
+        goto fun_exit;
+
+    size_t offset = pos % PAGE_SIZE;
+    if (offset) {
+        /* copy initial partial block */
+        nread = PAGE_SIZE - offset;
+        if (nread > buflen)
+            nread = buflen;
+        if ((int)nread > idata->i_size)
+            nread = idata->i_size;
+
+        char *blkdata = ramfs_block_by_index(idata, blkindex);
+        if (blkdata) {
+            memcpy(buf, blkdata + offset, nread);
+        } else {
+            memset(buf, 0, nread);
+        }
+
+        ++blkindex;
+    }
+
+    while (((nread + PAGE_SIZE) <= buflen)
+           && ((int)(pos + nread + PAGE_SIZE) <= idata->i_size))
+    {
+        /* copy full blocks while possible */
+        char *blkdata = ramfs_block_by_index(idata, blkindex);
+        if (blkdata) {
+            memcpy(buf + nread, blkdata, PAGE_SIZE);
+        } else {
+            memset(buf + nread, 0, PAGE_SIZE);
+        }
+        nread += PAGE_SIZE;
+        ++blkindex;
+    }
+
+    if ((nread < buflen) && ((int)(pos + nread) < idata->i_size)) {
+        /* copy the partial tail */
+        size_t tocopy = buflen - nread;
+        if ((int)(pos + nread + tocopy) > idata->i_size)
+            tocopy = idata->i_size - (pos + nread);
+
+        char *blkdata = ramfs_block_by_index(idata, blkindex);
+        if (blkdata) {
+            memcpy(buf + nread, blkdata, tocopy);
+        } else {
+            memset(buf + nread, 0, tocopy);
+        }
+        nread += tocopy;
+    }
+
+fun_exit:
+    if (written) *written = nread;
+    return ret;
 }
 
 static int ramfs_write_inode(
@@ -987,27 +1061,53 @@ static int ramfs_write_inode(
         const char *buf, size_t buflen, size_t *written)
 {
     const char *funcname = __FUNCTION__;
-    struct inode *idata;
-    size_t offset;
-    off_t i;
-    off_t blkindex;
+    int ret = 0;
 
-    idata = ramfs_idata_by_inode(sb, ino);
+    struct inode *idata = ramfs_idata_by_inode(sb, ino);
     return_dbg_if(!idata, ENOENT, "%s(ino = %d): ENOENT\n", funcname, ino);
 
-    if (pos % PAGE_SIZE) {
-        blkindex = pos / PAGE_SIZE;
+    off_t blkindex = pos / PAGE_SIZE;
+    size_t nwrite = 0;
+
+    size_t offset = pos % PAGE_SIZE;
+    if (offset) {
+        /* copy initial partial block */
         char *blkdata = ramfs_block_by_index_or_new(idata, blkindex);
+        if (!blkdata) { ret = EIO; goto fun_exit; }
 
-        memcpy(blkdata + pos % PAGE_SIZE, buf, PAGE_SIZE - (pos % PAGE_SIZE));
-    }
-
-    while (blkindex < ((pos + buflen) / PAGE_SIZE)) {
-        char *blkdata = ramfs_block_by_index(idata, blkindex);
+        nwrite = PAGE_SIZE - offset;
+        if (nwrite > buflen)
+            nwrite = buflen;
+        memcpy(blkdata + offset, buf, nwrite);
 
         ++blkindex;
     }
 
-    return ETODO;
+    while ((nwrite + PAGE_SIZE) <= buflen) {
+        /* copy full blocks while possible */
+        char *blkdata = ramfs_block_by_index_or_new(idata, blkindex);
+        if (!blkdata) { ret = EIO; goto fun_exit; }
+
+        memcpy(blkdata, buf + nwrite, PAGE_SIZE);
+        nwrite += PAGE_SIZE;
+        ++blkindex;
+    }
+
+    if (nwrite < buflen) {
+        /* copy the partial tail */
+        char *blkdata = ramfs_block_by_index_or_new(idata, blkindex);
+        if (!blkdata) { ret = EIO; goto fun_exit; }
+
+        memcpy(blkdata, buf + nwrite, buflen - nwrite);
+        nwrite = buflen;
+    }
+
+fun_exit:
+    if ((int)(pos + buflen) > idata->i_size) {
+        idata->i_size = pos + buflen;
+        logmsgdf("%s: i_size=%d\n", funcname, idata->i_size);
+    }
+    if (written) *written = nwrite;
+    return ret;
 }
 

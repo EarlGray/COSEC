@@ -696,6 +696,57 @@ void kshell_time() {
 }
 
 
+static void fs_cat(const char *arg) {
+    if (!arg[0]) { k_printf("Error: filepath or '>' expected\n"); return; }
+
+    int ret;
+    char lnbuf[256];
+    size_t pos = 0;
+    size_t nwritten;
+
+    mountnode *sb = NULL;
+    inode_t ino;
+
+    if (arg[0] == '>') {
+        ++arg; while (isspace(*arg)) ++arg;
+
+        ret = vfs_lookup(arg, &sb, &ino);
+        if (ret) { k_printf("vfs_lookup failed: %s\n", strerror(ret)); return; }
+
+        k_printf("### EOF<Enter> will terminate input\n");
+        while (true) {
+            ret = tty_read(CONSOLE_TTY, lnbuf, 256, &nwritten);
+            if (ret) { k_printf("tty_read failed: %s\n", strerror(ret)); return; }
+
+            lnbuf[nwritten] = 0;
+            lnbuf[nwritten - 1] = 0;
+            logmsgf("fs_cat: line[%d]: '%s'\n", nwritten, lnbuf);
+            lnbuf[nwritten - 1] = '\n';
+
+            if (!strncmp(lnbuf, "EOF", 3)) return;
+
+            ret = vfs_inode_write(sb, ino, pos, lnbuf, strlen(lnbuf), &nwritten);
+            if (ret) { k_printf("inode_write failed: %s\n", strerror(ret)); return; }
+
+            logmsgf("vfs_inode_write: nwritten=%d\n", nwritten);
+            pos += nwritten;
+        }
+    } else {
+        ret = vfs_lookup(arg, &sb, &ino);
+        if (ret) { k_printf("vfs_lookup('%s') failed: %s\n", arg, strerror(ret)); return; }
+
+        do {
+            if (ret) { k_printf("vfs_lookup failed: %s\n", strerror(ret)); return; }
+
+            int ret = vfs_inode_read(sb, ino, pos, lnbuf, 256, &nwritten);
+            if (ret) { k_printf("Error: inode_read: %s\n", strerror(ret)); return; }
+
+            tty_write(CONSOLE_TTY, lnbuf, nwritten);
+            pos += nwritten;
+        } while (nwritten);
+    }
+}
+
 void kshell_vfs(const struct kshell_command __unused *this, const char *arg) {
     if (!strncmp(arg, "ls", 2)) {
         arg += 2; while (isspace(*arg)) ++arg;
@@ -796,6 +847,10 @@ void kshell_vfs(const struct kshell_command __unused *this, const char *arg) {
         if (ret) k_printf("Error: %s\n", strerror(ret));
 
         kfree(path1);
+    } else if (!strncmp(arg, "cat", 3)) {
+        arg += 3; while (isspace(*arg)) ++arg;
+
+        fs_cat(arg);
     } else {
         k_printf("Options: %s\n", this->options);
     }

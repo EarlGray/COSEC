@@ -183,6 +183,7 @@ fsdriver * vfs_filesystem_by_id(uint fs_id);
 int vfs_mountnode_by_path(const char *path, mountnode **mntnode, const char **relpath);
 int vfs_path_dirname_len(const char *path, size_t pathlen);
 
+int vfs_lookup(const char *path, mountnode **mntnode, inode_t *ino);
 int vfs_mount(dev_t source, const char *target, const mount_opts_t *opts);
 int vfs_stat(const char *path, struct stat *stat);
 int vfs_mkdir(const char *path, mode_t mode);
@@ -190,6 +191,12 @@ int vfs_mknod(const char *path, mode_t mode, dev_t dev);
 int vfs_hardlink(const char *path, const char *newpath);
 int vfs_unlink(const char *path);
 int vfs_rename(const char *oldpath, const char *newpath);
+
+int vfs_inode_read(mountnode *sb, inode_t ino, off_t pos,
+                   char *buf, size_t buflen, size_t *written);
+
+int vfs_inode_write(mountnode *sb, inode_t ino, off_t pos,
+                    const char *buf, size_t buflen, size_t *written);
 
 void print_ls(const char *path);
 void print_mount(void);

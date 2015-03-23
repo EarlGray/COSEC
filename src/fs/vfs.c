@@ -170,7 +170,6 @@ int vfs_mountnode_by_path(const char *path, mountnode **mntnode, const char **re
     return 0;
 }
 
-
 int vfs_path_dirname_len(const char *path, size_t pathlen) {
     if (!path) return -1;
 
@@ -180,6 +179,24 @@ int vfs_path_dirname_len(const char *path, size_t pathlen) {
     while (last_sep[-1] == FS_SEP)
         --last_sep;
     return (int)(last_sep - path);
+}
+
+int vfs_lookup(const char *path, mountnode **mntnode, inode_t *ino) {
+    const char *funcname = __FUNCTION__;
+    int ret = 0;
+    mountnode *sb = NULL;
+    const char *fspath = NULL;
+
+    ret = vfs_mountnode_by_path(path, &sb, &fspath);
+    return_dbg_if(ret, ret, "%s: no mountnode for path '%s' (%d)\n", funcname, path, ret);
+
+    return_dbg_if(!sb->sb_fs->ops->lookup_inode, ENOSYS,
+            "%s; no %s.lookup_inode\n", funcname, sb->sb_fs->name);
+
+    ret = sb->sb_fs->ops->lookup_inode(sb, ino, fspath, SIZE_MAX);
+
+    if (mntnode) *mntnode = sb;
+    return ret;
 }
 
 
@@ -229,7 +246,7 @@ int vfs_mkdir(const char *path, mode_t mode) {
     logmsgdf("vfs_mkdir: localpath = '%s'\n", localpath);
 
     return_log_if(!sb->sb_fs->ops->make_directory, EBADF,
-                  "mkdir: no %s.make_directory()\n", sb->sb_fs->name);
+            "mkdir: no %s.make_directory()\n", sb->sb_fs->name);
 
     ret = sb->sb_fs->ops->make_directory(sb, NULL, localpath, mode);
     return_err_if(ret, ret, "mkdir: failed (%d)\n", ret);
@@ -337,7 +354,8 @@ int vfs_inode_read(
             devno = gnu_dev_makedev(idata.as.dev.maj, idata.as.dev.min);
             dev = device_by_devno(DEV_CHR, devno);
             if (!dev) return ENODEV;
-            return cdev_blocking_read(dev, pos, buf, buflen, written);
+            if (!dev->dev_ops->dev_read_buf) return ENOSYS;
+            return dev->dev_ops->dev_read_buf(dev, buf, buflen, written, pos);
         case S_IFBLK:
             devno = gnu_dev_makedev(idata.as.dev.maj, idata.as.dev.min);
             dev = device_by_devno(DEV_BLK, devno);
@@ -386,16 +404,25 @@ int vfs_inode_write(
     return_dbg_if(ret, ret,
             "%s; %s.inode_data(%d) failed(%d)\n", funcname, sb->sb_fs->name, ino, ret);
 
+    dev_t devno;
+    device *dev;
     switch (idata.i_mode & S_IFMT) {
         case S_IFREG:
             return sb->sb_fs->ops->write_inode(sb, ino, pos, buf, buflen, written);
         case S_IFDIR:
             logmsgdf("%s(inode=%d): EISDIR\n", funcname, ino);
             return EISDIR;
-        case S_IFLNK:
-        case S_IFCHR: case S_IFBLK:
-        case S_IFSOCK: case S_IFIFO:
-            logmsgef("%s(inode.mode=LNK)", funcname);
+        case S_IFBLK:
+            return ETODO;
+        case S_IFCHR:
+            devno = gnu_dev_makedev(idata.as.dev.maj, idata.as.dev.min);
+            dev = device_by_devno(DEV_CHR, devno);
+            return_dbg_if(!dev, ENODEV, "%s: ENODEV\n");
+            return_dbg_if(!dev->dev_ops->dev_write_buf, ENOSYS,
+                    "%s: no device.dev_write_buf\n", funcname);
+            return dev->dev_ops->dev_write_buf(dev, buf, buflen, written, pos);
+        case S_IFLNK: case S_IFSOCK: case S_IFIFO:
+            logmsgef("%s(inode.mode=LNK|FIFO|SOCK): ETODO", funcname);
             return ETODO;
         default:
             logmsgef("%s(mode=0x%x)", funcname, idata.i_mode & S_IFMT);
