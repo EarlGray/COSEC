@@ -97,12 +97,8 @@ static uint8_t tty_inpq_at(tty_inpqueue *inpq, size_t index) {
     return *(inpq->buf + break_offset);
 }
 
-static int tty_inpq_strchr(tty_inpqueue *inpq, char c) {
+static int tty_inpq_strchr(volatile tty_inpqueue *inpq, char c) {
     const char *funcname = __FUNCTION__;
-    /*
-    logmsgdf("%s(inpq { start = %d, end = %d }, c=%d\n",
-             funcname, inpq->start, inpq->end, c);
-    */
 
     if (inpq->start == inpq->end)
         return -1; /* queue is empty */
@@ -434,27 +430,29 @@ static int dev_tty_read(
 
     struct termios *tios = &tty->tty_conf;
 
-    volatile int eol_at;
     if (tios->c_iflag & ICANON) {
         /* canonical mode: serve a line */
+        int eol_at;
+
         while (true) {
-            eol_at = tty_inpq_strchr((tty_inpqueue *)&tty->tty_inpq, '\n');
-            if (eol_at < 0) {
-                /* tty_inpq may change here */
-                cpu_halt();
-                continue;
-            }
-            logmsgdf("%s: awake\n", funcname);
-            size_t to_pop = (size_t)eol_at + 1;
+            eol_at = tty_inpq_strchr(&tty->tty_inpq, '\n');
+            if (eol_at >= 0)
+                break;
 
-            if (to_pop > buflen)
-                to_pop = buflen;
-
-            to_pop = tty_inpq_pop(&tty->tty_inpq, buf, to_pop);
-
-            if (written) *written = to_pop;
-            return 0;
+            /* tty_inpq may change here */
+            cpu_halt();
         }
+
+        //logmsgdf(".");
+        size_t to_pop = (size_t)eol_at + 1;
+
+        if (to_pop > buflen)
+            to_pop = buflen;
+
+        size_t nread = tty_inpq_pop((tty_inpqueue *)&tty->tty_inpq, buf, to_pop);
+
+        if (written) *written = nread;
+        return 0;
     }
 
     /* noncanonical mode */
