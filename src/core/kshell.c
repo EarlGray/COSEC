@@ -291,6 +291,7 @@ const struct kshell_command main_commands[] = {
             "\n  ln /existing/path /new  -- create a new hard link"
             "\n  mv /abs/path /new/path  -- rename file"
             "\n  rm /abs/path            -- unlink path (possibly its inode)"
+            "\n  cat [>] /abs/path       -- read/write file"
         },
     { .name = "set",
         .handler = kshell_set,
