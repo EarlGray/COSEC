@@ -273,6 +273,9 @@ inline void vcsa_newline(int vcsno) {
         vcs_data[vcsno].line = ln + 1; /* go down one line */
     else
         vcsa_scroll_line(vcsno); /* scroll the buffer */
+
+    if (vcsno == active_vcs)
+        update_hw_cursor();
 }
 
 inline void vcsa_move_cursor_back(int vcsno) {

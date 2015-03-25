@@ -132,7 +132,7 @@ static bool tty_inpq_push(tty_inpqueue *inpq, char buf[], size_t len) {
     char *qbuf = (char *)inpq->buf;
 
     if (start < inpq->end) {
-        if ((start + len + 1) > inpq->end)
+        if ((start + len + 1) >= inpq->end)
             return false;
 
         /* TODO: this should be atomic */
@@ -144,14 +144,17 @@ static bool tty_inpq_push(tty_inpqueue *inpq, char buf[], size_t len) {
     if ((start + len) <= MAX_INPUT) {
         small_memcpy(qbuf + start, buf, len);
         start += len;
-        if (start == MAX_INPUT)
+        if (start == MAX_INPUT) {
+            if (inpq->end == 0)
+                return false;
             start = 0;
+        }
         inpq->start = start;
         return true;
     }
 
     size_t break_offset = MAX_INPUT - start;
-    if ((len - break_offset + 1) > inpq->end)
+    if ((len - break_offset + 1) >= inpq->end)
         return false;
     small_memcpy(qbuf + start, buf, break_offset);
     small_memcpy(qbuf, buf + break_offset, len - break_offset);
@@ -198,6 +201,7 @@ static size_t tty_inpq_pop(tty_inpqueue *inpq, char *buf, size_t len) {
         memcpy(buf, inpq->buf + inpq->end, break_offset);
         memcpy(buf + break_offset, inpq->buf, popped - break_offset);
     }
+    inpq->end = break_offset;
     return popped;
 }
 
@@ -213,6 +217,10 @@ static device * get_tty_device(mindev_t devno) {
 
 static inline void tty_linefeed(int vcsno) {
     vcsa_newline(vcsno);
+}
+
+static inline void tty_bell(int vcsno) {
+    logmsgf("tty%d BEL\n", vcsno);
 }
 
 const uint8_t ecma48_to_vga_color[] = {
@@ -333,7 +341,9 @@ static int dev_tty_write(
     while ((size_t)(s - buf) < buflen) {
         if (iscntrl(*s)) {
             switch (*s) {
-              case BEL: /* \a, 0x07, ^G  -- ignored for now */ break;
+              case BEL: /* \a, 0x07, ^G */
+                tty_bell(ttyvcs);
+                break;
               case BS: /* BS: \b, 0x08, ^H  -- erase a character */
                 vcsa_move_cursor_back(ttyvcs);
                 vcsa_set_char(ttyvcs, ' ');
@@ -522,12 +532,12 @@ void tty_keyboard_handler(scancode_t sc) {
     }
 
     char buf[MAX_CHARS_FROM_SCAN];
+    inpq = (tty_inpqueue *)&tty->tty_inpq;
 
     switch (tty->tty_kbmode) {
       case TTYKBD_RAW:
         buf[0] = (char)sc;
 
-        inpq = (tty_inpqueue *)&tty->tty_inpq;
         tty_inpq_push(inpq, buf, 1);
         logmsgdf("%s: RAW mode, tty_inpq_push(0x%x)\n", funcname, (int)buf[0]);
 
@@ -544,14 +554,18 @@ void tty_keyboard_handler(scancode_t sc) {
                 if (tty_inpq_unpush((tty_inpqueue *)&tty->tty_inpq, 1))
                     tty_write(theActiveTTY, "\b", 1);
                 return;
-              case '\n': vcsa_newline(tty->tty_vcs); break;
-              default: vcsa_cprint(tty->tty_vcs, buf[0]);
+              case '\n':
+                if (tty_inpq_push(inpq, buf, ret))
+                    vcsa_newline(tty->tty_vcs);
+                return;
+              default:
+                if (tty_inpq_push(inpq, buf, ret)) {
+                    vcsa_cprint(tty->tty_vcs, buf[0]);
+                } else {
+                    tty_bell(tty->tty_vcs);
+                }
             }
         }
-
-        inpq = (tty_inpqueue *)&tty->tty_inpq;
-        tty_inpq_push(inpq, buf, ret);
-        //logmsgdf("%s: ANSI mode, tty_inpq_push(0x%x)\n", funcname, (int)buf[0]);
         break;
       default:
         logmsgef("%s: unknown keyboard mode %d\n", funcname, tty->tty_kbmode);

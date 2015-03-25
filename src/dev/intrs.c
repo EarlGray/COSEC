@@ -164,7 +164,8 @@ void int_double_fault() {
 }
 
 void int_division_by_zero(void ) {
-    intr_log("#DE\nINTR: division by zero\n");
+    logmsgef("#DE\nINTR: division by zero, TODO\n");
+    cpu_hang();
 }
 
 void int_nonmaskable(void ) {
