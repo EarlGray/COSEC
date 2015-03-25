@@ -29,7 +29,7 @@ typedef enum gatetype {
 
 /* sysbit cleared: data/code segdescr */
 #define SD_TYPE_ER_CODE         SDTP_CODE | SDTP_CODE_READ
-#define SD_TYPE_EO_CODE         SDTP_CODE 
+#define SD_TYPE_EO_CODE         SDTP_CODE
 #define SD_TYPE_RO_DATA         0
 #define	SD_TYPE_RW_DATA         SDTP_DATA_WRITE
 
@@ -49,7 +49,7 @@ typedef struct segdescr {
         uint64_t ll;
         struct {
             uint16_t	limit_l;	// lower part
-            uint16_t	base_l;	// base lower 
+            uint16_t	base_l;	// base lower
             uint8_t		base_m;	// base middle
             uint8_t	    type:4;	
             uint8_t		sysbit:1;
@@ -57,7 +57,7 @@ typedef struct segdescr {
             uint8_t		mem_present:1;
             uint8_t		limit_h:4;
             uint8_t		user:1;     // custom bit
-            uint8_t		digit64:1;  // 1 -> 64bit        
+            uint8_t		digit64:1;  // 1 -> 64bit
             uint8_t		digit:1;    // 1 -> 32bit
             uint8_t		granularity:1;
             uint8_t		base_h;
@@ -129,8 +129,8 @@ typedef struct {
     :: "n"(count), "r"(buf), "m"(port))
 
 #define i386_hang()   asm volatile ("cli \n1: hlt\n\tjmp 1b\n" ::)
-        
-#define io_wait()       asm ("\tjmp 1f\n1:\tjmp 1f\n1:") 
+
+#define io_wait()       asm ("\tjmp 1f\n1:\tjmp 1f\n1:")
 
 #define i386_inb(port, value)    asm volatile ("inb %%dx,%%al\n": "=a"(value): "d"(port))
 #define i386_outb(port, value)   asm volatile ("outb %%al,%%dx\n"::"a" (value),"d" (port))
@@ -147,7 +147,7 @@ typedef struct {
 #define i386_outl_p(port, value) do { outl(port, value); io_wait();  } while (0)
 
 #define i386_intrs_enable()  asm ("\t sti \n")
-#define i386_intrs_disable() asm ("\t cli \n")                                                       
+#define i386_intrs_disable() asm ("\t cli \n")
 #define i386_halt()      asm ("\t hlt \n")
 
 #define i386_esp(p)    asm ("\t movl %%esp, %0 \n" : "=r"(p))
@@ -223,9 +223,9 @@ struct task_state_seg {
     uint ss2;           // high word is reserved
 
     uint cr3;
-  
+
     uint eip;
-    uint eflags;  
+    uint eflags;
 
     uint eax, ecx, edx, ebx;
     uint esp, ebp, esi, edi;
@@ -249,22 +249,22 @@ ptr_t cpu_stack(void);
 
 static void __noreturn cpu_hang(void) { i386_hang(); }
 
-#define inb(port, value)       i386_inb(port, value)    
-#define outb(port, value)      i386_outb(port, value)   
-#define inw(port, value)       i386_inw(port, value)    
-#define outw(port, value)      i386_outw(port, value)   
-#define inl(port, value)       i386_inl(port, value)    
-#define outl(port, value)      i386_outl(port, value)   
+#define inb(port, value)       i386_inb(port, value)
+#define outb(port, value)      i386_outb(port, value)
+#define inw(port, value)       i386_inw(port, value)
+#define outw(port, value)      i386_outw(port, value)
+#define inl(port, value)       i386_inl(port, value)
+#define outl(port, value)      i386_outl(port, value)
 
-#define inb_p(port, value)     i386_inb_p(port, value) 
+#define inb_p(port, value)     i386_inb_p(port, value)
 #define outb_p(port, value)    i386_outb_p(port, value)
-#define inw_p(port, value)     i386_inw_p(port, value) 
+#define inw_p(port, value)     i386_inw_p(port, value)
 #define outw_p(port, value)    i386_outw_p(port, value)
-#define inl_p(port, value)     i386_inl_p(port, value) 
+#define inl_p(port, value)     i386_inl_p(port, value)
 #define outl_p(port, value)    i386_outl_p(port, value)
 
 #define arch_strncpy(dst, src, n)   i386_strncpy(dst, src, n)
-#define arch_memcpy(dst, src, size) i386_memcpy(dst, src, size) 
+#define arch_memcpy(dst, src, size) i386_memcpy(dst, src, size)
 
 void cpu_setup(void);
 

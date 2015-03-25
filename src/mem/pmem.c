@@ -307,6 +307,7 @@ void * pmem_alloc(size_t pages_count) {
 err_t pmem_free(index_t start_page, size_t pages_count) {
     const char *funcname = __FUNCTION__;
     logmsgf("%s(*%x[%d]) : TODO\n", funcname, (uint)start_page, pages_count);
+    return 0;
 }
 
 void pmem_info(void) {
