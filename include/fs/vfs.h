@@ -47,7 +47,8 @@ struct superblock {
 struct inode {
     index_t i_no;               /* inode index */
     mode_t  i_mode;             /* inode type + unix permissions */
-    count_t i_nlinks;
+    count_t i_nlinks;           /* how many dentries reference this inode */
+    count_t i_nfds;             /* how many filedescriptors hold this inode */
     off_t   i_size;             /* data size if any */
     void   *i_data;             /* fs- and type-specific info */
 

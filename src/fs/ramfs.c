@@ -219,6 +219,7 @@ static int ramfs_write_inode(mountnode *sb, inode_t ino, off_t pos,
                              const char *buf, size_t buflen, size_t *written);
 
 static void ramfs_inode_free(struct inode *idata);
+static void ramfs_free_inode_blocks(struct inode *idata);
 
 
 struct filesystem_operations  ramfs_fsops = {
@@ -499,12 +500,17 @@ error_exit:
 
 static void ramfs_inode_free(struct inode *idata) {
     const char *funcname = "ramfs_inode_free";
-    logmsgdf("%s(idata=*%x, ino=%d)\n", funcname, idata, idata->i_data);
+    logmsgdf("%s(idata=*%x, ino=%d)\n", funcname, idata, idata->i_no);
 
     /* some type-specific actions here */
-    if (S_ISDIR(idata->i_mode)) {
+    switch (S_IFMT & idata->i_mode) {
+      case S_IFDIR:
         if (idata->i_data)
             ramfs_directory_free(idata->i_data);
+        break;
+      case S_IFREG:
+        ramfs_free_inode_blocks(idata);
+        break;
     }
     kfree(idata);
 }
@@ -687,10 +693,12 @@ static int ramfs_unlink_inode(mountnode *sb, const char *path, size_t pathlen) {
     return_dbg_if(ret, ret, "%s: delete_entry(%s) failed(%d)\n", funcname, basename, ret);
 
     -- idata->i_nlinks;
-    logmsgdf("%s(%s): success, nlinks=%d\n", idata->i_nlinks);
-    if (idata->i_nlinks > 0) return 0;
+    logmsgdf("%s(%s): success, nlinks=%d\n", funcname, path, idata->i_nlinks);
+    if ((idata->i_nlinks > 0) || (idata->i_nfds > 0))
+        return 0;
 
     /* delete the inode */
+    logmsgdf("%s: deleting ino=%d\n", funcname, ino);
     return ramfs_free_inode(sb, ino);
 }
 
@@ -976,7 +984,7 @@ static char * ramfs_block_by_index_or_new(struct inode *idata, off_t index) {
             ind1blk[ index ] = (off_t)blkdata;
 
             ++idata->as.reg.block_coout;
-            logmsgdf("%s: ino=%d, block %d set to *%x\n", funcname, 
+            logmsgdf("%s: ino=%d, block %d set to *%x\n", funcname,
                     idata->i_no, N_DIRECT_BLOCKS + index, (uint)blkdata);
         }
         return blkdata;
@@ -984,6 +992,44 @@ static char * ramfs_block_by_index_or_new(struct inode *idata, off_t index) {
 
     logmsgef("%s: ETODO: who on earth needs the second level of indirection?", funcname);
     return NULL;
+}
+
+static void ramfs_free_blocks_in_list(off_t *blklst) {
+    if (!blklst) return;
+
+    int i;
+    for (i = 0; i < PAGE_SIZE / sizeof(off_t); ++i) {
+        char *blkdata = (char *)(size_t)blklst[i];
+        if (!blkdata) continue;
+
+        pmem_free((uint)blkdata, 1);
+    }
+}
+
+static void ramfs_free_blocks_2ndlvl(off_t *ind2lst) {
+    if (!ind2lst) return;
+    int i;
+
+    for (i = 0; i < PAGE_SIZE / sizeof(off_t); ++i) {
+        off_t *ind1lst = (off_t *)(size_t)ind2lst[i];
+        ramfs_free_blocks_in_list(ind1lst);
+    }
+}
+
+static void ramfs_free_inode_blocks(struct inode *idata) {
+    const char *funcname = __FUNCTION__;
+    int i;
+
+    returnv_log_if(idata->as.reg.indir3rd_block, "%s: TODO: indir3rd_block\n");
+    ramfs_free_blocks_2ndlvl((off_t *)(size_t)idata->as.reg.indir2nd_block);
+    ramfs_free_blocks_in_list((off_t *)(size_t)idata->as.reg.indir1st_block);
+
+    for (i = 0; i < N_DIRECT_BLOCKS; ++i) {
+        uint blkind = (uint)idata->as.reg.directblock[i];
+        if (!blkind) continue;
+
+        pmem_free(blkind, 1);
+    }
 }
 
 
