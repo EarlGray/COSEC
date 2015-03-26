@@ -17,6 +17,9 @@
 
 #include <stdio.h>
 
+#if INTR_DEBUG
+# define __DEBUG
+#endif
 #include <log.h>
 
 #define ICW1_ICW4       0x01
@@ -37,15 +40,6 @@
 #define PIC2_DATA_PORT   (PIC2_CMD_PORT + 1)
 
 #define PIC_EOI         0x20            // PIC end-of-interrput command code
-
-#if INTR_DEBUG
-#   define intr_logf(msg, ...) logmsgf(msg, __VA_ARGS__)
-#   define intr_log(msg) logmsg(msg)
-#else
-#   define intr_logf(msg, ...)
-#   define intr_log(msg)
-#endif
-
 
 /* 
  *      Declarations
@@ -149,17 +143,17 @@ void irq_slave() {
 /**************** exceptions *****************/
 
 void int_dummy() {
-    intr_log("INTR: dummy interrupt\n");
+    logmsg("#DUMMY -- dummy interrupt\n");
 }
 
 extern void int_syscall();
 
 void int_odd_exception() {
-    intr_log("unspecified exception");
+    logmsg("#ODD -- unspecified exception");
 }
 
 void int_double_fault() {
-    intr_log("#DF\nDouble fault...\n");
+    logmsg("#DF -- Double fault...\n");
     panic("DOUBLE FAULT");
 }
 
@@ -169,7 +163,7 @@ void int_division_by_zero(void ) {
 }
 
 void int_nonmaskable(void ) {
-    //intr_log("#NM");
+    logmsg("#NM");
 }
 
 void int_invalid_op(void *stack) {
@@ -186,37 +180,37 @@ void int_page_fault(void ) {
 }
 
 void int_segment_not_present(void) {
-    intr_log("#NP");
+    logmsg("#NP");
 }
 
 void int_overflow(void ) {
-    intr_log("#OF");
+    logmsg("#OF");
 }
 
 void int_breakpoint(void) {
-    intr_log("#BP");
+    logmsg("#BP");
 }
 
 
 void int_out_of_bounds(void ) {
-    intr_log("#BR");
+    logmsg("#BR");
 }
 
 void int_stack_segment(void ) {
-    intr_log("#SS");
+    logmsg("#SS");
 }
 
 void int_invalid_tss(void ) {
-    intr_log("#TS");
-    intr_log("Invalid TSS exception\n");
+    logmsg("#TS");
+    logmsg("Invalid TSS exception\n");
     cpu_hang();
 }
 
 void int_gpf(void) {
-    intr_logf("#GP\nGeneral protection fault, error code %x\n", 
-            intr_err_code());
-    uint *ret_eip = (uint *)(intr_context_esp() + 0x2c);
-    logmsgef("Interrupted at %x:%x\n", ret_eip[1], ret_eip[0]);
+    logmsgf("#GP\nGeneral protection fault, error code %x\n", intr_err_code());
+
+    uint *intr_info = (uint *)(intr_context_esp() + CONTEXT_SIZE + sizeof(err_t));
+    logmsgef("\n#GPF at %x:%x\n", intr_info[1], intr_info[0]);
     cpu_hang();
 }
 

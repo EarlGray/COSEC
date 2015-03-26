@@ -63,7 +63,7 @@ void gdt_setup(void) {
     gdt_entry_init(GDT_KERN_DS, SD_TYPE_RW_DATA, PL_KERN);
     gdt_entry_init(GDT_USER_CS, SD_TYPE_ER_CODE, PL_USER);
     gdt_entry_init(GDT_USER_DS, SD_TYPE_RW_DATA, PL_USER);
-    segdescr_usual_init(theGDT[GDT_DEFAULT_LDT], SD_TYPE_LDT, 
+    segdescr_usual_init(theGDT[GDT_DEF_LDT], SD_TYPE_LDT, 
             8 * 2/*sizeof(defLDT)/sizeof(segment_descriptor)*/, (uint)defLDT, 
             PL_USER, SD_GRAN_4Kb);
 

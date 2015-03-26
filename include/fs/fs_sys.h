@@ -22,6 +22,8 @@
 #define SYS_OPEN        0x38
 #define SYS_CLOSE       0x3F
 
+#define SYS_PRINT       0xff
+
 struct mount_info_struct {
     dev_t       source;
     const char *target;

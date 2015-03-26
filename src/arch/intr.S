@@ -10,7 +10,7 @@
 /*
  *    <---- stack grows to less addresses --
  *  Stack state during an interrupt:
- *     args    ds  es  gs  fs edi esi ebp esp ebx edx ecx eax
+ *     args    fs  gs  es  ds edi esi ebp esp ebx edx ecx eax
  *  -|-------|---|---|---|---|---|---|---|---|---|---|---|---| sys-info
  *           ^
  *      context_esp

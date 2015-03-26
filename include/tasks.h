@@ -3,19 +3,19 @@
 
 #include <arch/i386.h>
 
-#define TS_RUNNING    0
-#define TS_READY      1
-#define TS_STOPPED    2
-
 #define TASK_KERNSTACK_SIZE   0x800
 
-typedef int task_state_t;
+enum taskstate {
+    TS_RUNNING  = 0,
+    TS_READY    = 1,
+    TS_STOPPED  = 2,
+};
 
 struct task {
-    tss_t tss;
-    uint32_t tss_index;
-    uint32_t ldt_index;
-    task_state_t state;
+    uint32_t        tss_index;
+    uint32_t        ldt_index;
+    tss_t           tss;
+    enum taskstate  state;
 };
 
 typedef  struct task  task_struct;

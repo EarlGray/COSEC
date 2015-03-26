@@ -47,7 +47,7 @@ static void test_vsprint(const char *fmt, ...) {
         case '%':
             switch (*(++c)) {
                 case 's': {
-                    char *s = va_arg(ap, char *); 
+                    char *s = va_arg(ap, char *);
                     logmsgf("%%s: 0x%x, *s=0x%x\n", (uint)s, (uint)*s);
                           } break;
                 case 'd': case 'u': case 'x': {
@@ -56,7 +56,6 @@ static void test_vsprint(const char *fmt, ...) {
                                               } break;
                 default:
                     logmsg("Unknown operand for %%\n");
-                        
             }
         }
         ++c;
@@ -82,7 +81,7 @@ void test_usleep(void) {
 }
 
 
-#if INTR_PROFILING    
+#if INTR_PROFILING
 volatile union {
     uint32_t u32[2];
     uint64_t u64;
@@ -96,7 +95,7 @@ void intr_profile(uint64_t ts) {
     uint64_t start_ts;
     intr_start_rdtsc(&start_ts);
     int64_t diff = ts - start_ts;
-    if (diff > 0) 
+    if (diff > 0)
         intr_ticks.u64 += diff;
     ++intr_count;
 }
@@ -183,12 +182,12 @@ static void on_press(scancode_t scan) {
     if (c == 0) return;
 
     while (! serial_is_transmit_empty(COM1_PORT));
-    if (c == '\n') 
+    if (c == '\n')
         serial_write(COM1_PORT, '\r');
 
     while (! serial_is_transmit_empty(COM1_PORT));
     serial_write(COM1_PORT, c);
-    
+
     vcsa_set_attribute(CONSOLE_VCSA, 0x0C);
     cprint(c);
 }
@@ -217,7 +216,7 @@ void test_serial(const char *arg) {
     serial_setup();
 
     //poll_serial();
-    
+
     poll_exit = false;
     serial_set_on_receive(on_serial_received);
     kbd_set_onpress(on_press);
@@ -255,11 +254,12 @@ uint8_t task0_usr_stack[R3_STACK_SIZE];
 uint8_t task1_usr_stack[R3_STACK_SIZE];
 
 task_struct task0;
-task_struct task1; 
+task_struct task1;
 task_struct *volatile def_task;
 
 
 void do_task0(void) {
+    k_printf("do_task0: CPL = %d\n", (int)i386_current_privlevel());
     int i = 0;
     while (1) {
         ++i;
@@ -288,17 +288,20 @@ void do_task1(void) {
 volatile bool quit;
 
 void key_press(/*scancode_t scan*/) {
-    k_printf("\nkey pressed...\n");
+    logmsgif("\nkey pressed...\n");
     quit = true;
 }
 
 
-task_struct *next_task() {
-    task_struct *current = task_current();
+task_struct *next_task(/*uint tick*/) {
     if (quit) return def_task;
+
+    task_struct *current = task_current();
+    if (current == def_task) return &task0;
+    //if (tick % 1000) return NULL;
+
     if (current == &task0) return &task1;
     if (current == &task1) return &task0;
-    if (current == def_task) return &task0;
     panic("Invalid task");
     return null;
 }
@@ -306,26 +309,28 @@ task_struct *next_task() {
 void test_tasks(void) {
     def_task = task_current();
 
-    /*
-    task_kthread_init(&task0, (void *)do_task0, 
+#if 0
+    task_kthread_init(&task0, (void *)do_task0,
             (void *)((ptr_t)task0_stack + TASK_KERNSTACK_SIZE - 0x20));
-    task_kthread_init(&task1, (void *)do_task1, 
+    task_kthread_init(&task1, (void *)do_task1,
             (void *)((ptr_t)task1_stack + TASK_KERNSTACK_SIZE - 0x20));
-    // */
+#else
     const segment_selector ucs = { .as.word = SEL_USER_CS };
     const segment_selector uds = { .as.word = SEL_USER_DS };
-    task_init(&task0, (void *)do_task0, 
-            (void *)((ptr_t)task0_stack + TASK_KERNSTACK_SIZE), 
-            (void *)((ptr_t)task0_usr_stack + R3_STACK_SIZE),
+    task_init(&task0, (void *)do_task0,
+            ((char *)task0_stack + TASK_KERNSTACK_SIZE),
+            ((char *)task0_usr_stack + R3_STACK_SIZE),
             ucs, uds);
 
-    task_init(&task1, (void *)do_task1, 
-            (void *)((ptr_t)task1_stack + TASK_KERNSTACK_SIZE), 
+    task_init(&task1, (void *)do_task1,
+            (void *)((ptr_t)task1_stack + TASK_KERNSTACK_SIZE),
             (void *)((ptr_t)task1_usr_stack + R3_STACK_SIZE),
             ucs, uds);
- 
+#endif
+
+    /* allow tasks to update cursor with `outl` */
     task0.tss.eflags |= eflags_iopl(PL_USER);
-    task1.tss.eflags |= eflags_iopl(PL_USER);   //*/
+    task1.tss.eflags |= eflags_iopl(PL_USER);
 
     quit = false;
     kbd_set_onpress((kbd_event_f)key_press);
@@ -333,9 +338,9 @@ void test_tasks(void) {
 
     /* wait for first timer tick, when execution will be transferred to do_task0 */
     cpu_halt();
-    
-    kbd_set_onpress(null);
+
     task_set_scheduler(null);
+    kbd_set_onpress(null);
 
     k_printf("\nBye.\n");
 }
@@ -376,9 +381,9 @@ void test_userspace(void) {
     kbd_set_onpress((kbd_event_f)key_press);
 
     /* load TR and LDT */
-    asm ("ltrw %%ax     \n\t"::"a"( tss_sel ));
+    i386_load_task_reg(tss_sel);
     //asm ("lldt %%ax     \n\t"::"a"( SEL_DEFAULT_LDT ));
-    
+
     /* go userspace */
     start_userspace(
         (uint)run_userspace, SEL_USER_CS,
@@ -414,7 +419,7 @@ void test_init(void) {
 
     /* load TR and LDT */
     asm ("ltrw %%ax     \n\t"::"a"( tss_sel ));
-    
+
     /* go userspace */
     start_userspace(
         (uint)main, SEL_USER_CS,

@@ -19,7 +19,7 @@ const syscall_handler syscalls[] = {
     [SYS_PWRITE] = sys_pwrite,
     */
 
-    [N_SYSCALLS - 1] = sys_print,
+    [SYS_PRINT] = sys_print,
 };
 
 void int_syscall() {

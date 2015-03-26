@@ -48,19 +48,19 @@ typedef struct segdescr {
         uint32_t ints[2];
         uint64_t ll;
         struct {
-            uint16_t	limit_l;	// lower part
-            uint16_t	base_l;	// base lower
-            uint8_t		base_m;	// base middle
-            uint8_t	    type:4;	
-            uint8_t		sysbit:1;
-            uint8_t		dpl:2;
-            uint8_t		mem_present:1;
-            uint8_t		limit_h:4;
-            uint8_t		user:1;     // custom bit
-            uint8_t		digit64:1;  // 1 -> 64bit
-            uint8_t		digit:1;    // 1 -> 32bit
-            uint8_t		granularity:1;
-            uint8_t		base_h;
+            uint16_t    limit_l;    // lower part
+            uint16_t    base_l;     // base lower
+            uint8_t     base_m;     // base middle
+            uint8_t     type:4;
+            uint8_t     sysbit:1;   // systemseg or code/dataseg
+            uint8_t     dpl:2;
+            uint8_t     mem_present:1;
+            uint8_t     limit_h:4;
+            uint8_t     user:1;     // custom bit
+            uint8_t     digit64:1;  // 1 -> 64bit
+            uint8_t     digit:1;    // 1 -> 32bit
+            uint8_t     granularity:1;
+            uint8_t     base_h;
         } strct;
     } as;
 } segment_descriptor;
@@ -108,7 +108,13 @@ typedef struct {
     } as;
 } segment_selector;
 
-#define make_selector(index, ti, pl)  ((((index) & 0xFFFF) << 3) + (((ti) & 1) << 2) + ((pl) & 3))
+/* table indicator, ti */
+#define SEL_TI_GDT  0
+#define SEL_TI_LDT  1
+
+#define make_selector(index, ti, pl) \
+    ((((index) & 0xFFFF) << 3) + (((ti) & 1) << 2) + ((pl) & 3))
+
 #define segsel_index(ss)        ((ss) >> 3)
 #define rpl(ss)                 ((ss >> 1) & 0x3)
 
@@ -173,13 +179,13 @@ uint x86_eflags(void);
 #define GDT_KERN_DS     2
 #define GDT_USER_CS     3
 #define GDT_USER_DS     4
-#define GDT_DEFAULT_LDT 5
+#define GDT_DEF_LDT     5
 
-#define SEL_KERN_CS     make_selector(GDT_KERN_CS, 0, PL_KERN)
-#define SEL_KERN_DS     make_selector(GDT_KERN_DS, 0, PL_KERN)
-#define SEL_USER_CS     make_selector(GDT_USER_CS, 0, PL_USER)
-#define SEL_USER_DS     make_selector(GDT_USER_DS, 0, PL_USER)
-#define SEL_DEFAULT_LDT make_selector(GDT_DEFAULT_LDT, 0, PL_USER)
+#define SEL_KERN_CS     make_selector(GDT_KERN_CS, SEL_TI_GDT, PL_KERN)
+#define SEL_KERN_DS     make_selector(GDT_KERN_DS, SEL_TI_GDT, PL_KERN)
+#define SEL_USER_CS     make_selector(GDT_USER_CS, SEL_TI_GDT, PL_USER)
+#define SEL_USER_DS     make_selector(GDT_USER_DS, SEL_TI_GDT, PL_USER)
+#define SEL_DEF_LDT     make_selector(GDT_DEF_LDT, SEL_TI_GDT, PL_USER)
 
 segment_descriptor * i386_gdt(void);
 segment_descriptor * i386_idt(void);
@@ -192,6 +198,12 @@ struct i386_general_purpose_registers {
     uint ebx, edx, ecx, eax;
 };
 typedef  struct i386_general_purpose_registers  i386_gp_regs;
+
+static uint8_t i386_current_privlevel(void) {
+    uint16_t cs_sel;
+    asm("movw %%cs, %0 \n" : "=r"(cs_sel));
+    return cs_sel & 0x0003;
+}
 
 /***
   *     Paging
