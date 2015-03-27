@@ -38,8 +38,9 @@ int sys_read(int fd, void *buf, size_t count) {
     return_dbg_if(!filedes, -EBADF,
             "%s(fd=%d): EBADF\n", funcname, fd);
 
+    /* TODO: check if fd is writable */
     ret = vfs_inode_read(filedes->fd_sb, filedes->fd_ino, filedes->fd_pos,
-                buf, buflen, &nread);
+                buf, count, &nread);
     return_dbg_if(ret, -ret, "%s: inode_read failed(%d)\n", ret);
 
     if (filedes->fd_pos >= 0) {
@@ -49,7 +50,28 @@ int sys_read(int fd, void *buf, size_t count) {
 }
 
 int sys_write(int fd, void *buf, size_t count) {
-    return ETODO;
+    const char *funcname = __FUNCTION__;
+    int ret;
+    size_t nwritten = 0;
+
+    process *p = current_proc();
+    return_err_if(!p, -EKERN, "%s: no current pid", funcname);
+
+    return_dbg_if(!((0 <= fd) && (fd < N_PROCESS_FDS)), -EINVAL,
+            "%s(fd=%d): EINVAL\n", fd);
+
+    filedescr *filedes = p->ps_fds + fd;
+    return_dbg_if(!filedes, -EBADF,
+            "%s(fd=%d): EBADF\n", funcname, fd);
+
+    ret = vfs_inode_write(filedes->fd_sb, filedes->fd_ino, filedes->fd_pos,
+                buf, count, &nwritten);
+    return_dbg_if(ret, -ret, "%s: inode_read failed(%d)\n", ret);
+
+    if (filedes->fd_pos >= 0) {
+        filedes->fd_pos += nwritten;
+    }
+    return nwritten;
 }
 
 int sys_close(int fd) {

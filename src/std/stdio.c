@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <stdarg.h>
 #include <ctype.h>
+#include <unistd.h>
 
 #include <dev/screen.h>
 #include <dev/kbd.h>
@@ -18,11 +19,13 @@
 
 extern int theErrNo;
 
-struct FILE_struct { };
+struct FILE_struct {
+    int fd;
+};
 
-FILE f_stdin =  { };
-FILE f_stdout = { };
-FILE f_stderr = { };
+FILE f_stdin =  { .fd = STDIN_FILENO  };
+FILE f_stdout = { .fd = STDOUT_FILENO };
+FILE f_stderr = { .fd = STDERR_FILENO };
 
 FILE *stdin = &f_stdin;
 FILE *stdout = &f_stdout;
@@ -302,32 +305,27 @@ char *tmpnam(char *s) {
     return "";
 }
 
-size_t fread(void *ptr, size_t size, size_t nmmeb, FILE *stream) {
-    logmsge("TODO: fread");
-    return 0;
+size_t fread(void *ptr, size_t size, size_t nmemb, FILE *stream) {
+    theErrNo = 0;
+    int ret = sys_read(stream->fd, ptr, size * nmemb);
+    if (ret < 0) {
+        theErrNo = -ret;
+        return 0;
+    }
+    return ret;
 }
 
-size_t fwrite(const void *ptr, size_t size, size_t nitems, FILE *stream) {
+size_t fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream) {
     char const *cptr = ptr;
     size_t i;
-    if (stream == stdout) {
-        logmsgf("fwrite(*%x, %x, %x, stdout)\n", (uint)ptr, size, nitems);
-        /* for (i = 0; i < size * nitems; ++i) { cprint(cptr[i]); } */
-        tty_write(CONSOLE_TTY, ptr, size * nitems);
-        return nitems;
+
+    theErrNo = 0;
+    int ret = sys_write(stream->fd, ptr, size * nmemb);
+    if (ret < 0) {
+        theErrNo = -ret;
+        return 0;
     }
-    if (stream == stderr) {
-        logmsgf("fwrite(*%x, %x, %x, stderr)\n", (uint)ptr, size, nitems);
-        vcsa_set_attribute(CONSOLE_VCSA, 4); // RED
-        for (i = 0; i < size * nitems; ++i) {
-            cprint(cptr[i]);
-        }
-        vcsa_set_attribute(CONSOLE_VCSA, VCSA_DEFAULT_ATTRIBUTE);
-        return nitems;
-    }
-    logmsge("TODO: fwrite(*%x, %x, %x, stream=*%x)\n",
-            (uint)ptr, size, nitems, (uint)stream);
-    return 0;
+    return ret;
 }
 
 FILE *tmpfile(void) {
