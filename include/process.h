@@ -32,6 +32,7 @@ struct process {
 };
 
 process * proc_by_pid(pid_t pid);
+process * current_proc(void);
 
 void proc_setup(void);
 

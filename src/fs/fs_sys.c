@@ -1,5 +1,7 @@
 #include <fs/fs_sys.h>
 #include <fs/vfs.h>
+#include <process.h>
+
 #include <log.h>
 
 #warning "TODO: remove #pragma GCC diagnostic ignored -Wunused-parameter"
@@ -22,7 +24,28 @@ int sys_open(const char *pathname, int flags) {
 }
 
 int sys_read(int fd, void *buf, size_t count) {
-    return ETODO;
+    const char *funcname = __FUNCTION__;
+    int ret;
+    size_t nread = 0;
+
+    process *p = current_proc();
+    return_err_if(!p, -EKERN, "%s: no current pid", funcname);
+
+    return_dbg_if(!((0 <= fd) && (fd < N_PROCESS_FDS)), -EINVAL,
+            "%s(fd=%d): EINVAL\n", fd);
+
+    filedescr *filedes = p->ps_fds + fd;
+    return_dbg_if(!filedes, -EBADF,
+            "%s(fd=%d): EBADF\n", funcname, fd);
+
+    ret = vfs_inode_read(filedes->fd_sb, filedes->fd_ino, filedes->fd_pos,
+                buf, buflen, &nread);
+    return_dbg_if(ret, -ret, "%s: inode_read failed(%d)\n", ret);
+
+    if (filedes->fd_pos >= 0) {
+        filedes->fd_pos += nread;
+    }
+    return nread;
 }
 
 int sys_write(int fd, void *buf, size_t count) {

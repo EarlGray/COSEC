@@ -595,4 +595,15 @@ void vfs_setup(void) {
     returnv_err_if(ret, "root mount on sysfs failed (%d)", ret);
 
     k_printf("%s on / mounted successfully\n", theRootMnt->sb_fs->name);
+
+    ret = vfs_mkdir("/dev", 0755);
+    returnv_err_if(ret, "mkdir /dev: %s", strerror(ret));
+
+    char ttyname[] = "/dev/tty0";
+    int i;
+    for (i = 0; i < N_VCSA_DEVICES; ++i) {
+        ttyname[8] = (char)(i + '0');
+        ret = vfs_mknod(ttyname, S_IFCHR | 0755, gnu_dev_makedev(CHR_TTY, i));
+        if (ret) logmsgef(ret, "mkdev c 4:0 /dev/tty0: %s", strerror(ret));
+    }
 }
