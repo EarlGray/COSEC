@@ -22,7 +22,6 @@
 #include <dev/intrs.h>
 #include <dev/timer.h>
 
-#define __DEBUG
 #include <log.h>
 
 volatile task_struct default_task;
@@ -85,7 +84,7 @@ static inline void task_cpu_load(task_struct *task) {
     //print_task(task);
 
     /* load next task */
-    uint8_t pl = (task->tss.cs == SEL_KERN_CS ? PL_KERN : PL_USER);
+    uint16_t pl = ((task->tss.cs == SEL_KERN_CS) ? PL_KERN : PL_USER);
     uint16_t tss_sel = make_selector(task->tss_index, SEL_TI_GDT, pl);
     logmsgdf("tss_sel = 0x%x\n", (uint)tss_sel);
     i386_load_task_reg( tss_sel );
@@ -126,6 +125,7 @@ void task_init(task_struct *task, void *entry,
         segment_selector cs, segment_selector ds)
 {
     tss_t *tss = &(task->tss);
+    memset(tss, 0, sizeof(tss_t));
 
     /* initial state */
     tss->esp0 = (ptr_t)esp0;

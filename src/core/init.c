@@ -11,6 +11,7 @@
 
 #include <kshell.h>
 #include <tasks.h>
+#include <process.h>
 
 #include <log.h>
 
@@ -49,6 +50,7 @@ void kinit(uint32_t magic, struct multiboot_info *mbi) {
 
     intrs_enable();
 
+    proc_setup();
     kshell_run();
 }
 

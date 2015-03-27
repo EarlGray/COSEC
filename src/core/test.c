@@ -418,7 +418,7 @@ void test_init(void) {
     kbd_set_onpress((kbd_event_f)key_press);
 
     /* load TR and LDT */
-    asm ("ltrw %%ax     \n\t"::"a"( tss_sel ));
+    i386_load_task_reg(tss_sel);
 
     /* go userspace */
     start_userspace(

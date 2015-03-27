@@ -222,7 +222,7 @@ static void vcsa_scroll_lines(int vcsno, int lines) {
         }
     for (i = 0; i < lines; ++i) {
         for (j = 0; j < SCR_WIDTH; ++j) {
-            clear_vga_sym(buf, attr);
+            clear_vga_sym((char *)buf, attr);
             buf += 2;
         }
     }
