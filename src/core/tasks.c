@@ -139,6 +139,9 @@ void task_init(task_struct *task, void *entry,
     tss->ldt = SEL_DEF_LDT;
     tss->eflags = x86_eflags();
     tss->eip = (uint)entry;
+    tss->io_map_addr = 0x60;
+    tss->io_map1 = 0xffffffff;
+    tss->io_map2 = 0xffffffff;
 
     /* initialize stack as if the task was interrupted */
     uint *stack = (uint *)(tss->esp0 - task_sysinfo_size(task)*sizeof(uint));
@@ -175,6 +178,7 @@ inline void task_kthread_init(task_struct *ktask, void *entry, void *k_esp) {
 }
 
 void tasks_setup(void) {
+    k_printf("sizeof(task) = 0x%x\n", sizeof(tss_t));
     // initialize default task
     default_task.tss.ds = default_task.tss.es =
         default_task.tss.fs = default_task.tss.gs = SEL_KERN_DS;

@@ -171,6 +171,32 @@ extern void i386_snapshot(char *buf);
 
 #define eflags_iopl(pl)     ((pl & 3) << 12)
 
+struct eflags {
+    uint8_t cf:1;   // 0
+    uint8_t :1;
+    uint8_t pf:1;
+    uint8_t :1;
+    uint8_t af:1;   // 4
+    uint8_t :1;
+    uint8_t zf:1;
+    uint8_t sf:1;
+
+    uint8_t tf:1;   // 8
+    uint8_t ifl:1;
+    uint8_t df:1;
+    uint8_t of:1;
+    uint8_t iopl:2; // 12
+    uint8_t nt:1;
+    uint8_t :1;
+
+    uint8_t rf:1;   // 16
+    uint8_t vm:1;
+    uint8_t ac:1;
+    uint8_t vif:1;
+    uint8_t vip:1;  // 20
+    uint8_t id:1;
+};
+
 uint x86_eflags(void);
 
 /* GDT indeces */
@@ -245,6 +271,8 @@ struct task_state_seg {
     uint es, cs, ss, ds, fs, gs;
     uint ldt;
     uint io_map_addr;
+
+    uint io_map1, io_map2;
 };
 typedef  struct task_state_seg  tss_t;
 

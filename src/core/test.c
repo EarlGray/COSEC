@@ -10,10 +10,12 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <time.h>
+#include <unistd.h>
 
 #include <dev/timer.h>
 #include <dev/kbd.h>
 #include <arch/i386.h>
+#include <fs/fs_sys.h>
 
 #include <kshell.h>
 #include <log.h>
@@ -347,9 +349,15 @@ void test_tasks(void) {
 
 /***********************************************************/
 void run_userspace(void) {
-    k_printf("Hello, userspace");
-    asm ("int $0x80  \t\n");
-    k_printf("... and we're back");
+    while (1);
+    char buf[100];
+    snprintf(buf, 100, "Current privilege level = %d\n", i386_current_privlevel());
+
+    asm("int $0x80 \n" ::
+            "a"(SYS_WRITE),
+            "c"(STDOUT_FILENO),
+            "d"((uint)buf),
+            "b"(100));
     while (1);
 }
 
@@ -363,32 +371,38 @@ void test_userspace(void) {
     task3.tss.cs = SEL_USER_CS;
     task3.tss.ds = task3.tss.es = task3.tss.fs = task3.tss.gs = SEL_USER_DS;
     task3.tss.ss = SEL_USER_DS;
+    task3.tss.esp = (uint)task0_usr_stack + R3_STACK_SIZE - CONTEXT_SIZE - 0x10;
     task3.tss.eip = (uint)run_userspace;
     task3.tss.ss0 = SEL_KERN_DS;
-    task3.tss.esp0 = (uint)task0_stack + R0_STACK_SIZE - 0x20;
+    task3.tss.esp0 = (uint)task0_stack + R0_STACK_SIZE - CONTEXT_SIZE - 0x10;
 
     /* make a GDT task descriptor */
     segment_descriptor taskdescr;
     segdescr_taskstate_init(taskdescr, (uint)&task3, PL_USER);
+    segdescr_taskstate_busy(taskdescr, 0);
 
+#if 1
     index_t taskdescr_index = gdt_alloc_entry(taskdescr);
 
     segment_selector tss_sel;
     tss_sel.as.word = make_selector(taskdescr_index, 0, PL_USER);
-
     logmsgf("GDT[%x]\n", taskdescr_index);
-
-    kbd_set_onpress((kbd_event_f)key_press);
 
     /* load TR and LDT */
     i386_load_task_reg(tss_sel);
+
     //asm ("lldt %%ax     \n\t"::"a"( SEL_DEFAULT_LDT ));
+#endif
+    kbd_set_onpress((kbd_event_f)key_press);
+
+    uint efl = 0x00203202;
+    logmsgf("elf = %x\n", efl);
 
     /* go userspace */
     start_userspace(
-        (uint)run_userspace, SEL_USER_CS,
-        x86_eflags() | eflags_iopl(PL_USER),
-        (uint)task0_usr_stack + R3_STACK_SIZE - 0x20, SEL_USER_DS);
+        (uint)run_userspace, task3.tss.cs,
+        efl,
+        task3.tss.esp, task3.tss.ss);
 }
 
 #ifdef TEST_USERSPACE

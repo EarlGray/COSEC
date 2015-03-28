@@ -14,6 +14,8 @@ const syscall_handler syscalls[] = {
     [SYS_MKDIR] = sys_mkdir,
     [SYS_LSDIR] = sys_lsdir,
 
+    [SYS_READ]  = sys_read,
+    [SYS_WRITE] = sys_write,
     /*
     [SYS_PREAD] = sys_pread,
     [SYS_PWRITE] = sys_pwrite,
@@ -24,10 +26,10 @@ const syscall_handler syscalls[] = {
 
 void int_syscall() {
     uint * stack = (uint *)intr_context_esp() + CONTEXT_SIZE/sizeof(uint);
-    uint intr_num = *(stack - 1);
-    uint arg1 = *(stack - 2);
-    uint arg2 = *(stack - 3);
-    uint arg3 = *(stack - 4);
+    uint intr_num = *(stack - 1);   /* eax : syscall number */
+    uint arg1 = *(stack - 2);       /* ecx : arg1 */
+    uint arg2 = *(stack - 3);       /* edx : arg2 */
+    uint arg3 = *(stack - 4);       /* ebx : arg3 */
 
     logmsgdf("\n#syscall(%d, 0x%x, 0x%x, 0x%x)\n",
             intr_num, arg1, arg2, arg3);

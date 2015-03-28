@@ -72,7 +72,12 @@ i386_rdtsc:
 
 .global start_userspace
 start_userspace:
-    addl $4, %esp
+    movw $043, %ax
+    movw %ax, %ds
+    movw %ax, %es
+    movw %ax, %fs
+    movw %ax, %gs
+    addl $4, %esp /* discard %eip */
     iret
 
 .global i386_switch_pagedir

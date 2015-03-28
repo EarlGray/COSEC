@@ -7,7 +7,6 @@
 #include <fs/ramfs.h>
 #include <conf.h>
 
-#define __DEBUG
 #include <log.h>
 
 typedef void (*btree_leaf_free_f)(void *);
@@ -329,7 +328,7 @@ static int ramfs_directory_new_entry(
         const char *name, struct inode *idata)
 {
     UNUSED(sb);
-    logmsgf("ramfs_directory_new_entry(%s)\n", name);
+    logmsgdf("ramfs_directory_new_entry(%s)\n", name);
     int ret;
     struct ramfs_direntry *de = kmalloc(sizeof(struct ramfs_direntry));
     if (!de) return ENOMEM;
@@ -997,7 +996,7 @@ static char * ramfs_block_by_index_or_new(struct inode *idata, off_t index) {
 static void ramfs_free_blocks_in_list(off_t *blklst) {
     if (!blklst) return;
 
-    int i;
+    size_t i;
     for (i = 0; i < PAGE_SIZE / sizeof(off_t); ++i) {
         char *blkdata = (char *)(size_t)blklst[i];
         if (!blkdata) continue;
@@ -1008,7 +1007,7 @@ static void ramfs_free_blocks_in_list(off_t *blklst) {
 
 static void ramfs_free_blocks_2ndlvl(off_t *ind2lst) {
     if (!ind2lst) return;
-    int i;
+    size_t i;
 
     for (i = 0; i < PAGE_SIZE / sizeof(off_t); ++i) {
         off_t *ind1lst = (off_t *)(size_t)ind2lst[i];
