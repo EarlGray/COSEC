@@ -45,8 +45,36 @@ process * proc_by_pid(pid_t pid) {
     return theProcTable[pid];
 }
 
+pid_t current_pid(void) {
+    return theCurrPID;
+}
+
 process * current_proc(void) {
     return theProcTable[theCurrPID];
+}
+
+int alloc_fd_for_pid(pid_t pid) {
+    const char *funcname = __FUNCTION__;
+    int i;
+    process *p = proc_by_pid(pid);
+    return_dbg_if(!p, EKERN, "%s: no process with pid %d\n", funcname, pid);
+
+    for (i = 0; i < N_PROCESS_FDS; ++i)
+        if (p->ps_fds[i].fd_ino < 1)
+            return i;
+
+    return -1;
+}
+
+filedescr * get_filedescr_for_pid(pid_t pid, int fd) {
+    const char *funcname = __FUNCTION__;
+    process *p = proc_by_pid(pid);
+    return_dbg_if(!p, EKERN,
+            "%s: no process with pid %d\n", funcname, pid);
+    return_dbg_if(!((0 <= fd) && (fd < N_PROCESS_FDS)), NULL,
+            "%s: fd=%d out of range\n", funcname, fd);
+
+    return p->ps_fds + fd;
 }
 
 extern char kern_stack;

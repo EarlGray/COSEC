@@ -117,7 +117,7 @@ struct device_operations {
 
     /**
      * \brief  returns true if there are data pending for a character device
-     *         If it's NULL, it usually means that the device may be read anytime.
+     *         If it's NULL, it usually means that the device may be read anytime and is seekable.
      */
     bool    (*dev_has_data)(device *dev);
 
@@ -143,7 +143,6 @@ struct device {
  * \brief  blocking read from a block device at `pos`
  */
 int bdev_blocking_read(device *dev, off_t pos, char *buf, size_t buflen, size_t *written);
-int cdev_blocking_read(/*device *dev, off_t pos, char *buf, size_t buflen, size_t *written */);
 
 /**
  * \brief  get device structure

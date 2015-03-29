@@ -16,8 +16,6 @@
 #define __DEBUG
 #include <log.h>
 
-static int vfs_inode_get(mountnode *sb, inode_t ino, struct inode *idata);
-
 static const char *
 vfs_match_mountpath(mountnode *parent_mnt, mountnode **match_mnt, const char *path);
 
@@ -255,22 +253,46 @@ int vfs_mkdir(const char *path, mode_t mode) {
 }
 
 
-static int vfs_inode_get(mountnode *sb, inode_t ino, struct inode *idata) {
-    const char *funcname = "vfs_inode_get";
+int vfs_inode_get(mountnode *sb, inode_t ino, struct inode *idata) {
+    const char *funcname = __FUNCTION__;
     int ret;
     return_log_if(!idata, EINVAL, "%s(NULL", funcname);
-    return_dbg_if(!sb->sb_fs->ops->inode_data, ENOSYS,
-                  "%s: no %s.inode_data()\n", funcname, sb->sb_fs->name);
+    return_dbg_if(!sb->sb_fs->ops->inode_get, ENOSYS,
+                  "%s: no %s.inode_get()\n", funcname, sb->sb_fs->name);
 
-    ret = sb->sb_fs->ops->inode_data(sb, ino, idata);
-    return_dbg_if(ret, ret, "%s: %s.inode_data failed\n", funcname, sb->sb_fs->name);
+    ret = sb->sb_fs->ops->inode_get(sb, ino, idata);
+    return_dbg_if(ret, ret, "%s: %s.inode_get failed\n", funcname, sb->sb_fs->name);
 
     return 0;
 }
 
+int vfs_inode_set(mountnode *sb, inode_t ino, struct inode *inobuf) {
+    const char *funcname = __FUNCTION__;
+    int ret;
+
+    return_dbg_if(!sb->sb_fs->ops->inode_get, ENOSYS,
+            "%s: no %s.inode_get()\n", funcname, sb->sb_fs->name);
+    return_dbg_if(!sb->sb_fs->ops->inode_set, ENOSYS,
+            "%s: no %s.inode_set()\n", funcname, sb->sb_fs->name);
+
+    struct inode idata;
+    ret = sb->sb_fs->ops->inode_get(sb, ino, &idata);
+    return_dbg_if(ret, ret,
+            "%s: %s.inode_get() failed(%d)\n", funcname, sb->sb_fs->name, ret);
+
+    /* inode_set can't change type of file */
+    if ((idata.i_mode & S_IFMT) != (inobuf->i_mode & S_IFMT)) return EINVAL;
+    /* inode index cannot be changed */
+    if (idata.i_no != inobuf->i_no) return EINVAL;
+    /* only fs code may change i_data */
+    if (idata.i_data != inobuf->i_data) return EINVAL;
+
+    return sb->sb_fs->ops->inode_set(sb, ino, &idata);
+}
+
 
 int vfs_mknod(const char *path, mode_t mode, dev_t dev) {
-    const char *funcname = "vfs_mknod";
+    const char *funcname = __FUNCTION__;
     int ret;
     return_log_if(S_ISDIR(mode), EINVAL, "Error: %s(IFDIR), use vfs_mkdir\n", funcname);
     return_log_if(S_ISLNK(mode), EINVAL, "Error: %s(IFLNK), use vfs_symlink\n", funcname);
@@ -338,27 +360,24 @@ int vfs_inode_read(
 
     struct inode idata;
 
-    return_dbg_if(!sb->sb_fs->ops->inode_data, ENOSYS,
-            "%s: no %s.inode_data\n", funcname, sb->sb_fs->name);
+    return_dbg_if(!sb->sb_fs->ops->inode_get, ENOSYS,
+            "%s: no %s.inode_get\n", funcname, sb->sb_fs->name);
     return_dbg_if(!sb->sb_fs->ops->read_inode, ENOSYS,
             "%s: no %s.read_inode\n", funcname, sb->sb_fs->name);
 
-    ret = sb->sb_fs->ops->inode_data(sb, ino, &idata);
+    ret = sb->sb_fs->ops->inode_get(sb, ino, &idata);
     return_dbg_if(ret, ret,
-            "%s: %s.inode_data(%d) failed(%d)\n", funcname, sb->sb_fs->name, ino, ret);
+            "%s: %s.inode_get(%d) failed(%d)\n", funcname, sb->sb_fs->name, ino, ret);
 
-    dev_t devno;
     device *dev;
     switch (idata.i_mode & S_IFMT) {
         case S_IFCHR:
-            devno = gnu_dev_makedev(idata.as.dev.maj, idata.as.dev.min);
-            dev = device_by_devno(DEV_CHR, devno);
+            dev = device_by_devno(DEV_CHR, inode_devno(&idata));
             if (!dev) return ENODEV;
             if (!dev->dev_ops->dev_read_buf) return ENOSYS;
             return dev->dev_ops->dev_read_buf(dev, buf, buflen, written, pos);
         case S_IFBLK:
-            devno = gnu_dev_makedev(idata.as.dev.maj, idata.as.dev.min);
-            dev = device_by_devno(DEV_BLK, devno);
+            dev = device_by_devno(DEV_BLK, inode_devno(&idata));
             if (!dev) return ENODEV;
             return bdev_blocking_read(dev, pos, buf, buflen, written);
         case S_IFSOCK:
@@ -395,16 +414,15 @@ int vfs_inode_write(
 
     struct inode idata;
 
-    return_dbg_if(!sb->sb_fs->ops->inode_data, ENOSYS,
-            "%s: no %s.inode_data\n", funcname, sb->sb_fs->name);
+    return_dbg_if(!sb->sb_fs->ops->inode_get, ENOSYS,
+            "%s: no %s.inode_get\n", funcname, sb->sb_fs->name);
     return_dbg_if(!sb->sb_fs->ops->write_inode, ENOSYS,
             "%s: no %s.write_inode\n", funcname, sb->sb_fs->name);
 
-    ret = sb->sb_fs->ops->inode_data(sb, ino, &idata);
+    ret = sb->sb_fs->ops->inode_get(sb, ino, &idata);
     return_dbg_if(ret, ret,
-            "%s; %s.inode_data(%d) failed(%d)\n", funcname, sb->sb_fs->name, ino, ret);
+            "%s; %s.inode_get(%d) failed(%d)\n", funcname, sb->sb_fs->name, ino, ret);
 
-    dev_t devno;
     device *dev;
     switch (idata.i_mode & S_IFMT) {
         case S_IFREG:
@@ -415,8 +433,7 @@ int vfs_inode_write(
         case S_IFBLK:
             return ETODO;
         case S_IFCHR:
-            devno = gnu_dev_makedev(idata.as.dev.maj, idata.as.dev.min);
-            dev = device_by_devno(DEV_CHR, devno);
+            dev = device_by_devno(DEV_CHR, inode_devno(&idata));
             return_dbg_if(!dev, ENODEV, "%s: ENODEV\n");
             return_dbg_if(!dev->dev_ops->dev_write_buf, ENOSYS,
                     "%s: no device.dev_write_buf\n", funcname);
@@ -431,6 +448,14 @@ int vfs_inode_write(
 }
 
 
+int vfs_inode_trunc(mountnode *sb, inode_t ino, off_t length) {
+    const char *funcname = __FUNCTION__;
+
+    return_dbg_if(!sb->sb_fs->ops->trunc_inode, ENOSYS,
+            "%s: no %s.trunc_inode\n", funcname, sb->sb_fs->name);
+    return sb->sb_fs->ops->trunc_inode(sb, ino, length);
+}
+
 int vfs_inode_stat(mountnode *sb, inode_t ino, struct stat *stat) {
     const char *funcname = __FUNCTION__;
     int ret;
@@ -438,19 +463,19 @@ int vfs_inode_stat(mountnode *sb, inode_t ino, struct stat *stat) {
 
     struct inode idata;
 
-    return_dbg_if(!sb->sb_fs->ops->inode_data, ENOSYS,
-             "%s: no %s.inode_data\n", funcname, sb->sb_fs->name);
-    ret = sb->sb_fs->ops->inode_data(sb, ino, &idata);
+    return_dbg_if(!sb->sb_fs->ops->inode_get, ENOSYS,
+             "%s: no %s.inode_get\n", funcname, sb->sb_fs->name);
+    ret = sb->sb_fs->ops->inode_get(sb, ino, &idata);
     return_dbg_if(ret, ret,
-            "%s: %s.inode_data() failed(%d)\n", funcname, sb->sb_fs->name, ret);
+            "%s: %s.inode_get() failed(%d)\n", funcname, sb->sb_fs->name, ret);
 
     memset(stat, 0, sizeof(struct stat));
     stat->st_dev = sb->sb_dev;
     stat->st_ino = ino;
     stat->st_mode = idata.i_mode;
     stat->st_nlink = idata.i_nlinks;
-    stat->st_rdev = (S_ISCHR(idata.i_mode) || S_ISBLK(idata.i_mode) ?
-                        gnu_dev_makedev(idata.as.dev.maj, idata.as.dev.min) : 0);
+    stat->st_rdev = (S_ISCHR(idata.i_mode) || S_ISBLK(idata.i_mode) ? 
+                        inode_devno(&idata) : 0);
     stat->st_size = idata.i_size;
     return 0;
 }

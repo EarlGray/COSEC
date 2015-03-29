@@ -18,6 +18,7 @@ struct filedesc {
     mountnode  *fd_sb;
     inode_t     fd_ino;
 
+    uint        fd_flags;
     off_t       fd_pos;
 };
 
@@ -28,11 +29,18 @@ struct process {
     void *      ps_kernstack;
     task_struct ps_task;        /* context-switching info */
     mindev_t    ps_tty;         /* controlling tty */
+    mode_t      ps_umask;       /* umask */
+    char *      ps_cwd;         /* current directory */
+
     filedescr   ps_fds[N_PROCESS_FDS];
 };
 
-process * proc_by_pid(pid_t pid);
+pid_t current_pid(void);
 process * current_proc(void);
+process * proc_by_pid(pid_t pid);
+
+int alloc_fd_for_pid(pid_t pid);
+filedescr * get_filedescr_for_pid(pid_t pid, int fd);
 
 void proc_setup(void);
 

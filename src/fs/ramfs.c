@@ -211,11 +211,13 @@ static int ramfs_make_node(mountnode *sb, inode_t *ino, mode_t mode, void *info)
 static int ramfs_free_inode(mountnode *sb, inode_t ino);
 static int ramfs_link_inode(mountnode *sb, inode_t ino, inode_t dirino, const char *name, size_t namelen);
 static int ramfs_unlink_inode(mountnode *sb, const char *path, size_t pathlen);
-static int ramfs_inode_data(mountnode *sb, inode_t ino, struct inode *idata);
-static int ramfs_read_inode();/*mountnode *sb, inode_t ino, off_t pos,
-                            char *buf, size_t buflen, size_t *written); */
+static int ramfs_inode_get(mountnode *sb, inode_t ino, struct inode *idata);
+static int ramfs_inode_set(mountnode *sb, inode_t ino, struct inode *idata);
+static int ramfs_read_inode(mountnode *sb, inode_t ino, off_t pos,
+                            char *buf, size_t buflen, size_t *written);
 static int ramfs_write_inode(mountnode *sb, inode_t ino, off_t pos,
                              const char *buf, size_t buflen, size_t *written);
+static int ramfs_trunc_inode(/*mountnode *sb, inode_t ino, off_t length*/);
 
 static void ramfs_inode_free(struct inode *idata);
 static void ramfs_free_inode_blocks(struct inode *idata);
@@ -229,9 +231,11 @@ struct filesystem_operations  ramfs_fsops = {
     .make_inode         = ramfs_make_node,
     .link_inode         = ramfs_link_inode,
     .unlink_inode       = ramfs_unlink_inode,
-    .inode_data         = ramfs_inode_data,
+    .inode_get          = ramfs_inode_get,
+    .inode_set          = ramfs_inode_set,
     .read_inode         = ramfs_read_inode,
     .write_inode        = ramfs_write_inode,
+    .trunc_inode        = ramfs_trunc_inode,
 };
 
 struct filesystem_driver  ramfs_driver = {
@@ -543,7 +547,7 @@ static inode * ramfs_idata_by_inode(mountnode *sb, inode_t ino) {
     return btnode->bt_children[ ino ];
 }
 
-static int ramfs_inode_data(mountnode *sb, inode_t ino, struct inode *inobuf) {
+static int ramfs_inode_get(mountnode *sb, inode_t ino, struct inode *inobuf) {
     int ret;
 
     struct inode *idata;
@@ -551,6 +555,21 @@ static int ramfs_inode_data(mountnode *sb, inode_t ino, struct inode *inobuf) {
     if (!idata) return ENOENT;
 
     memcpy(inobuf, idata, sizeof(struct inode));
+    return 0;
+}
+
+static int ramfs_inode_set(mountnode *sb, inode_t ino, struct inode *inobuf) {
+    int ret;
+
+    struct inode *idata;
+    idata = ramfs_idata_by_inode(sb, ino);
+    if (!idata) return ENOENT;
+
+    memcpy(idata, inobuf, sizeof(struct inode));
+
+    if ((inobuf->i_nlinks == 0) && (inobuf->i_nfds == 0))
+        return ramfs_free_inode(sb, ino);
+
     return 0;
 }
 
@@ -959,8 +978,8 @@ static char * ramfs_block_by_index_or_new(struct inode *idata, off_t index) {
         if (!blkdata) {
             blkdata = ramfs_new_block();
             idata->as.reg.directblock[index] = (off_t)blkdata;
+            ++idata->as.reg.block_count;
 
-            ++idata->as.reg.block_coout;
             logmsgdf("%s: ino=%d, block %d set to *%x\n",
                     funcname, idata->i_no, index, (uint)blkdata);
         }
@@ -982,7 +1001,7 @@ static char * ramfs_block_by_index_or_new(struct inode *idata, off_t index) {
             blkdata = ramfs_new_block();
             ind1blk[ index ] = (off_t)blkdata;
 
-            ++idata->as.reg.block_coout;
+            ++idata->as.reg.block_count;
             logmsgdf("%s: ino=%d, block %d set to *%x\n", funcname,
                     idata->i_no, N_DIRECT_BLOCKS + index, (uint)blkdata);
         }
@@ -1156,3 +1175,7 @@ fun_exit:
     return ret;
 }
 
+
+static int ramfs_trunc_inode(/*mountnode *sb, inode_t ino, off_t length*/) {
+    return ETODO;
+}

@@ -2,9 +2,11 @@
 
 #include <stdlib.h>
 #include <stdbool.h>
+#include <string.h>
 #include <stdarg.h>
 #include <ctype.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 #include <dev/screen.h>
 #include <dev/kbd.h>
@@ -291,8 +293,30 @@ int fscanf(FILE *stream, const char *format, ...) {
 
 
 FILE * fopen(const char *path, const char *mode) {
-    logmsge("TODO: fopen");
-    return NULL;
+    theErrNo = 0;
+    int flags = 0;
+
+    if (strchr(mode, '+')) {
+        flags |= O_RDWR;
+        if (strchr(mode, 'w')) flags |= (O_CREAT|O_TRUNC);
+        else if (strchr(mode, 'a')) flags |= (O_CREAT|O_APPEND);
+    } else {
+        if (strchr(mode, 'r')) flags |= O_RDONLY;
+        else if (strchr(mode, 'w')) flags |= (O_WRONLY|O_CREAT|O_TRUNC);
+        else if (strchr(mode, 'a')) flags |= (O_WRONLY|O_CREAT|O_APPEND);
+    }
+
+    int fd = sys_open(path, flags);
+    if (fd < 0) {
+        theErrNo = -fd;
+        return NULL;
+    }
+
+    FILE *f = malloc(sizeof(FILE));
+    if (!f) return NULL;
+
+    f->fd = fd;
+    return f;
 }
 
 FILE *freopen(const char *path, const char *mode, FILE *stream) {
@@ -364,8 +388,16 @@ int fseek(FILE *stream, long offset, int whence) {
 }
 
 int fclose(FILE *fp) {
-    theErrNo = ETODO;
-    return EOF;
+    theErrNo = 0;
+    int ret;
+    if (!fp) { theErrNo = EINVAL; return EOF; }
+
+    ret = sys_close(fp->fd);
+    if (ret) {
+        theErrNo = ret;
+        return -1;
+    }
+    return 0;
 }
 
 int fflush(__unused FILE *stream) {

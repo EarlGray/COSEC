@@ -54,25 +54,26 @@ struct inode {
 
     union {
         struct {
-            off_t block_coout;                     // how many blocks its data takes
+            off_t block_count;                     // how many blocks its data takes
             off_t directblock[ N_DIRECT_BLOCKS ];  // numbers of first DIRECT_BLOCKS blocks
             off_t indir1st_block;
             off_t indir2nd_block;
             off_t indir3rd_block;
         } reg;
-        //struct { } dir;
         struct {
             majdev_t maj;
             mindev_t min;
         } dev;
         struct {
+            const char *long_symlink; /* if NULL, see short_symlink */
             char short_symlink[ MAX_SHORT_SYMLINK_SIZE ];
-            const char *long_symlink;
         } symlink;
-        //struct { } socket;
-        //struct { } namedpipe;
     } as;
 };
+
+static inline dev_t inode_devno(struct inode *idata) {
+    return gnu_dev_makedev(idata->as.dev.maj, idata->as.dev.min);
+}
 
 
 struct filesystem_driver {
@@ -120,7 +121,11 @@ struct filesystem_operations {
      * \brief  copies generic inode with index `ino` into buffer `idata`
      * @
      */
-    int (*inode_data)(mountnode *sb, inode_t ino, struct inode *idata);
+    int (*inode_get)(mountnode *sb, inode_t ino, struct inode *idata);
+    /**
+     * \brief  updates `ino` with data from buffer `idata`
+     */
+    int (*inode_set)(mountnode *sb, inode_t ino, struct inode *idata);
 
     /**
      * \brief  reads/writes data from an inode blocks
@@ -134,6 +139,11 @@ struct filesystem_operations {
 
     int (*write_inode)(mountnode *sb, inode_t ino, off_t pos,
                        const char *buf, size_t buflen, size_t *written);
+
+    /**
+     * \brief  truncates inode `ino` to the `length`
+     */
+    int (*trunc_inode)(mountnode *sb, inode_t ino, off_t length);
 
     /**
      * \brief  iterates through directory and fills `dir`.
@@ -193,11 +203,15 @@ int vfs_hardlink(const char *path, const char *newpath);
 int vfs_unlink(const char *path);
 int vfs_rename(const char *oldpath, const char *newpath);
 
+int vfs_inode_get(mountnode *sb, inode_t ino, struct inode *idata);
+int vfs_inode_set(mountnode *sb, inode_t ino, struct inode *idata);
+
 int vfs_inode_read(mountnode *sb, inode_t ino, off_t pos,
                    char *buf, size_t buflen, size_t *written);
 
 int vfs_inode_write(mountnode *sb, inode_t ino, off_t pos,
                     const char *buf, size_t buflen, size_t *written);
+int vfs_inode_trunc(mountnode *sb, inode_t ino, off_t length);
 
 void print_ls(const char *path);
 void print_mount(void);
