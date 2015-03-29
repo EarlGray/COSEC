@@ -45,7 +45,7 @@ void int_syscall() {
 }
 
 int sys_print(const char **fmt) {
-    logmsgd("sys_printf()");
+    logmsgdf("sys_printf()");
     k_printf(*fmt);
     return 0;
 }

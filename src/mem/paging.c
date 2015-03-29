@@ -1,10 +1,10 @@
-#define __DEBUG
-
 #include <stdint.h>
 #include <string.h>
 
 #include <mem/paging.h>
 #include <arch/i386.h>
+
+#define __DEBUG
 #include <log.h>
 
 pde_t thePageDirectory[N_PDE] __attribute__((aligned (PAGE_SIZE)));

@@ -140,10 +140,6 @@ inline segment_descriptor * i386_idt(void) {
     return theIDT;
 }
 
-void print_eflags(struct eflags efl) {
-    //logmsgif("cf = 
-}
-
 /***
   *     Task-related routines
  ***/ 

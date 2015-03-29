@@ -604,6 +604,6 @@ void vfs_setup(void) {
     for (i = 0; i < N_VCSA_DEVICES; ++i) {
         ttyname[8] = (char)(i + '0');
         ret = vfs_mknod(ttyname, S_IFCHR | 0755, gnu_dev_makedev(CHR_TTY, i));
-        if (ret) logmsgef(ret, "mkdev c 4:0 /dev/tty0: %s", strerror(ret));
+        if (ret) logmsgef("mkdev c 4:0 /dev/tty0: %s", strerror(ret));
     }
 }

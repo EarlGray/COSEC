@@ -9,6 +9,7 @@
 #include <dev/screen.h>
 #include <dev/kbd.h>
 #include <dev/tty.h>
+#include <fs/fs_sys.h>
 
 #include <arch/i386.h>
 

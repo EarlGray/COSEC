@@ -15,6 +15,7 @@
 #endif
 
 #include <stdlib.h>
+#include <string.h>
 
 #include <tasks.h>
 
@@ -25,16 +26,9 @@
 #include <log.h>
 
 volatile task_struct default_task;
-volatile task_struct *current = &default_task;
+volatile task_struct *volatile current = &default_task;
 
 task_next_f         task_next           = null;
-
-void print_task(task_struct *task) {
-    logmsgif("TSS:");
-    logmsgif("  esp0=*%x, ss0=*%x", task->tss.esp0, task->tss.ss0 & 0xffff);
-    logmsgif("  cr3 = %x", task->tss.cr3);
-    logmsgif("tss_index = 0x%x", task->tss_index);
-}
 
 inline static int task_sysinfo_size(task_struct *task) {
     return (task->tss.cs == SEL_KERN_CS) ? 3 : 5;
@@ -52,26 +46,15 @@ static void task_save_context(task_struct *task) {
     uint context = intr_context_esp();
     assertv(context, "task_save_context: intr_ret is cleared!");
 
-    if (task->tss.cs == SEL_KERN_CS) {
-        task->tss.esp0 = context + CONTEXT_SIZE + 3*sizeof(uint);
-        task->tss.ss0 = task->tss.ss = SEL_KERN_DS;
-    } else {
-        task->tss.esp0 = context + CONTEXT_SIZE + 5*sizeof(uint);
-        task->tss.ss0 = SEL_KERN_DS;
-        task->tss.ss = SEL_USER_DS;
-    }
+    task->tss.esp0 = context + CONTEXT_SIZE + task_sysinfo_size(task)*sizeof(uint);
 
     logmsgdf("| save cntxt=%x (tss=%d) |", context, task->tss_index);
 }
 
 /* this routine is normally called from within interrupt! */
 static void task_push_context(task_struct *task) {
-    uint *context = (uint *)(task->tss.esp0 - CONTEXT_SIZE - task_sysinfo_size(task)*sizeof(uint));
+    uint context = (task->tss.esp0 - CONTEXT_SIZE - task_sysinfo_size(task)*sizeof(uint));
     intr_set_context_esp(context);
-
-    if (task->tss.cs == SEL_KERN_CS) {
-        //context[0] = context[1] = context[2] = context[3] = 
-    }
 
     logmsgdf(" push cntxt=%x (tss=%d) |\n", context, task->tss_index);
 }
@@ -81,12 +64,18 @@ static inline void task_cpu_load(task_struct *task) {
     segment_descriptor *tssd = i386_gdt() + task->tss_index;
     segdescr_taskstate_busy(*tssd, 0);
 
-    //print_task(task);
-
     /* load next task */
     uint16_t pl = ((task->tss.cs == SEL_KERN_CS) ? PL_KERN : PL_USER);
     uint16_t tss_sel = make_selector(task->tss_index, SEL_TI_GDT, pl);
+
+#if __DEBUG
+    test_eflags();
+    logmsgdf("tssd = %x %x\n", tssd->as.ints[0], tssd->as.ints[1]);
+    logmsgdf("tssd.base = %x\n", tssd->as.strct.base_l +
+            (tssd->as.strct.base_m << 16) + (tssd->as.strct.base_h << 24));
     logmsgdf("tss_sel = 0x%x\n", (uint)tss_sel);
+#endif
+
     i386_load_task_reg( tss_sel );
 }
 
@@ -94,17 +83,8 @@ static void task_timer_handler(uint tick) {
     if (task_next) {    // is there a scheduler
         task_struct *next = task_next(tick);
         if (next) {     // switch to the next task is needed
-            logmsgdf("deftask[%d].tss.esp0 = *%x\n", default_task.tss_index, default_task.tss.esp0);
-            task_save_context(current);
+            task_save_context((task_struct*)current);
             task_push_context(next);
-
-#if 0
-            segment_descriptor *d;
-            d = i386_gdt() + current->tss_index;
-            logmsgdf("2: gdt[prev] = %x %x\n", d->as.ints[0], d->as.ints[1]);
-            d = i386_gdt() + next->tss_index;
-            logmsgdf("2: gdt[next] = %x %x\n", d->as.ints[0], d->as.ints[1]);
-#endif
 
             current = next;
             task_cpu_load(next);
@@ -113,7 +93,7 @@ static void task_timer_handler(uint tick) {
 }
 
 inline task_struct *task_current(void) {
-    return current;
+    return (task_struct *)current;
 }
 
 inline void task_set_scheduler(task_next_f next) {
@@ -139,7 +119,7 @@ void task_init(task_struct *task, void *entry,
     tss->ldt = SEL_DEF_LDT;
     tss->eflags = x86_eflags();
     tss->eip = (uint)entry;
-    tss->io_map_addr = 0x60;
+    tss->io_map_addr = 0x64;
     tss->io_map1 = 0xffffffff;
     tss->io_map2 = 0xffffffff;
 
@@ -179,6 +159,7 @@ inline void task_kthread_init(task_struct *ktask, void *entry, void *k_esp) {
 
 void tasks_setup(void) {
     k_printf("sizeof(task) = 0x%x\n", sizeof(tss_t));
+
     // initialize default task
     default_task.tss.ds = default_task.tss.es =
         default_task.tss.fs = default_task.tss.gs = SEL_KERN_DS;
@@ -190,6 +171,10 @@ void tasks_setup(void) {
     default_task.tss_index = gdt_alloc_entry(taskdescr);
     default_task.ldt_index = GDT_DEF_LDT;
     logmsgdf("default task tss_index=%x\n", default_task.tss_index);
+
+    segment_selector tasksel =
+            { .as.word = make_selector(default_task.tss_index, SEL_TI_GDT, PL_KERN) };
+    i386_load_task_reg(tasksel);
 
     timer_push_ontimer(task_timer_handler);
 }

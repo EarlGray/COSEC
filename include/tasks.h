@@ -12,10 +12,10 @@ enum taskstate {
 };
 
 struct task {
-    uint32_t        tss_index;
-    uint32_t        ldt_index;
     tss_t           tss;
     enum taskstate  state;
+    uint32_t        ldt_index;
+    uint32_t        tss_index;
 };
 
 typedef  struct task  task_struct;

@@ -101,8 +101,8 @@ typedef struct {
     union {
         uint16_t word;
         struct {
-            uint8_t  local_bit:1;
             uint8_t  dpl:2;
+            uint8_t  local_bit:1;
             uint16_t index:13;
         } strct;
     } as;

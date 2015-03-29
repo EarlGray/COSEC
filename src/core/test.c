@@ -255,8 +255,8 @@ uint8_t task1_stack[TASK_KERNSTACK_SIZE];
 uint8_t task0_usr_stack[R3_STACK_SIZE];
 uint8_t task1_usr_stack[R3_STACK_SIZE];
 
-task_struct task0;
-task_struct task1;
+volatile task_struct task0;
+volatile task_struct task1;
 task_struct *volatile def_task;
 
 
@@ -296,7 +296,7 @@ void key_press(/*scancode_t scan*/) {
 
 
 task_struct *next_task(/*uint tick*/) {
-    if (quit) return def_task;
+    if (quit) return (task_struct *)def_task;
 
     task_struct *current = task_current();
     if (current == def_task) return &task0;
@@ -319,15 +319,17 @@ void test_tasks(void) {
 #else
     const segment_selector ucs = { .as.word = SEL_USER_CS };
     const segment_selector uds = { .as.word = SEL_USER_DS };
-    task_init(&task0, (void *)do_task0,
-            ((char *)task0_stack + TASK_KERNSTACK_SIZE),
-            ((char *)task0_usr_stack + R3_STACK_SIZE),
-            ucs, uds);
 
-    task_init(&task1, (void *)do_task1,
-            (void *)((ptr_t)task1_stack + TASK_KERNSTACK_SIZE),
-            (void *)((ptr_t)task1_usr_stack + R3_STACK_SIZE),
-            ucs, uds);
+    uint espU0 = ((uint)task0_usr_stack + R3_STACK_SIZE - 0x18);
+    uint espK0 = ((uint)task0_stack + TASK_KERNSTACK_SIZE - CONTEXT_SIZE - 0x14);
+
+    uint espU1 = ((ptr_t)task1_usr_stack + R3_STACK_SIZE);
+    uint espK1 = ((ptr_t)task1_stack + TASK_KERNSTACK_SIZE - CONTEXT_SIZE - 0x14);
+
+    task_init((task_struct *)&task0, (void *)do_task0,
+            (void *)espK0, (void *)espU0, ucs, uds);
+    task_init((task_struct *)&task1, (void *)do_task1,
+            (void *)espK1, (void *)espU1, ucs, uds);
 #endif
 
     /* allow tasks to update cursor with `outl` */
@@ -349,15 +351,15 @@ void test_tasks(void) {
 
 /***********************************************************/
 void run_userspace(void) {
-    while (1);
     char buf[100];
     snprintf(buf, 100, "Current privilege level = %d\n", i386_current_privlevel());
+    size_t nbuf = strlen(buf);
 
     asm("int $0x80 \n" ::
             "a"(SYS_WRITE),
             "c"(STDOUT_FILENO),
             "d"((uint)buf),
-            "b"(100));
+            "b"(nbuf));
     while (1);
 }
 
@@ -367,40 +369,43 @@ task_struct task3;
 
 void test_userspace(void) {
     /* init task */
-    task3.tss.eflags = x86_eflags() | eflags_iopl(PL_USER);
+    task3.tss.eflags = x86_eflags(); // | eflags_iopl(PL_USER);
     task3.tss.cs = SEL_USER_CS;
     task3.tss.ds = task3.tss.es = task3.tss.fs = task3.tss.gs = SEL_USER_DS;
     task3.tss.ss = SEL_USER_DS;
-    task3.tss.esp = (uint)task0_usr_stack + R3_STACK_SIZE - CONTEXT_SIZE - 0x10;
+    task3.tss.esp = (uint)task0_usr_stack + R3_STACK_SIZE - CONTEXT_SIZE - 0x20;
     task3.tss.eip = (uint)run_userspace;
     task3.tss.ss0 = SEL_KERN_DS;
-    task3.tss.esp0 = (uint)task0_stack + R0_STACK_SIZE - CONTEXT_SIZE - 0x10;
+    task3.tss.esp0 = (uint)task0_stack + R0_STACK_SIZE - CONTEXT_SIZE - 0x20;
 
     /* make a GDT task descriptor */
     segment_descriptor taskdescr;
-    segdescr_taskstate_init(taskdescr, (uint)&task3, PL_USER);
+    segdescr_taskstate_init(taskdescr, (uint)&(task3.tss), PL_USER);
     segdescr_taskstate_busy(taskdescr, 0);
 
-#if 1
     index_t taskdescr_index = gdt_alloc_entry(taskdescr);
 
     segment_selector tss_sel;
-    tss_sel.as.word = make_selector(taskdescr_index, 0, PL_USER);
-    logmsgf("GDT[%x]\n", taskdescr_index);
+    tss_sel.as.word = make_selector(taskdescr_index, 0, taskdescr.as.strct.dpl);
 
-    /* load TR and LDT */
-    i386_load_task_reg(tss_sel);
-
-    //asm ("lldt %%ax     \n\t"::"a"( SEL_DEFAULT_LDT ));
-#endif
     kbd_set_onpress((kbd_event_f)key_press);
 
     uint efl = 0x00203202;
-    logmsgf("elf = %x\n", efl);
+    test_eflags();
+    logmsgf("efl = 0x%x\n", efl);
+    logmsgf("tss_sel = 0x%x\n", (uint)tss_sel.as.word);
+    logmsgf("tssd = %x %x\n", taskdescr.as.ints[0], taskdescr.as.ints[1]);
+    logmsgf("tssd.base = %x\n", taskdescr.as.strct.base_l +
+            (taskdescr.as.strct.base_m << 16) + (taskdescr.as.strct.base_h << 24));
+
+    /* load TR and LDT */
+    i386_load_task_reg(tss_sel);
+    //asm ("lldt %%ax     \n\t"::"a"( SEL_DEF_LDT ));
 
     /* go userspace */
     start_userspace(
         (uint)run_userspace, task3.tss.cs,
+        //(uint)run_userspace, (uint)tss_sel.as.word,
         efl,
         task3.tss.esp, task3.tss.ss);
 }
@@ -410,7 +415,7 @@ extern int main(int, char **);
 
 void test_init(void) {
     /* init task */
-    task3.tss.eflags = x86_eflags() | eflags_iopl(PL_USER);
+    task3.tss.eflags = x86_eflags();
     task3.tss.cs = SEL_USER_CS;
     task3.tss.ds = task3.tss.es = task3.tss.fs = task3.tss.gs = SEL_USER_DS;
     task3.tss.ss = SEL_USER_DS;
