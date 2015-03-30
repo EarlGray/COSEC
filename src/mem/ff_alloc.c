@@ -179,25 +179,27 @@ void * firstfit_malloc(struct firstfit_allocator *this, uint size) {
     do {
         if (!is_used(chunk) && ((int)get_size(chunk) >= (int)size)) {
             /** allocate this chunk **/
+            // possible position of new chunk counting from current+CHUNK_SIZE
+            uint new_chunk_offset = aligned(size + CHUNK_SIZE) - CHUNK_SIZE;
+
+            chunk_t *next_chunk = next(chunk);
+            chunk_t *new_chunk =
+                (chunk_t *)( (uint)chunk_data(chunk) + new_chunk_offset );
             // is there enough place for a new chunk after this one?
-            if ((get_size(chunk) - size) >= aligned(CHUNK_SIZE)) {
-                //memdebugf("ff_malloc: splitting");
-                // possible position of new chunk counting from current+CHUNK_SIZE
-                uint new_chunk_offset = aligned(size + CHUNK_SIZE) - CHUNK_SIZE;
+            if (((uint)chunk_data(new_chunk) + 4) <= (uint)next_chunk) {
+                memdebugf("ff_malloc: splitting");
 
-                /** yes, split **/
-                chunk_t *new_chunk =
-                    (chunk_t *)( (uint)chunk_data(chunk) + new_chunk_offset );
-
-                set_prev(next(chunk), new_chunk);
-                set_chunk(new_chunk, next(chunk), chunk, false);
+                set_chunk(new_chunk, next_chunk, chunk, false);
+                set_chunk(next_chunk, next(next_chunk), new_chunk, true);
                 set_chunk(chunk, new_chunk, prev(chunk), true);
             }
 
-            this->current = next(chunk);
             set_used(chunk);
-            memdebugf(" -> *%x\n", (uint)chunk_data(chunk));
+
+            this->current = next(chunk);
             ++this->n_malloc;
+
+            memdebugf(" -> *%x\n", (uint)chunk_data(chunk));
             return chunk_data(chunk);
         }
 
