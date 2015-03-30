@@ -512,8 +512,6 @@ static device * get_vcs_device(mindev_t dev_no) {
 
 void init_vcs_devices(void) {
     int i, j;
-    logmsgif(__FUNCTION__);
-
     active_vcs = CONSOLE_VCSA;
 
     for (i = 0; i < N_VCSA_DEVICES; ++i) {
