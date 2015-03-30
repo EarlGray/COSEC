@@ -253,6 +253,8 @@ void *firstfit_realloc(struct firstfit_allocator *this, void *p, size_t size) {
         {
             // use the next chunk
             memdebugf("ff_realloc: use the next chunk, *%x\n", (uint)next_chunk);
+            if (this->current == next_chunk)
+                this->current = next(next_chunk);
             next_chunk = next(next_chunk);
             chunk_t *new_chunk = (chunk_t *)((uint)this_chunk + CHUNK_SIZE + aligned_size);
             set_next(this_chunk, new_chunk);
