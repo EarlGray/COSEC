@@ -69,7 +69,7 @@ int alloc_fd_for_pid(pid_t pid) {
 filedescr * get_filedescr_for_pid(pid_t pid, int fd) {
     const char *funcname = __FUNCTION__;
     process *p = proc_by_pid(pid);
-    return_dbg_if(!p, EKERN,
+    return_dbg_if(p == NULL, EKERN,
             "%s: no process with pid %d\n", funcname, pid);
     return_dbg_if(!((0 <= fd) && (fd < N_PROCESS_FDS)), NULL,
             "%s: fd=%d out of range\n", funcname, fd);
@@ -101,10 +101,12 @@ void proc_setup(void) {
 
     ret = vfs_lookup("/dev/tty0", &sb, &ino);
     returnv_err_if(ret, "%s: vfs_lookup('/dev/tty0'): %s", funcname, strerror(ret));
+    logmsgdf("/dev/tty0 ino=%d\n", ino);
 
     filedescr *infd = theInitProc.ps_fds + STDIN_FILENO;
     filedescr *outfd = theInitProc.ps_fds + STDOUT_FILENO;
     filedescr *errfd = theInitProc.ps_fds + STDERR_FILENO;
+    logmsgdf("infd = *%x\n", (uint)infd);
 
     infd->fd_sb  = outfd->fd_sb  = errfd->fd_sb  = sb;
     infd->fd_ino = outfd->fd_ino = errfd->fd_ino = ino;

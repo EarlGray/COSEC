@@ -9,19 +9,19 @@ int sys_print(const char **fmt);
 typedef int (*syscall_handler)();
 
 const syscall_handler syscalls[] = {
-    [SYS_MOUNT] = sys_mount,
+    [SYS_MOUNT]     = sys_mount,
+    [SYS_READ]      = sys_read,
+    [SYS_WRITE]     = sys_write,
 
-    [SYS_MKDIR] = sys_mkdir,
-    [SYS_LSDIR] = sys_lsdir,
+    [SYS_OPEN]      = sys_open,
+    [SYS_CLOSE]     = sys_close,
 
-    [SYS_READ]  = sys_read,
-    [SYS_WRITE] = sys_write,
-    /*
-    [SYS_PREAD] = sys_pread,
-    [SYS_PWRITE] = sys_pwrite,
-    */
+    [SYS_MKDIR]     = sys_mkdir,
+    [SYS_RENAME]    = sys_rename,
 
-    [SYS_PRINT] = sys_print,
+    [SYS_UNLINK]    = sys_unlink,
+
+    [SYS_PRINT]     = sys_print,
 };
 
 void int_syscall() {

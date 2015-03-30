@@ -13,7 +13,6 @@
 #include <fs/ramfs.h>
 #include <fs/devices.h>
 
-#define __DEBUG
 #include <log.h>
 
 static const char *
@@ -607,6 +606,25 @@ void print_mount(void) {
     }
 }
 
+const char *build_date = "COSEC\n(c) Dmytro Sirenko\n"__DATE__", "__TIME__"\n";
+
+static void build_info_file() {
+    int ret;
+    ret = vfs_mknod("/BUILD", 0644, 0);
+    returnv_err_if(ret, "mknod /BUILD: %s\n", strerror(ret));
+
+    mountnode *sb = NULL;
+    inode_t ino = 0;
+
+    ret = vfs_lookup("/BUILD", &sb, &ino);
+    returnv_err_if(ret, "lookup /BUILD: %s", strerror(ret));
+
+    off_t pos = 0;
+    size_t nwrit = 0;
+    vfs_inode_write(sb, ino, pos, build_date, strlen(build_date), &nwrit);
+    pos += nwrit;
+}
+
 void vfs_setup(void) {
     int ret;
 
@@ -623,6 +641,11 @@ void vfs_setup(void) {
 
     ret = vfs_mkdir("/dev", 0755);
     returnv_err_if(ret, "mkdir /dev: %s", strerror(ret));
+
+    ret = vfs_mkdir("/tmp", 0777);
+    returnv_err_if(ret, "mkdir /tmp: %s", strerror(ret));
+
+    build_info_file();
 
     char ttyname[] = "/dev/tty0";
     int i;

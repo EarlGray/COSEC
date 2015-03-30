@@ -47,6 +47,7 @@ int sys_open(const char *pathname, int flags) {
     inode_t dirino = 0;
     ret = vfs_lookup(pathname, &sb, &ino);
     switch (ret) {
+      case 0: break;
       case ENOENT:
         if (flags | O_CREAT) {
             ino = 0;
@@ -66,6 +67,7 @@ int sys_open(const char *pathname, int flags) {
     int fd = alloc_fd_for_pid(pid); /* does not actually alloc, just gets a free fd */
     return_dbg_if(fd < 0, -EMFILE,
             "%s; pid=%d fds exhausted\n", funcname, pid);
+    logmsgdf("%s: fd=%d\n", funcname, fd);
 
     filedescr *filedes = get_filedescr_for_pid(pid, fd);
 
@@ -85,7 +87,7 @@ int sys_open(const char *pathname, int flags) {
     /* update the inode */
     struct inode idata;
     ret = vfs_inode_get(sb, ino, &idata);
-    if (ret) return ret;
+    if (ret) return -ret;
 
     ++ idata.i_nfds;
     vfs_inode_set(sb, ino, &idata);
@@ -192,5 +194,14 @@ off_t sys_lseek(int fd, off_t offset, int whence) {
 }
 
 int sys_ftruncate(int fd, off_t length) {
+    /* TODO */
     return ETODO;
+}
+
+int sys_unlink(const char *path) {
+    return vfs_unlink(path);
+}
+
+int sys_rename(const char *oldpath, const char *newpath) {
+    return vfs_rename(oldpath, newpath);
 }

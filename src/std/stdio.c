@@ -17,18 +17,42 @@
 
 #include <log.h>
 
-#warning "TODO: fopen, freopen, fscanf, ..."
-#pragma GCC diagnostic ignored "-Wunused-parameter"
-
 extern int theErrNo;
 
 struct FILE_struct {
-    int fd;
+    int file_fd;
+
+    enum buffering_mode_t file_bufmode;
+
+    size_t file_bufpos;
+    size_t file_bufend;
+    size_t file_bufsz;
+    char *file_buf;
 };
 
-FILE f_stdin =  { .fd = STDIN_FILENO  };
-FILE f_stdout = { .fd = STDOUT_FILENO };
-FILE f_stderr = { .fd = STDERR_FILENO };
+char stdinbuf[PAGE_SIZE];
+char stdoutbuf[PAGE_SIZE];
+
+FILE f_stdin =  {
+    .file_fd = STDIN_FILENO,
+    .file_bufmode = _IOFBF,
+    .file_bufpos = 0,
+    .file_bufend = 0,
+    .file_bufsz = sizeof(stdinbuf),
+    .file_buf = stdinbuf,
+};
+FILE f_stdout = {
+    .file_fd = STDOUT_FILENO,
+    .file_bufmode = _IOLBF,
+    .file_bufpos = 0,
+    .file_bufend = 0,
+    .file_bufsz = sizeof(stdoutbuf),
+    .file_buf = stdoutbuf,
+};
+FILE f_stderr = {
+    .file_fd = STDERR_FILENO,
+    .file_bufmode = _IONBF,
+};
 
 FILE *stdin = &f_stdin;
 FILE *stdout = &f_stdout;
@@ -151,31 +175,29 @@ int fprintf(FILE *stream, const char *format, ...) {
 }
 
 int vfprintf(FILE *stream, const char *format, va_list ap) {
+    logmsgdf("vsprintf(fd=%d, '%s', ...)\n", stream->file_fd, format);
     int ret = 0;
-    if (stream == stdout) {
-        int bufsize = 64;
-        char *buf = malloc(bufsize);
-        while (1) {
-            ret = vsnprintf(buf, bufsize, format, ap);
-            if (ret + 1 < bufsize)
-                break;
 
-            bufsize *= 2;
-            realloc(buf, bufsize);
-        }
+    int bufsize = 64;
+    char *buf = malloc(bufsize);
+    while (1) {
+        ret = vsnprintf(buf, bufsize, format, ap);
+        if (ret + 1 < bufsize)
+            break;
 
-        k_printf("%s", buf);
-        free(buf);
-        return ret;
-    }
-    if (stream == stderr) {
-        vcsa_set_attribute(CONSOLE_VCSA, 0x0C);
-        ret = vfprintf(stdout, format, ap);
-        vcsa_set_attribute(CONSOLE_VCSA, VCSA_DEFAULT_ATTRIBUTE);
-        return ret;
+        bufsize *= 2;
+        buf = realloc(buf, bufsize);
     }
 
-    logmsgef("TODO: vfprintf(*%x, '%s', ...)", (uint)stream, format);
+    if (stream == stdout)
+        k_printf(buf);
+    else if (stream == stderr) {
+        vcsa_set_attribute(CONSOLE_TTY, VCSA_ATTR_RED);
+        k_printf(buf);
+        vcsa_set_attribute(CONSOLE_TTY, VCSA_DEFAULT_ATTRIBUTE);
+    } else
+        fwrite(buf, ret, 1, stream);
+    free(buf);
     return ret;
 }
 
@@ -291,6 +313,10 @@ int fscanf(FILE *stream, const char *format, ...) {
     return 0;
 }
 
+FILE *tmpfile(void) {
+    logmsge("TODO: tmpfile");
+    return NULL;
+}
 
 FILE * fopen(const char *path, const char *mode) {
     theErrNo = 0;
@@ -315,7 +341,16 @@ FILE * fopen(const char *path, const char *mode) {
     FILE *f = malloc(sizeof(FILE));
     if (!f) return NULL;
 
-    f->fd = fd;
+    /* init buffering */
+    f->file_buf = kmalloc(PAGE_SIZE);
+    f->file_bufmode = f->file_buf ? _IOFBF : _IONBF;
+    f->file_bufsz = f->file_buf ? PAGE_SIZE : 0;
+    f->file_bufpos = 0;
+    f->file_bufend = 0;
+
+    f->file_fd = fd;
+
+    logmsgdf("fopen(%s): fd=%d\n", path, fd);
     return f;
 }
 
@@ -330,36 +365,107 @@ char *tmpnam(char *s) {
     return "";
 }
 
-size_t fread(void *ptr, size_t size, size_t nmemb, FILE *stream) {
-    theErrNo = 0;
-    int ret = sys_read(stream->fd, ptr, size * nmemb);
-    if (ret < 0) {
-        theErrNo = -ret;
-        return 0;
-    }
-    return ret;
+
+static size_t fread_nobuf(char *ptr, size_t nbytes, FILE *f) {
+    int ret = sys_read(f->file_fd, ptr, nbytes);
+    if (ret < 0)
+        return (size_t)ret;
+
+    theErrNo = -ret;
+    return 0;
 }
+
+static size_t fread_upto(char *ptr, size_t nbytes, FILE *f, char *upto) {
+    const char *funcname = __FUNCTION__;
+    char *buf = f->file_buf + f->file_bufpos;
+    char *stop = NULL;
+    size_t to_read;
+    size_t nread = 0;
+
+    to_read = f->file_bufend - f->file_bufpos;
+    if (upto) {
+        stop = strnchr(buf, to_read, upto[0]);
+        if (stop) to_read = (stop - buf) + 1;
+    }
+    if (to_read > nbytes)
+        to_read = nbytes;
+
+    memcpy(ptr, buf, to_read);
+    logmsgdf("%s: memcpy(,, %d)\n", funcname, to_read);
+    f->file_bufpos += to_read;
+    nread = to_read;
+
+    if (stop) return nread;
+
+    while (nread < nbytes) {
+        buf = f->file_buf;
+        int sysread = sys_read(f->file_fd, buf, f->file_bufsz);
+        logmsgdf("%s: sys_read(%d, *%x, %d) -> %d\n",
+                funcname, f->file_fd, (uint)buf, f->file_bufsz, sysread);
+        if (sysread <= 0) {
+            theErrNo = -sysread;
+            return nread;
+        }
+        f->file_bufpos = 0;
+        f->file_bufend = (size_t)sysread;
+
+        if (upto)
+            stop = strnchr(buf, f->file_bufend, upto[0]);
+
+        to_read = (size_t)sysread;
+        if ((nread + to_read) > nbytes)
+            to_read = nbytes - nread;
+        if (upto && stop)
+            to_read = (stop - f->file_buf) + 1;
+
+        logmsgdf("%s: memcpy(..., %d)\n", funcname, to_read);
+        memcpy(ptr + nread, buf, to_read);
+        nread += to_read;
+        f->file_bufpos += to_read;
+
+        if (stop) return nread;
+    }
+
+    return nread;
+}
+
+static size_t fread_fbf(char *ptr, size_t nbytes, FILE *f) {
+    return fread_upto(ptr, nbytes, f, NULL);
+}
+
+static size_t fread_lbf(char *ptr, size_t nbytes, FILE *f) {
+    char nl = '\n';
+    return fread_upto(ptr, nbytes, f, &nl);
+}
+
+size_t fread(void *ptr, size_t size, size_t nmemb, FILE *stream) {
+    const char *funcname = __FUNCTION__;
+    logmsgdf("fread(*%x, %d, fd=%d\n", (uint)ptr, size * nmemb, stream->file_fd);
+    theErrNo = 0;
+
+    switch (stream->file_bufmode) {
+      case _IONBF: return fread_nobuf(ptr, size * nmemb, stream);
+      case _IOFBF: return fread_fbf(ptr, size * nmemb, stream);
+      case _IOLBF: return fread_lbf(ptr, size * nmemb, stream);
+      default:
+        logmsgef("%s: unknown file buffering mode %d\n", funcname, stream->file_bufmode);
+    }
+    return 0;
+}
+
 
 size_t fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream) {
-    char const *cptr = ptr;
-    size_t i;
+    logmsgdf("fwrite(*%x, %d, %d, fd=%d\n", (uint)ptr, size, nmemb, stream->file_fd);
+    int ret = sys_write(stream->file_fd, ptr, size * nmemb);
+    if (ret >= 0) return (size_t)ret;
 
-    theErrNo = 0;
-    int ret = sys_write(stream->fd, ptr, size * nmemb);
-    if (ret < 0) {
-        theErrNo = -ret;
-        return 0;
-    }
-    return ret;
-}
-
-FILE *tmpfile(void) {
-    logmsge("TODO: tmpfile");
-    return NULL;
+    theErrNo = -ret;
+    return 0;
 }
 
 int fgetc(FILE *f) {
     if (!f) return EOF;
+    logmsgdf("fgetc\n");
 
     if (f == stdin)
         return kbd_getchar();
@@ -373,8 +479,16 @@ int ungetc(int c, FILE *stream) {
 }
 
 char *fgets(char *s, int size, FILE *stream) {
-    logmsge("TODO: fgets");
-    return NULL;
+    theErrNo = 0;
+    logmsgdf("fgets(*%x, %d, fd=%d)\n", (uint)s, size, stream->file_fd);
+    char nl = '\n';
+    size_t nread = fread_upto(s, size - 1, stream, &nl);
+    if (nread < 1)
+        return NULL;
+
+    s[nread] = 0;
+    logmsgdf("fgets: nread=%d, s='%s'\n", nread, s);
+    return s;
 }
 
 long ftell(FILE *stream) {
@@ -392,15 +506,17 @@ int fclose(FILE *fp) {
     int ret;
     if (!fp) { theErrNo = EINVAL; return EOF; }
 
-    ret = sys_close(fp->fd);
+    ret = sys_close(fp->file_fd);
     if (ret) {
         theErrNo = ret;
         return -1;
     }
+    free(fp->file_buf);
     return 0;
 }
 
 int fflush(__unused FILE *stream) {
+    logmsgef("fflush(fd=%d)\n", stream->file_fd);
     if (stream == stdout)
         return 0;
     if (stream == stderr)
@@ -415,30 +531,40 @@ int setvbuf(FILE *stream, char *buf, int type, size_t size) {
 }
 
 int feof(FILE *stream) {
+    logmsgef("foef(fd=%d)\n", stream->file_fd);
     if (stream == stdin)
         return 0;
     return 1;
 }
 
 int rename(const char *old, const char *new) {
-    logmsge("TODO: rename");
+    theErrNo = 0;
+    int ret = sys_rename(old, new);
+    if (ret == 0)
+        return 0;
+    theErrNo = ret;
     return -1;
 }
 
 int remove(const char *path) {
-    theErrNo = ETODO;
-    logmsge("TODO: remove");
+    theErrNo = 0;
+    int ret = sys_unlink(path);
+    if (ret == 0)
+        return 0;
+    theErrNo = ret;
     return -1;
 }
 
 void clearerr(__unused FILE *stream) {
-    theErrNo = ETODO;
+    logmsgdf("clearerr(fd=%d)\n", stream->file_fd);
+    theErrNo = 0;
 }
 
 int ferror(__unused FILE *stream) {
+    logmsgdf("ferror(fd=%d)\n", stream->file_fd);
     if (stream == stdin)  return 0;
     if (stream == stdout) return 0;
     if (stream == stderr) return 0;
-    return 1;
+    return 0; /* TODO */
 }
 
