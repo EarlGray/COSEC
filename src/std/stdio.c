@@ -2,19 +2,15 @@
 
 #include <stdlib.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <string.h>
 #include <stdarg.h>
 #include <ctype.h>
 #include <unistd.h>
 #include <fcntl.h>
 
-#include <dev/screen.h>
-#include <dev/tty.h>
 #include <fs/fs_sys.h>
 
-#include <arch/i386.h>
-
-#define __DEBUG
 #include <log.h>
 
 extern int theErrNo;
@@ -47,8 +43,8 @@ static inline size_t fstream_pending(FILE *f) {
     return f->file_bufend - f->file_bufpos;
 }
 
-char stdinbuf[PAGE_SIZE];
-char stdoutbuf[PAGE_SIZE];
+char stdinbuf[BUFSIZ];
+char stdoutbuf[BUFSIZ];
 
 FILE f_stdin =  {
     .file_fd = STDIN_FILENO,
@@ -206,14 +202,7 @@ int vfprintf(FILE *stream, const char *format, va_list ap) {
         buf = realloc(buf, bufsize);
     }
 
-    if (stream == stdout)
-        k_printf(buf);
-    else if (stream == stderr) {
-        vcsa_set_attribute(CONSOLE_TTY, VCSA_ATTR_RED);
-        k_printf(buf);
-        vcsa_set_attribute(CONSOLE_TTY, VCSA_DEFAULT_ATTRIBUTE);
-    } else
-        fwrite(buf, ret, 1, stream);
+    fwrite(buf, ret, 1, stream);
     free(buf);
     return ret;
 }
@@ -369,9 +358,9 @@ static int fopen_on(const char *path, const char *mode, FILE *f) {
     f->file_ungetc = 0;
 
     /* init buffering */
-    f->file_buf = malloc(PAGE_SIZE);
+    f->file_buf = malloc(BUFSIZ);
     f->file_bufmode = f->file_buf ? _IOFBF : _IONBF;
-    f->file_bufsz = f->file_buf ? PAGE_SIZE : 0;
+    f->file_bufsz = f->file_buf ? BUFSIZ : 0;
     f->file_bufpos = 0;
     f->file_bufend = 0;
 

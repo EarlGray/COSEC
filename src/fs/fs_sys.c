@@ -159,7 +159,7 @@ int sys_write(int fd, const void *buf, size_t count) {
     filedescr *filedes = p->ps_fds + fd;
     return_dbg_if(!filedes, -EBADF,
             "%s(fd=%d): EBADF\n", funcname, fd);
-    return_dbg_if(filedes->fd_flags & O_RDONLY,
+    return_dbg_if(filedes->fd_flags & O_RDONLY, -EBADF,
             "%s(fd=%d): O_RDONLY, EBADF\n", funcname, fd);
 
     ret = vfs_inode_write(filedes->fd_sb, filedes->fd_ino, filedes->fd_pos,
