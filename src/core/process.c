@@ -69,7 +69,7 @@ int alloc_fd_for_pid(pid_t pid) {
 filedescr * get_filedescr_for_pid(pid_t pid, int fd) {
     const char *funcname = __FUNCTION__;
     process *p = proc_by_pid(pid);
-    return_dbg_if(p == NULL, EKERN,
+    return_dbg_if(p == NULL, NULL,
             "%s: no process with pid %d\n", funcname, pid);
     return_dbg_if(!((0 <= fd) && (fd < N_PROCESS_FDS)), NULL,
             "%s: fd=%d out of range\n", funcname, fd);

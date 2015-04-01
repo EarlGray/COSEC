@@ -9,7 +9,7 @@
 #include <fcntl.h>
 
 #include <dev/screen.h>
-#include <dev/kbd.h>
+//#include <dev/kbd.h>
 #include <dev/tty.h>
 #include <fs/fs_sys.h>
 
@@ -22,6 +22,7 @@ extern int theErrNo;
 struct FILE_struct {
     int file_fd;
 
+    char file_ungetc;
     enum buffering_mode_t file_bufmode;
 
     size_t file_bufpos;
@@ -341,6 +342,8 @@ FILE * fopen(const char *path, const char *mode) {
     FILE *f = malloc(sizeof(FILE));
     if (!f) return NULL;
 
+    f->file_ungetc = 0;
+
     /* init buffering */
     f->file_buf = kmalloc(PAGE_SIZE);
     f->file_bufmode = f->file_buf ? _IOFBF : _IONBF;
@@ -367,6 +370,15 @@ char *tmpnam(char *s) {
 
 
 static size_t fread_nobuf(char *ptr, size_t nbytes, FILE *f) {
+    if (nbytes < 1)
+        return 0;
+
+    if (f->file_ungetc) {
+        ptr[0] = f->file_ungetc;
+        f->file_ungetc = 0;
+        ++ptr; --nbytes;
+    }
+
     int ret = sys_read(f->file_fd, ptr, nbytes);
     if (ret < 0)
         return (size_t)ret;
@@ -381,6 +393,15 @@ static size_t fread_upto(char *ptr, size_t nbytes, FILE *f, char *upto) {
     char *stop = NULL;
     size_t to_read;
     size_t nread = 0;
+
+    if (nbytes < 1)
+        return 0;
+
+    if (f->file_ungetc) {
+        ptr[0] = f->file_ungetc;
+        f->file_ungetc = 0;
+        ++ptr; --nbytes;
+    }
 
     to_read = f->file_bufend - f->file_bufpos;
     if (upto) {
@@ -455,7 +476,10 @@ size_t fread(void *ptr, size_t size, size_t nmemb, FILE *stream) {
 
 
 size_t fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream) {
-    logmsgdf("fwrite(*%x, %d, %d, fd=%d\n", (uint)ptr, size, nmemb, stream->file_fd);
+    theErrNo = 0;
+    logmsgdf("fwrite(*%x, %d, %d, fd=%d\n",
+            (uint)ptr, size, nmemb, stream->file_fd);
+
     int ret = sys_write(stream->file_fd, ptr, size * nmemb);
     if (ret >= 0) return (size_t)ret;
 
@@ -464,18 +488,42 @@ size_t fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream) {
 }
 
 int fgetc(FILE *f) {
+    logmsgdf("fgetc(fd=%d)\n", stream->file_fd);
+    int ret = EOF;
+    char c = 0;
+
+    theErrNo = 0;
     if (!f) return EOF;
-    logmsgdf("fgetc\n");
 
-    if (f == stdin)
-        return kbd_getchar();
+    if (f->file_ungetc) {
+        ret = f->file_ungetc;
+        f->file_ungetc = 0;
+        return ret;
+    }
 
-    return EOF;
+    switch (f->file_bufmode) {
+      case _IONBF:
+        fread_nobuf(&c, 1, f);
+        break;
+      case _IOLBF: case _IOFBF:
+        fread_upto(&c, 1, f, NULL);
+        break;
+      default:
+        logmsgef("fgetc(fd=%d): unknown bufmode %d\n",
+                f->file_fd, f->file_bufmode);
+    }
+    if (c) ret = (int)c;
+    return ret;
 }
 
 int ungetc(int c, FILE *stream) {
-    logmsge("TODO: ungetc");
-    return EOF;
+    logmsgdf("ungetc(c=0x%x, fd=%d)\n", c, stream->file_fd);
+    theErrNo = 0;
+
+    if (stream->file_ungetc)
+        return EOF;
+    stream->file_ungetc = c;
+    return c;
 }
 
 char *fgets(char *s, int size, FILE *stream) {
@@ -516,7 +564,7 @@ int fclose(FILE *fp) {
 }
 
 int fflush(__unused FILE *stream) {
-    logmsgef("fflush(fd=%d)\n", stream->file_fd);
+    logmsgf("TODO: fflush(fd=%d)\n", stream->file_fd);
     if (stream == stdout)
         return 0;
     if (stream == stderr)

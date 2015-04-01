@@ -4,7 +4,7 @@
 #include <stdarg.h>
 #include <stdint.h>
 
-#define EOF     0xdeade0f
+#define EOF     0xE0FE0F
 
 enum file_search_mode_t {
     SEEK_SET,
