@@ -42,6 +42,8 @@ process * proc_by_pid(pid_t pid);
 int alloc_fd_for_pid(pid_t pid);
 filedescr * get_filedescr_for_pid(pid_t pid, int fd);
 
+int sys_getpid();
+
 void proc_setup(void);
 
 #endif //__COSEC_PROCESS_H__

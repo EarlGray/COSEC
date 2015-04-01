@@ -1,6 +1,7 @@
 #include <syscall.h>
 #include <arch/i386.h>
 #include <fs/fs_sys.h>
+#include <process.h>
 
 #include <log.h>
 
@@ -9,7 +10,6 @@ int sys_print(const char **fmt);
 typedef int (*syscall_handler)();
 
 const syscall_handler syscalls[] = {
-    [SYS_MOUNT]     = sys_mount,
     [SYS_READ]      = sys_read,
     [SYS_WRITE]     = sys_write,
 
@@ -21,6 +21,8 @@ const syscall_handler syscalls[] = {
 
     [SYS_UNLINK]    = sys_unlink,
 
+    [SYS_GETPID]    = sys_getpid,
+    [SYS_MOUNT]     = sys_mount,
     [SYS_PRINT]     = sys_print,
 };
 
@@ -49,3 +51,4 @@ int sys_print(const char **fmt) {
     k_printf(*fmt);
     return 0;
 }
+

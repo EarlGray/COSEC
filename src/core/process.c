@@ -77,6 +77,11 @@ filedescr * get_filedescr_for_pid(pid_t pid, int fd) {
     return p->ps_fds + fd;
 }
 
+
+int sys_getpid() {
+    return theCurrPID;
+}
+
 extern char kern_stack;
 
 void proc_setup(void) {
