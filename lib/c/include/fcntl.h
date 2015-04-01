@@ -10,4 +10,11 @@
 #define O_NOCTTY    0x0040
 #define O_NOFOLLOW  0x0080
 
+enum file_search_mode_t {
+    SEEK_SET,
+    SEEK_CUR,
+    SEEK_END
+};
+
+
 #endif //__COSEC_FCNTL_H__

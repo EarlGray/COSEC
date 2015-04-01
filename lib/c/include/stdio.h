@@ -3,14 +3,9 @@
 
 #include <stdarg.h>
 #include <stdint.h>
+#include <fcntl.h>
 
 #define EOF     0xE0FE0F
-
-enum file_search_mode_t {
-    SEEK_SET,
-    SEEK_CUR,
-    SEEK_END
-};
 
 enum buffering_mode_t {
     _IONBF, /* unbuffered */

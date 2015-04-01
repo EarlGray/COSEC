@@ -21,6 +21,7 @@ const syscall_handler syscalls[] = {
 
     [SYS_UNLINK]    = sys_unlink,
 
+    [SYS_LSEEK]     = sys_lseek,
     [SYS_GETPID]    = sys_getpid,
     [SYS_MOUNT]     = sys_mount,
     [SYS_PRINT]     = sys_print,

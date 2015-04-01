@@ -49,7 +49,7 @@ int sys_open(const char *pathname, int flags) {
     switch (ret) {
       case 0: break;
       case ENOENT:
-        if (flags | O_CREAT) {
+        if (flags & O_CREAT) {
             ino = 0;
             break;
         }
@@ -131,6 +131,8 @@ int sys_read(int fd, void *buf, size_t count) {
     filedescr *filedes = p->ps_fds + fd;
     return_dbg_if(!filedes, -EBADF,
             "%s(fd=%d): EBADF\n", funcname, fd);
+    return_dbg_if(filedes->fd_flags & O_WRONLY, -EBADF,
+            "%s(fd=%d): write-only, EBADF\n", funcname, fd);
 
     /* TODO: check if fd is writable */
     ret = vfs_inode_read(filedes->fd_sb, filedes->fd_ino, filedes->fd_pos,
@@ -157,6 +159,8 @@ int sys_write(int fd, const void *buf, size_t count) {
     filedescr *filedes = p->ps_fds + fd;
     return_dbg_if(!filedes, -EBADF,
             "%s(fd=%d): EBADF\n", funcname, fd);
+    return_dbg_if(filedes->fd_flags & O_RDONLY,
+            "%s(fd=%d): O_RDONLY, EBADF\n", funcname, fd);
 
     ret = vfs_inode_write(filedes->fd_sb, filedes->fd_ino, filedes->fd_pos,
                 buf, count, &nwritten);
@@ -189,8 +193,58 @@ int sys_close(int fd) {
     return 0;
 }
 
+/* @returns negative error if error or the new offset */
 off_t sys_lseek(int fd, off_t offset, int whence) {
-    return ETODO;
+    const char *funcname = __FUNCTION__;
+    int ret;
+
+    filedescr *fildes = get_filedescr_for_pid(current_pid(), fd);
+    return_dbg_if(!fildes, -EBADF,
+            "%s(fd=%d): EBADF\n", funcname, fd);
+    return_dbg_if(0 == fildes->fd_ino, -EBADF,
+            "%s(fd=%d): fd_ino=0, EBADF\n", funcname, fd, fildes->fd_ino);
+    return_dbg_if(fildes->fd_pos < 0, -ESPIPE,
+            "%s(fd=%d): fd_pos < 0, ESPIPE\n", funcname, fd);
+
+    struct inode idata;
+    ret = vfs_inode_get(fildes->fd_sb, fildes->fd_ino, &idata);
+    return_dbg_if(ret, -ret, "%s: inode_get failed(%d)\n", funcname, ret);
+
+    device *dev;
+    switch (idata.i_mode & S_IFMT) {
+      case S_IFIFO: case S_IFSOCK:
+        return -ESPIPE;
+      case S_IFDIR:
+        return -EISDIR;
+      case S_IFCHR:
+        dev = device_by_devno(DEV_CHR, inode_devno(&idata));
+        return_dbg_if(!dev, -ENXIO, "%s: ENODEV\n", funcname);
+        return_dbg_if(dev->dev_ops->dev_has_data, -ESPIPE, 
+                    "%s(fd=%d): device is not seekable\n", funcname, fd);
+        break;
+    }
+
+    switch (whence) {
+      case SEEK_CUR:
+        fildes->fd_pos += offset;
+        ret = fildes->fd_pos;
+        break;
+      case SEEK_SET:
+        fildes->fd_pos = offset;
+        ret = fildes->fd_pos;
+        break;
+      case SEEK_END:
+        fildes->fd_pos = idata.i_size - offset;
+        break;
+      default:
+        return -EINVAL;
+    }
+    ret = fildes->fd_pos;
+    if (fildes->fd_pos > idata.i_size)
+        fildes->fd_pos = idata.i_size;
+    if (fildes->fd_pos < 0)
+        fildes->fd_pos = 0;
+    return ret;
 }
 
 int sys_ftruncate(int fd, off_t length) {
