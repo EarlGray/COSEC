@@ -6,6 +6,8 @@
 #include <dev/tty.h>
 #include <fs/vfs.h>
 
+#include <arch/mboot.h>
+
 #include <log.h>
 
 /*
@@ -82,6 +84,49 @@ int sys_getpid() {
     return theCurrPID;
 }
 
+/*
+ *      Global scheduling and task dispatch
+ */
+
+
+/*
+ *      Test init process
+ *   temporary init test: use physical memory if applicable
+ */
+void run_init(void) {
+    const char *funcname = __FUNCTION__;
+    int i;
+
+    /* find module named `init` */
+    int initmodule = -1;
+    count_t nmods = 0;
+    module_t *minfo = NULL;
+    mboot_modules_info(&nmods, &minfo);
+    for (i = 0; i < (int)nmods; ++i) {
+        if (0 == minfo[i].string)
+            continue;
+        if (!strcmp("init", (char *)minfo[i].string)) {
+            initmodule = i;
+            break;
+        }
+    }
+    returnv_msg_if(initmodule < 0,
+            "%s: module `init` not found\n", funcname);
+    logmsgif("%s: found module 'init' at *%x\n",
+            funcname, minfo[i].mod_start);
+
+    /* parse it as ELF file */
+
+    /* determine if its memory does not conflict */
+
+    /* copy ELF sections there */
+
+    /* start tasks */
+}
+
+/*
+ *      Global processes setup
+ */
 extern char kern_stack;
 
 void proc_setup(void) {

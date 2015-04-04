@@ -54,6 +54,12 @@ int k_printf(const char *fmt, ...);
 #define return_err_if(assertion, retval, ...) \
     if (assertion) {  logmsgef(__VA_ARGS__); return (retval); }
 
+#define returnv_msg_if(assertion, ...) \
+    if (assertion) {  logmsgif(__VA_ARGS__); return; }
+
+#define return_msg_if(assertion, retval, ...) \
+    if (assertion) {  logmsgif(__VA_ARGS__); return (retval); }
+
 #define assert(assertion, retval, ...)    \
     if (!(assertion)) { logmsgef(__VA_ARGS__); return (retval); }
 

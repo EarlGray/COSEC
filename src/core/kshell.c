@@ -20,6 +20,7 @@
 
 #include <fs/vfs.h>
 #include <fs/devices.h>
+#include <process.h>
 #include <log.h>
 
 #include <kshell.h>
@@ -246,11 +247,7 @@ void kshell_lua();
 #endif
 
 void kshell_init() {
-#ifdef TEST_USERSPACE
-    test_init();
-#else
-    printf("test init not implemented\n");
-#endif
+    run_init();
 }
 
 const struct kshell_command main_commands[] = {

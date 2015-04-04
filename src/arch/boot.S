@@ -41,8 +41,8 @@ multiboot_entry:
     movl $INITIAL_PGDIR, %edx   // store PGDIR addr
     movl %edx, %edi
     xor  %eax, %eax         // %eax is used for PDE content
-    movl $N_PDE, %ecx
-    rep stosl               // fill INITIAL_PGDIR with zeros
+    movl $PAGE_SIZE, %ecx
+    rep stosb               // fill INITIAL_PGDIR with zeros
     
     movl $(PG_PRESENT | PG_RW | PG_GRAN), %eax
     movl %eax, (%edx)           // entry mapping 0th 4Mb -> 0th 4Mb page

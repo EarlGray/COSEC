@@ -410,39 +410,3 @@ void test_userspace(void) {
         task3.tss.esp, task3.tss.ss);
 }
 
-#ifdef TEST_USERSPACE
-extern int main(int, char **);
-
-void test_init(void) {
-    /* init task */
-    task3.tss.eflags = x86_eflags();
-    task3.tss.cs = SEL_USER_CS;
-    task3.tss.ds = task3.tss.es = task3.tss.fs = task3.tss.gs = SEL_USER_DS;
-    task3.tss.ss = SEL_USER_DS;
-    task3.tss.eip = (uint)run_userspace;
-    task3.tss.ss0 = SEL_KERN_DS;
-    task3.tss.esp0 = (uint)task0_stack + R0_STACK_SIZE - 0x20;
-
-    /* make a GDT task descriptor */
-    segment_descriptor taskdescr;
-    segdescr_taskstate_init(taskdescr, (uint)&task3, PL_USER);
-
-    index_t taskdescr_index = gdt_alloc_entry(taskdescr);
-
-    segment_selector tss_sel;
-    tss_sel.as.word = make_selector(taskdescr_index, 0, PL_USER);
-
-    logmsgf("GDT[%x]\n", taskdescr_index);
-
-    kbd_set_onpress((kbd_event_f)key_press);
-
-    /* load TR and LDT */
-    i386_load_task_reg(tss_sel);
-
-    /* go userspace */
-    start_userspace(
-        (uint)main, SEL_USER_CS,
-        x86_eflags() | eflags_iopl(PL_USER),
-        (uint)task0_usr_stack + R3_STACK_SIZE - 0x20, SEL_USER_DS);
-}
-#endif
