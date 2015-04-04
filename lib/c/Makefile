@@ -1,4 +1,7 @@
 CROSSCOMP =
+ifeq ($(shell uname),Darwin)
+CROSSCOMP = i386-elf-
+endif
 
 CC  = $(CROSSCOMP)gcc
 AR  = $(CROSSCOMP)ar
@@ -15,6 +18,9 @@ libc.a: build $(objs)
 	@echo "objs: $^"
 	$(AR) crT $@ $(objs)
 
+cosec.o: ./cosec/cosec.c
+	$(CC) $(CFLAGS) -c $< -o $@
+
 build:
 	@mkdir build
 
@@ -22,4 +28,4 @@ build:
 	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
-	rm -r build libc.a
+	rm -r build libc.a cosec.o || true

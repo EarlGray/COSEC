@@ -190,13 +190,16 @@ $(liblua): $(LUA_DIR)
 
 endif
 clean_lua:
-	rm -rf include/lua lib/liblua.a $(LUA_DIR)
+	rm -rf include/lua lib/liblua.a $(LUA_DIR) || true
 
 $(pipe_file):
 	mkfifo $(pipe_file)
 
 clean:
 	rm -rf $(build)
+
+distclean: clean clean_lua
+	make -C lib/c clean
 
 help:
 	@echo "USAGE:"; \

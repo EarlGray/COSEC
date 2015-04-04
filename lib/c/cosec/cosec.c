@@ -1,5 +1,5 @@
-#include <cosec.h>
 #include <stdarg.h>
+#include <cosec/fs.h>
 
 int syscall(int num, ...) {
     va_list vl;
@@ -21,6 +21,10 @@ int syscall(int num, ...) {
 }
 
 int printf(const char *fmt, ...) {
-    return syscall(CSC_DBG_PRINT, (void **)&fmt, 0, 0);
+    return syscall(SYS_PRINT, (void **)&fmt, 0, 0);
+}
+
+void exit(int status) {
+    syscall(SYS_EXIT, status, 0, 0);
 }
 
