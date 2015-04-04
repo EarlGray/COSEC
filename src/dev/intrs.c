@@ -16,11 +16,12 @@
 #include <mem/paging.h>
 
 #include <stdio.h>
+#include <sys/errno.h>
 
 #if INTR_DEBUG
 # define __DEBUG
 #endif
-#include <log.h>
+#include <cosec/log.h>
 
 #define ICW1_ICW4       0x01
 #define ICW1_SINGLE     0x02        // 0x00 - cascade

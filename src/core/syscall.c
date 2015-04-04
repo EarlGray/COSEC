@@ -1,9 +1,9 @@
 #include <syscall.h>
 #include <arch/i386.h>
-#include <fs/fs_sys.h>
 #include <process.h>
 
-#include <log.h>
+#include <cosec/fs.h>
+#include <cosec/log.h>
 
 int sys_print(const char **fmt);
 

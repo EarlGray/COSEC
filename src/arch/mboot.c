@@ -1,6 +1,6 @@
 #include <stdlib.h>
 
-#include <log.h>
+#include <cosec/log.h>
 
 #include <arch/multiboot.h>
 #include <arch/mboot.h>

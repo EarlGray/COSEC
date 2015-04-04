@@ -7,7 +7,7 @@
 #include <fs/ramfs.h>
 #include <conf.h>
 
-#include <log.h>
+#include <cosec/log.h>
 
 typedef void (*btree_leaf_free_f)(void *);
 

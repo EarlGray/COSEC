@@ -1,6 +1,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/errno.h>
+
+#include <cosec/log.h>
 
 #include <process.h>
 #include <dev/tty.h>
@@ -8,7 +11,6 @@
 
 #include <arch/mboot.h>
 
-#include <log.h>
 
 /*
  *  Global state

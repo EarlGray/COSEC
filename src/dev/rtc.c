@@ -1,8 +1,8 @@
 #include <string.h>
 #include <time.h>
-#include <sys/errno.h>
 
-#include <log.h>
+#include <sys/errno.h>
+#include <cosec/log.h>
 
 #include <dev/cmos.h>
 

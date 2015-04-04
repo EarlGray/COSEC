@@ -36,7 +36,7 @@ lds     := vmcosec.lds
 cc_includes := $(addprefix -I, $(include_dir) $(STDINC_DIR))
 
 cc_flags    := -ffreestanding -nostdinc -Wall -Wextra -Winline -Wno-unused -O2 -MD -DCOSEC=1
-as_flags    := -Wall -MD $(addprefix -I, $(include_dir))
+as_flags    := -nostdinc -Wall -MD $(cc_includes)
 ld_flags    := -static -nostdlib -T$(build)/$(lds)
 
 ifneq ($(LUA),)
@@ -49,7 +49,7 @@ cc_flags  += -m32
 as_flags  += -m32
 ld_flags  += -melf_i386
 
-libinit   := $(build)/usr/init.a
+libc      := lib/c/libc.a
 kernel    := $(build)/kernel
 initfs    := res/initfs
 
@@ -140,13 +140,16 @@ $(image):
 	    echo -e "## ...generated\n"; \
 	fi
 
-$(kernel): $(build) $(liblua) $(objs) $(build)/$(lds)
+$(kernel): $(libc) $(build) $(liblua) $(objs) $(build)/$(lds)
 	@echo "\n#### Linking..."
-	$(ld) -o $(kernel) $(objs) $(liblua) $(ld_flags)
+	$(ld) -o $(kernel) $(objs) $(liblua) $(libc) $(ld_flags)
 	@echo "## ...linked"
 	@[ `which $(objdump) 2>/dev/null` ] && $(objdump) -d $(kernel) > $(objdfile) || true
 	@[ `which $(nm) 2>/dev/null` ] && $(nm) $(kernel) | sort > $(kernel).nm || true
 	@[ `which ctags 2>/dev/null ` ] && ctags -R * || true
+
+$(libc):
+	@make CROSSCOMP=$(crosscompile) -C lib/c
 	
 $(build):
 	@echo "\n#### Compiling"
@@ -163,9 +166,6 @@ $(build)/%.o : $(src_dir)/%.c
 
 $(build)/%.o : $(src_dir)/%.S
 	$(as) -c $< -o $@ $(as_flags) -MT $(subst .d,.c,$@)
-
-$(libinit):
-	@cd usr && make
 
 ifneq ($(LUA),)
 
@@ -209,4 +209,4 @@ help:
 	echo "  to make image with native sudo. In order to do this, use"; \
 	echo "	make fuse=";	echo
 
-include $(wildcard $(addprefix /*.d, $(build)/arch $(build)/core $(build)/dev $(build)/fs $(build)/mem $(build)/std))
+include $(wildcard $(addprefix /*.d, $(build)/arch $(build)/core $(build)/dev $(build)/fs $(build)/mem))

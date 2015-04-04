@@ -1,10 +1,11 @@
 #include <mem/ff_alloc.h>
-#include <log.h>
 
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
 #include <limits.h>
+
+#include <cosec/log.h>
 
 /***
  *          Memory allocator with first-fit algorithm
@@ -326,8 +327,6 @@ void *firstfit_corruption(struct firstfit_allocator *this) {
     while ((c = next(c)) != this->current);
     return null;
 }
-
-#include <log.h>
 
 void heap_info(struct firstfit_allocator *this) {
     size_t free_space = 0;

@@ -1,5 +1,5 @@
 #include <math.h>
-#include <log.h>
+#include <cosec/log.h>
 
 #warning "TODO: stdmath.c"
 #pragma GCC diagnostic ignored "-Wunused-parameter"

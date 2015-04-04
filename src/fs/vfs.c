@@ -9,11 +9,12 @@
 #include <conf.h>
 #include <attrs.h>
 
+#include <dev/screen.h>
 #include <fs/vfs.h>
 #include <fs/ramfs.h>
 #include <fs/devices.h>
 
-#include <log.h>
+#include <cosec/log.h>
 
 static const char *
 vfs_match_mountpath(mountnode *parent_mnt, mountnode **match_mnt, const char *path);

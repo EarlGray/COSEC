@@ -2,8 +2,6 @@
 #define __KERN_LOG_H__
 
 #include <stdarg.h>
-#include <dev/screen.h>
-#include <sys/errno.h>
 
 /*
  *  kernel log

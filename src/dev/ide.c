@@ -1,4 +1,4 @@
-#include <log.h>
+#include <cosec/log.h>
 #include <arch/i386.h>
 
 #define IDE_PRIMARY         0x1F0

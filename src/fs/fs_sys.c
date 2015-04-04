@@ -1,11 +1,12 @@
 #include <stdlib.h>
 #include <fcntl.h>
+#include <sys/errno.h>
 
-#include <fs/fs_sys.h>
 #include <fs/vfs.h>
 #include <process.h>
 
-#include <log.h>
+#include <cosec/log.h>
+#include <cosec/fs.h>
 
 #warning "TODO: remove #pragma GCC diagnostic ignored -Wunused-parameter"
 #pragma GCC diagnostic ignored "-Wunused-parameter"

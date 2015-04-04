@@ -8,12 +8,11 @@
 #include <locale.h>
 #include <setjmp.h>
 #include <math.h>
+#include <sys/errno.h>
 
-#include <arch/i386.h>
-#include <arch/setjmp.h>
-#include <mem/kheap.h>
+#include <machine/setjmp.h>
 
-#include <log.h>
+#include <cosec/log.h>
 
 int theErrNo = 0;
 
@@ -276,7 +275,7 @@ void free(void *ptr) {
 /*
  *  string operations from string.h
  */
-int __pure strncmp(const char *s1, const char *s2, size_t n) {
+int strncmp(const char *s1, const char *s2, size_t n) {
     if (s1 == s2) return 0;
     size_t i = 0;
     while (i++ < n) {
@@ -287,16 +286,16 @@ int __pure strncmp(const char *s1, const char *s2, size_t n) {
     return 0;
 }
 
-int __pure strcoll(const char *s1, const char *s2) {
+int strcoll(const char *s1, const char *s2) {
     logmsgd("TODO: strcoll defaults to strcmp()");
     return strcmp(s1, s2);
 }
 
-int __pure strcmp(const char *s1, const char *s2) {
+int strcmp(const char *s1, const char *s2) {
     return strncmp(s1, s2, UINT_MAX);
 }
 
-int __pure strncasecmp(const char *s1, const char *s2, size_t n) {
+int strncasecmp(const char *s1, const char *s2, size_t n) {
     if (s1 == s2) return 0;
     size_t i = 0;
     while (i++ < n) {
@@ -309,7 +308,7 @@ int __pure strncasecmp(const char *s1, const char *s2, size_t n) {
     return 0;
 }
 
-int __pure strcasecmp(const char *s1, const char *s2) {
+int strcasecmp(const char *s1, const char *s2) {
     return strncasecmp(s1, s2, UINT_MAX);
 }
 
@@ -328,7 +327,7 @@ size_t strspn(const char *s1, const char *s2) {
     return (size_t)(s - s1);
 }
 
-int __pure memcmp(const void *s1, const void *s2, size_t n) {
+int memcmp(const void *s1, const void *s2, size_t n) {
     index_t i;
     const char *c1 = s1;
     const char *c2 = s2;
@@ -372,13 +371,13 @@ char *strncpy(char *dest, const char *src, size_t n) {
     return dest;
 }
 
-size_t __pure strlen(const char *s) {
+size_t strlen(const char *s) {
     const char *c = s;
     while (*c) ++c;
     return c - s;
 }
 
-size_t __pure strnlen(const char *s, size_t maxlen) {
+size_t strnlen(const char *s, size_t maxlen) {
     const char *c = s;
     while (*c && ((size_t)(c - s) < maxlen))
         ++c;
@@ -413,7 +412,7 @@ void *memchr(const void *s, int c, size_t n) {
     return NULL;
 }
 
-char __pure *strnchr(const char *s, size_t n, int c) {
+char *strnchr(const char *s, size_t n, int c) {
     char *cur = (char *)s;
     while (*cur && ((cur - s) < (int)n)) {
         if ((char)c == *cur)
@@ -423,7 +422,7 @@ char __pure *strnchr(const char *s, size_t n, int c) {
     return null;
 }
 
-char __pure *strnrchr(const char *s, size_t n, int c) {
+char *strnrchr(const char *s, size_t n, int c) {
     char *cur = (char *)s;
     char *last = null;
     while (*cur && ((size_t)(cur - s) < n)) {

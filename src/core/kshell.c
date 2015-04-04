@@ -3,6 +3,8 @@
 #include <stdio.h>
 #include <time.h>
 
+#include <cosec/log.h>
+
 #include <arch/i386.h>
 #include <arch/mboot.h>
 #include <arch/multiboot.h>
@@ -21,7 +23,6 @@
 #include <fs/vfs.h>
 #include <fs/devices.h>
 #include <process.h>
-#include <log.h>
 
 #include <kshell.h>
 #include <ctype.h>

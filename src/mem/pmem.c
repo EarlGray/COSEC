@@ -19,7 +19,7 @@
 #include <string.h>
 #include <stdbool.h>
 
-#include <log.h>
+#include <cosec/log.h>
 
 #if MEM_DEBUG
 #   define mem_logf(msg, ...) k_printf(msg, __VA_ARGS__)

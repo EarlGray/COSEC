@@ -13,7 +13,7 @@
 #include <tasks.h>
 #include <process.h>
 
-#include <log.h>
+#include <cosec/log.h>
 
 static void print_welcome(void) {
     vcsa_clear(CONSOLE_VCSA);

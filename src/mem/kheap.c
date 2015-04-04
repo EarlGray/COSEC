@@ -1,4 +1,5 @@
-#include <log.h>
+#include <cosec/log.h>
+
 #include <mem/pmem.h>
 #include <mem/kheap.h>
 #include <mem/ff_alloc.h>

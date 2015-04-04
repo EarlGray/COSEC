@@ -17,13 +17,12 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <tasks.h>
+#include <cosec/log.h>
 
+#include <tasks.h>
 #include <arch/i386.h>
 #include <dev/intrs.h>
 #include <dev/timer.h>
-
-#include <log.h>
 
 volatile task_struct default_task;
 volatile task_struct *volatile current = &default_task;

@@ -1,7 +1,7 @@
 #define NOT_CC
 
 #include <mem/paging.h>
-#include <arch/setjmp.h>
+#include <machine/setjmp.h>
 
 .text
 

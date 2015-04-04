@@ -1,9 +1,8 @@
 #include <dev/pci.h>
-
 #include <arch/i386.h>
-#include <stdio.h>
 
-#include <log.h>
+#include <stdio.h>
+#include <cosec/log.h>
 
 #define PCI_CONFIG_ADDR     0x0CF8
 #define PCI_CONFIG_DATA     0x0CFC

@@ -1,5 +1,8 @@
 #include <stdlib.h>
 #include <string.h>
+#include <sys/errno.h>
+
+#include <cosec/log.h>
 
 #include <mem/pmem.h>
 
@@ -7,7 +10,6 @@
 #include <dev/tty.h>
 
 #include <fs/devices.h>
-#include <log.h>
 
 /*
  *   Unspecified (0) character devices family

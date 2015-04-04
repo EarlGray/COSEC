@@ -8,10 +8,10 @@
 #include <ctype.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <sys/errno.h>
 
-#include <fs/fs_sys.h>
-
-#include <log.h>
+#include <cosec/fs.h>
+#include <cosec/log.h>
 
 extern int theErrNo;
 

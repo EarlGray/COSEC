@@ -12,13 +12,14 @@
 #include <time.h>
 #include <unistd.h>
 
+#include <cosec/log.h>
+#include <cosec/fs.h>
+
 #include <dev/timer.h>
 #include <dev/kbd.h>
 #include <arch/i386.h>
-#include <fs/fs_sys.h>
 
 #include <kshell.h>
-#include <log.h>
 
 void test_strs(void) {
     printf("'abc' 'ABC %d\n", strcasecmp("abc", "ABC"));

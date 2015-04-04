@@ -3,5 +3,5 @@
 int main(int argc, char *argv[]) {
     printf("[init] hello, userspace\n");
 
-    for (;;);
+    exit(0);
 }

@@ -2,6 +2,10 @@
 #include <string.h>
 #include <ctype.h>
 #include <termios.h>
+#include <sys/errno.h>
+
+#define __DEBUG
+#include <cosec/log.h>
 
 #include <dev/kbd.h>
 #include <dev/screen.h>
@@ -9,9 +13,6 @@
 #include <fs/devices.h>
 #include <dev/tty.h>
 #include <arch/i386.h>
-
-#define __DEBUG
-#include <log.h>
 
 typedef  struct tty_device       tty_device;
 typedef  struct tty_input_queue  tty_inpqueue;

@@ -2,13 +2,14 @@
 #include <fs/devices.h>
 
 #include <arch/i386.h>
-#include <log.h>
 
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <sys/errno.h>
 
+#include <cosec/log.h>
 
 /***
   *     VGA 80x25 'driver'

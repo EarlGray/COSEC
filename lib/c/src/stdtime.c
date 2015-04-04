@@ -1,6 +1,7 @@
-#include <time.h>
 #include <stdlib.h>
-#include <log.h>
+#include <time.h>
+
+#include <cosec/log.h>
 
 #warning "TODO: difftime, gmtime, localtime, strftime, clock"
 #pragma GCC diagnostic ignored "-Wunused"
