@@ -6,7 +6,7 @@ endif
 CC  = $(CROSSCOMP)gcc
 AR  = $(CROSSCOMP)ar
 
-CFLAGS	= -ffreestanding -nostdinc -isystem ./include
+CFLAGS	= -m32 -ffreestanding -nostdinc -isystem ./include
 
 .PHONY: clean
 
