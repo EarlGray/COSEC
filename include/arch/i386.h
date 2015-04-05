@@ -232,6 +232,12 @@ static uint8_t i386_current_privlevel(void) {
 }
 
 /***
+  *     x86 CPUID
+ ***/
+int i386_cpuid_check(void);
+uint i386_cpuid_info(void *cpu_info, uint funct);
+
+/***
   *     Semaphores
  ***/
 int i386_sema_down(int semcounter, int block_callback(int, void *));

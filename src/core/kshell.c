@@ -232,6 +232,7 @@ struct kshell_command {
 
 void kshell_help();
 void kshell_info(const struct kshell_command *, const char *);
+void kshell_cpuid(const struct kshell_command *, const char *);
 void kshell_mboot(const struct kshell_command *, const char *);
 void kshell_test(const struct kshell_command *, const char *);
 void kshell_heap(const struct kshell_command *, const char *);
@@ -264,6 +265,10 @@ const struct kshell_command main_commands[] = {
         .handler = kshell_info,
         .description = "various info",
         .options = "stack gdt pmem colors cpu pci irq mods mboot" },
+    { .name = "cpuid",
+        .handler = kshell_cpuid,
+        .description = "x86 cpuid info; usage: cpuid [function, default 0]",
+        .options = "cpuid [<funct>=0]", },
     { .name = "mem",
         .handler = kshell_mem,
         .description = "mem <start_addr> <size = 0x100>" },
@@ -510,6 +515,32 @@ void kshell_elf(const struct kshell_command *this, const char *arg) {
                 strtab, sym);
     } else {
         k_printf("Options: %s\n", this->options);
+    }
+}
+
+void kshell_cpuid(const struct kshell_command *this, const char *arg) {
+    UNUSED(this);
+    uint funct = 0;
+    uint ret;
+    union {
+        char as_str[13];
+        struct { uint ebx, ecx, edx; } as_reg;
+    } cpu_info;
+    cpu_info.as_str[12] = 0;
+
+    ret = i386_cpuid_check();
+    if (!ret) { k_printf("CPUID is not supported, weird\n"); return; }
+
+    while (isspace(arg[0])) ++arg;
+    funct = atoi(arg);  /* 0 is ok */
+
+    ret = i386_cpuid_info(&cpu_info, funct);
+    if (funct) {
+        k_printf("funct = 0x%x\n", funct);
+        k_printf("  %%eax = 0x%x\n  %%ebx = 0x%x\n  %%ecx = 0x%x\n  %%edx = %x\n",
+                    ret, cpu_info.as_reg.ebx, cpu_info.as_reg.ecx, cpu_info.as_reg.edx);
+    } else {
+        k_printf("%%eax = %x, CPU vendor: %s\n", ret, cpu_info.as_str);
     }
 }
 
@@ -779,7 +810,7 @@ void kshell_vfs(const struct kshell_command __unused *this, const char *arg) {
         while (isspace(*++arg));
         char *eptr;
         long maj = strtol(arg, &eptr, 0);
-        returnv_err_if(eptr == arg, "A device major number expected"); 
+        returnv_err_if(eptr == arg, "A device major number expected");
         arg = eptr;
         returnv_err_if(arg[0] != ':', "A semicolon expected");
         long min = strtol(++arg, &eptr, 0);

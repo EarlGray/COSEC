@@ -7,15 +7,14 @@
 
 #define SIZEOFINT 4
 
-.global i386_setjmp
-.global i386_longjmp
-
 /*
  *  x86 semaphores
  *
  *  int i386_sema_down(atomic_t semcounter, int block_callback(atomic_t, void *));
  *  int i386_sema_up(atomic_t semcounter, int release_callback(atomic_t, void *));
  */
+.global i386_sema_down
+.global i386_sema_up
 
 i386_sema_down:
     movl 8(%esp), %eax      # block callback
@@ -33,9 +32,15 @@ i386_sema_up:
     jmp *%eax              # wake up blocked threads
 1:  ret
 
+
 /*
+ *      Setjmp/longjmp
  * int setjmp(jmp_buf env)
+ * int longjmp(jmp_buf env, val)
  */
+.global i386_setjmp
+.global i386_longjmp
+
 i386_setjmp:
     movl 4(%esp), %edx      # &jmp_buf
     movl (%esp),  %ecx      # ret addr
@@ -51,9 +56,6 @@ i386_setjmp:
     xor %eax, %eax
     ret
 
-/*
- * int longjmp(jmp_buf env, val)
- */
 i386_longjmp:
     movl 4(%esp), %edx          # &jmp_buf
     movl 8(%esp), %eax          # val
@@ -75,6 +77,61 @@ i386_longjmp:
 
     ret
 
+/***
+  *     CPUID
+  *  bool i386_cpuid_check(int cmd);
+  *  void i386_cpuid_vendor(char vendor[12]);
+ ***/
+.global i386_cpuid_check
+i386_cpuid_check:
+    pushf
+    pushf
+    xorl $(1 << 21), (%esp)    # invert ID flag
+    popf
+    pushf
+    pop %eax
+    xor (%esp), %eax           # set %eax to changed bits
+    popf
+    andl $(1 << 21), %eax      # test if ID bit is changed
+    ret
+
+.global i386_cpuid_info
+i386_cpuid_info:
+    push %ebx
+    movl 0xc(%esp), %eax
+    cpuid
+    push %eax
+    movl 0xc(%esp), %eax         # char vendor[12]
+    movl %ebx, 0(%eax)
+    movl %edx, 4(%eax)
+    movl %ecx, 8(%eax)
+    pop %eax
+    pop %ebx
+    ret
+
+/***
+  *     Paging
+ ***/
+.global i386_switch_pagedir
+i386_switch_pagedir:
+    movl 4(%esp), %eax
+
+    movl %cr0, %edx
+    andl $(~CR0_PG), %edx
+    movl %edx, %cr0     // disable paging
+
+    movl %eax, %cr3
+
+    movl %cr0, %eax
+    orl  $(CR0_PG | CR0_WP), %eax
+    movl %eax, %cr0         // enable paging and write-protection
+
+    ret
+
+
+/***
+  *     Misc
+ ***/
 .global i386_snapshot
 i386_snapshot:
     movl 4(%esp), %edi
@@ -102,20 +159,4 @@ start_userspace:
     movw %ax, %gs
     addl $4, %esp /* discard %eip */
     iret
-
-.global i386_switch_pagedir
-i386_switch_pagedir:
-    movl 4(%esp), %eax
-
-    movl %cr0, %edx
-    andl $(~CR0_PG), %edx
-    movl %edx, %cr0     // disable paging
-
-    movl %eax, %cr3
-
-    movl %cr0, %eax
-    orl  $(CR0_PG | CR0_WP), %eax
-    movl %eax, %cr0         // enable paging and write-protection
-
-    ret
 

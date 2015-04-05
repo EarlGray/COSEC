@@ -286,8 +286,12 @@ int vsnprintf(char *str, size_t size, const char *format, va_list ap) {
                 out_c = snprint_uint(out_c, end, (uint)arg, 16,
                                      ZERO_PADDED | flags, 8);
                 } break;
+            case '%':
+                *out_c = *fmt_c;
+                ++out_c;
+                break;
             default:
-                logmsgef("vsnprintf: unknown format specifier %x", (uint)*fmt_c);
+                logmsgef("vsnprintf: unknown format specifier 0x%x", (uint)*fmt_c);
                 *out_c = *fmt_c;
                 ++out_c;
             }
