@@ -232,6 +232,12 @@ static uint8_t i386_current_privlevel(void) {
 }
 
 /***
+  *     Semaphores
+ ***/
+int i386_sema_down(int semcounter, int block_callback(int, void *));
+int i386_sema_up(int semcounter, int release_callback(int, void *));
+
+/***
   *     Paging
  ***/
 extern void i386_switch_pagedir(void *new_pagedir);

@@ -63,8 +63,8 @@ void gdt_setup(void) {
     gdt_entry_init(GDT_KERN_DS, SD_TYPE_RW_DATA, PL_KERN);
     gdt_entry_init(GDT_USER_CS, SD_TYPE_ER_CODE, PL_USER);
     gdt_entry_init(GDT_USER_DS, SD_TYPE_RW_DATA, PL_USER);
-    segdescr_usual_init(theGDT[GDT_DEF_LDT], SD_TYPE_LDT, 
-            8 * 2/*sizeof(defLDT)/sizeof(segment_descriptor)*/, (uint)defLDT, 
+    segdescr_usual_init(theGDT[GDT_DEF_LDT], SD_TYPE_LDT,
+            8 * 2/*sizeof(defLDT)/sizeof(segment_descriptor)*/, (uint)defLDT,
             PL_USER, SD_GRAN_4Kb);
 
     gdt_load(N_GDT, theGDT);
@@ -72,7 +72,7 @@ void gdt_setup(void) {
 
 index_t gdt_alloc_entry(segment_descriptor entry) {
     index_t i;
-    for (i = 1; i < N_GDT; ++i) 
+    for (i = 1; i < N_GDT; ++i)
         if (0 == *(uint *)(theGDT + i)) {
             theGDT[i] = entry;
             return i;
@@ -80,16 +80,16 @@ index_t gdt_alloc_entry(segment_descriptor entry) {
     return 0;
 }
 
-/* 
- *     This file represents IDT as a single object and incapsulates hardware 
+/*
+ *     This file represents IDT as a single object and incapsulates hardware
  *  related functions, interfaces with assembly part of code.
- *      
+ *
  *      About IDT
  *  IDT mapping is quite linux'ish, for more details see idt_setup() below
  *  User system call defined for the future, its number defined at idt.h as
  *  SYS_INT (now it's 0x80 like Linux)
- *    There are 3 types of IDT entries (like Linux): trap gates (traps/faults 
- *  with dpl=0,  linux's trap gates),  call gates (traps/faults with dpl=3, 
+ *    There are 3 types of IDT entries (like Linux): trap gates (traps/faults
+ *  with dpl=0,  linux's trap gates),  call gates (traps/faults with dpl=3,
  *  linux's system gates), intr gates (interrupt gates, linux's interrupts)
  */
 
@@ -103,7 +103,7 @@ segment_descriptor  theIDT[IDT_SIZE];
 
 inline void idt_set_gates(uint8_t start, uint16_t end, enum gatetype type, intr_entry_f intr_entry) {
     int i;
-    for (i = start; i < end; ++i) 
+    for (i = start; i < end; ++i)
         idt_set_gate(i, type, intr_entry);
 }
 
@@ -142,7 +142,7 @@ inline segment_descriptor * i386_idt(void) {
 
 /***
   *     Task-related routines
- ***/ 
+ ***/
 
 
 void cpu_setup(void) {

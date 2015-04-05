@@ -11,11 +11,34 @@
 .global i386_longjmp
 
 /*
+ *  x86 semaphores
+ *
+ *  int i386_sema_down(atomic_t semcounter, int block_callback(atomic_t, void *));
+ *  int i386_sema_up(atomic_t semcounter, int release_callback(atomic_t, void *));
+ */
+
+i386_sema_down:
+    movl 8(%esp), %eax      # block callback
+    movl 4(%esp), %edx      # semaphore counter
+    lock incl (%edx)
+    jns 1f
+    jmp *%eax              # can't acquire
+1:  ret
+
+i386_sema_up:
+    movl 8(%esp), %eax      # wake callback
+    movl 4(%esp), %edx      # semaphore counter
+    lock decl (%edx)
+    jns 1f
+    jmp *%eax              # wake up blocked threads
+1:  ret
+
+/*
  * int setjmp(jmp_buf env)
  */
 i386_setjmp:
-    movl 4(%esp), %edx         # &jmp_buf
-    movl (%esp),  %ecx         # ret addr
+    movl 4(%esp), %edx      # &jmp_buf
+    movl (%esp),  %ecx      # ret addr
 
     # save registers protected by cdecl
     movl %ecx, (SIZEOFINT * JMPBUF_EIP_OFFSET)(%edx)
@@ -86,7 +109,7 @@ i386_switch_pagedir:
 
     movl %cr0, %edx
     andl $(~CR0_PG), %edx
-    movl %edx, %cr0     // disable paging 
+    movl %edx, %cr0     // disable paging
 
     movl %eax, %cr3
 
