@@ -20,6 +20,7 @@
 #include <stdbool.h>
 
 #include <cosec/log.h>
+#include <sys/errno.h>
 
 #if MEM_DEBUG
 #   define mem_logf(msg, ...) k_printf(msg, __VA_ARGS__)
@@ -109,7 +110,7 @@ inline static void pf_list_remove(pagelist_t *list, pageframe_t *node) {
             node->next->prev = node->prev;
             node->prev->next = node->next;
             list->head = node->next;
-        } 
+        }
         else panic("Removing the last node");
     else {
         node->prev->next = node->next;
@@ -192,7 +193,7 @@ void pmem_setup(void) {
     mboot_modules_info(&n_mods, &mods);
     for (i = 0; i < n_mods; ++i) {
         ptr_t mod_end = (ptr_t)__va(mods[i].mod_end);
-        if (pfmap < mod_end) 
+        if (pfmap < mod_end)
             pfmap = mod_end;
     }
 
@@ -260,6 +261,19 @@ void pmem_setup(void) {
             free_pageframes.count, reserved_pageframes.count, cache_pageframes.count);
 }
 
+index_t pmem_check_avail(void *startptr, void *endptr) {
+    index_t start_page = page_aligned_back((ptr_t)startptr);
+    index_t end_page = page_aligned((ptr_t)endptr);
+    size_t i;
+
+    for (i = start_page; i < end_page; ++i) {
+        logmsgdf("pmem_check_avail: page 0x%x\n", i);
+        if (the_pageframe_map[i].flags != PF_FREE) {
+            return start_page + i;
+        }
+    }
+    return 0;
+}
 
 void * pmem_alloc(size_t pages_count) {
     if (free_pageframes.count == 0)
@@ -302,6 +316,24 @@ void * pmem_alloc(size_t pages_count) {
                 return 0;
         }
     }
+}
+
+err_t pmem_reserve(void *p1, void *p2) {
+    index_t start_page = page_aligned_back((ptr_t)p1);
+    index_t pages_count = page_aligned((ptr_t)p2) - start_page;
+
+    /* check if all those pages are free */
+    if (free_pageframes.count < pages_count)
+        return ENOMEM;
+    if (pfmap_len < (start_page + pages_count))
+        return ENOMEM;
+
+    if (pmem_check_avail(p1, p2))
+        return ENOMEM;
+
+    mark_used(p1, p2);
+
+    return 0;
 }
 
 err_t pmem_free(index_t start_page, size_t pages_count) {

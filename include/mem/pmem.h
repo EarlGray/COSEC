@@ -1,6 +1,7 @@
 #ifndef __PHYS_MEM_H__
 #define __PHYS_MEM_H__
 
+#include <stdbool.h>
 #include <stdint.h>
 
 #define VIRTUAL_ADDRESS 0xc0100000
@@ -16,6 +17,12 @@ void pg_free(index_t);
  *  returns index of first page
  */
 void * pmem_alloc(size_t pages_count);
+
+err_t pmem_reserve(void *startptr, void *endptr);
+
+/* returns 0 if all pages are available,
+ * or index of the first unavailable page */
+index_t pmem_check_avail(void *startptr, void *endptr);
 
 /*
  *  Releases pages

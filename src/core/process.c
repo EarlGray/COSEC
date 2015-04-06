@@ -3,11 +3,13 @@
 #include <unistd.h>
 #include <sys/errno.h>
 
+#define __DEBUG
 #include <cosec/log.h>
 
 #include <process.h>
 #include <dev/tty.h>
 #include <fs/vfs.h>
+#include <mem/pmem.h>
 
 #include <arch/mboot.h>
 
@@ -95,11 +97,12 @@ int sys_getpid() {
  *      Test init process
  *   temporary init test: use physical memory if applicable
  */
-void run_init(void) {
-    const char *funcname = __FUNCTION__;
-    int i;
+#include <linux/elf.h>
 
-    /* find module named `init` */
+const char elf_magic[4] = { ELFMAG0, ELFMAG1, ELFMAG2, ELFMAG3 };
+
+static const module_t *find_init_module(void) {
+    int i;
     int initmodule = -1;
     count_t nmods = 0;
     module_t *minfo = NULL;
@@ -108,22 +111,92 @@ void run_init(void) {
         if (0 == minfo[i].string)
             continue;
         if (!strcmp("init", (char *)minfo[i].string)) {
-            initmodule = i;
-            break;
+            return minfo + i;
         }
     }
-    returnv_msg_if(initmodule < 0,
-            "%s: module `init` not found\n", funcname);
-    logmsgif("%s: found module 'init' at *%x\n",
-            funcname, minfo[i].mod_start);
+    return NULL;
+}
+
+static bool elf_is_runnable(Elf32_Ehdr *elfhdr) {
+    const char *funcname = __FUNCTION__;
+    int ret;
+
+    ret = strncmp((const char *)elfhdr->e_ident, elf_magic, 4);
+    return_msg_if(ret, false,
+            "%s: ELF magic is invalid", funcname);
+
+    ret = (elfhdr->e_machine == EM_386);
+    return_msg_if(!ret, false,
+            "%s: ELF arch is not EM_386", funcname);
+
+    ret = (elfhdr->e_ident[EI_CLASS] == ELFCLASS32);
+    return_msg_if(!ret, false,
+            "%s: ELF class is %d, not ELFCLASS32", funcname, (uint)elfhdr->e_type);
+
+    return_msg_if(elfhdr->e_ident[EI_VERSION] != 1, false,
+            "%s: ELF version is %d\n", funcname, elfhdr->e_version);
+    return_msg_if(elfhdr->e_ident[EI_DATA] != ELFDATA2LSB, false,
+            "%s: ELF cpu flags = 0x%x\n", funcname, elfhdr->e_flags);
+    return_msg_if(elfhdr->e_type != ET_EXEC, false,
+            "%s: ELF file is not executable(%d)\n", funcname, elfhdr->e_type);
+
+    return true;
+}
+
+void run_init(void) {
+    const char *funcname = __FUNCTION__;
+    const module_t *initmod = NULL;
+    size_t i;
+
+    /* find module named `init` */
+    initmod = find_init_module();
+    returnv_msg_if(!initmod,
+            "%s: module `init` not found", funcname);
+    logmsgif("%s: ok, found module 'init' at *%x",
+            funcname, initmod->mod_start);
 
     /* parse it as ELF file */
+    char *elfmem = (char *)initmod->mod_start;
+    Elf32_Ehdr *elfhdr = (Elf32_Ehdr*)elfmem;
+    bool ok = elf_is_runnable(elfhdr);
+    returnv_msg_if(!ok, "%s: parsing ELF failed", funcname);
+    logmsgif("%s: ok, 'init' is a correct ELF binary", funcname);
 
     /* determine if its memory does not conflict */
+    for (i = 0; i < elfhdr->e_shnum; ++i) {
+        Elf32_Shdr *section = (Elf32_Shdr *)(elfmem + elfhdr->e_shoff + i * elfhdr->e_shentsize);
+        if (!(section->sh_flags & SHF_ALLOC))
+            continue;
+
+        char *sect_start = (char *)section->sh_addr;
+        char *sect_end = sect_start + section->sh_size;
+
+        logmsgdf("%s: checking *%x-*%x\n", funcname, (uint)sect_start, (uint)sect_end);
+        uint ret = pmem_check_avail(sect_start, sect_end);
+        returnv_msg_if(ret,
+                "%s: section[%d] cannot be allocated\n", funcname, i);
+    }
 
     /* copy ELF sections there */
+    for (i = 0; i < elfhdr->e_shnum; ++i) {
+        Elf32_Shdr *section = (Elf32_Shdr *)(elfmem + elfhdr->e_shoff + i * elfhdr->e_shentsize);
+        if (!(section->sh_flags & SHF_ALLOC))
+            continue;
 
-    /* start tasks */
+        char *sect_start = (char *)section->sh_addr;
+        char *sect_end = sect_start + section->sh_size;
+
+        logmsgdf("%s: init section[%d]: *%x-*%x, file offset 0x%x\n",
+                funcname, i, (uint)sect_start, (uint)sect_end, section->sh_offset);
+        pmem_reserve(sect_start, sect_end);
+        memcpy(sect_start, elfmem + section->sh_offset, section->sh_size);
+    }
+
+    /* TODO: allocate stack and heap regions */
+
+    logmsgif("%s: ready to rock!", funcname);
+
+    /* TODO: start tasks */
 }
 
 /*
