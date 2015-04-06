@@ -82,7 +82,7 @@ qemu_flags  := -fda $(image) -boot a -m 64 -net nic,model=rtl8139
 .PHONY: qemu vbox bochs runq
 
 runq: $(kernel)
-	$(qemu) -kernel $(kernel) -fda $(image) -serial stdio
+	cd usr && $(qemu) -m 256 -kernel ../$(kernel) -initrd init -fda ../$(image) -serial stdio
 
 run: install
 	@echo "\n#### Running..." && \
