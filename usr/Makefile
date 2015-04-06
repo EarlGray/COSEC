@@ -11,6 +11,8 @@ LDFLAGS  += -ffreestanding -nostdlib -static
 LIBC     := ../lib/c/libc.a
 LIBCOSEC := ../lib/c/cosec.o
 
+.PHONY: clean
+
 init: $(LIBC) $(LIBCOSEC) init.c
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^
 
@@ -19,3 +21,6 @@ $(LIBC):
 
 $(LIBCOSEC):
 	make -C ../lib/c cosec.o
+
+clean:
+	rm init

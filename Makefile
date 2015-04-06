@@ -77,11 +77,12 @@ pipe_file     := pipe
 vbox_name   := COSEC
 qemu        := qemu-system-i386
 qemu_flags  := -fda $(image) -boot a -m 64 -net nic,model=rtl8139
+init        := usr/init
 
 .PHONY: run install mount umount clean
 .PHONY: qemu vbox bochs runq
 
-runq: $(kernel)
+runq: $(kernel) $(init)
 	cd usr && $(qemu) -m 256 -kernel ../$(kernel) -initrd init -fda ../$(image) -serial stdio
 
 run: install
@@ -99,6 +100,9 @@ vbox: install
 
 bochs: install
 	bochs
+
+$(init):
+	make -C $(dir $(init))
 
 $(cd_img): $(kernel)
 	@echo "Creating a LiveCD..."
@@ -199,7 +203,8 @@ clean:
 	rm -rf $(build)
 
 distclean: clean clean_lua
-	make -C lib/c clean
+	make -C lib/c clean || true
+	make -C usr/ clean || true
 
 help:
 	@echo "USAGE:"; \
