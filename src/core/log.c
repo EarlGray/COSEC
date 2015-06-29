@@ -1,13 +1,48 @@
 #include <cosec/log.h>
 #include <mem/kheap.h>
 #include <dev/serial.h>
+#include <fs/devices.h>
 
+#include <stdlib.h>
 #include <stdio.h>
 #include <stdarg.h>
+
+#include <cosec/log.h>
 
 #define LOGBUF_SIZE  4096
 
 #define COM_LOGGING  (1)
+
+static int kmsg_writebuf(
+    device *dev, const char *buf, size_t buflen,
+    size_t *written, off_t pos
+);
+
+struct device_operations kmsg_ops = {
+    .dev_get_roblock = NULL,
+    .dev_get_rwblock = NULL,
+    .dev_forget_block = NULL,
+    .dev_size_of_block = NULL,
+
+    .dev_size_in_blocks = NULL,
+    .dev_read_buf = NULL,
+    .dev_write_buf = kmsg_writebuf,
+    .dev_has_data = NULL,
+    .dev_ioctlv = NULL,
+};
+
+struct device kmsg_dev = {
+    .dev_type = DEV_CHR,
+    .dev_clss = CHR_MEMDEV,
+    .dev_no   = CHRMEM_KMSG,
+    .dev_data = NULL,
+
+    .dev_ops  = &kmsg_ops
+};
+
+device * kmsg_device_get(void) {
+    return &kmsg_dev;
+}
 
 int logging_setup() {
 #if COM_LOGGING
@@ -18,6 +53,21 @@ int logging_setup() {
 }
 
 static char logbuf[LOGBUF_SIZE];
+
+
+static int kmsg_writebuf(
+    device *dev, const char *buf, size_t buflen,
+    size_t *written, off_t pos)
+{
+    logmsgdf("kmsg_writebuf(pos=%d)\n", pos);
+#if COM_LOGGING
+    serial_puts(COM1_PORT, buf);
+#else
+    k_printf("# %s", buf);
+#endif
+    if (written) *written = buflen;
+    return 0;
+}
 
 int vlprintf(const char *fmt, va_list ap) {
     int ret = 0;

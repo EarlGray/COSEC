@@ -152,4 +152,9 @@ device * device_by_devno(devicetype_e  ty, dev_t devno);
 
 void dev_setup(void);
 
+/*
+ *    Specific devices
+ */
+device * kmsg_device_get(void);   /* DEV_CHR : CHR_MEMDEV : CHRMEM_KMSG */
+
 #endif //__DRIVERS_TABLE_H__

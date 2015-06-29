@@ -33,11 +33,21 @@ devclass  chr0_device_family = {
 /*
  *  RAM character devices
  */
+#define RAMCHRDEV_MAX   12
 
+device *ramchrdevs[RAMCHRDEV_MAX] = { 0 };
 
 static device * get_ram_char_device(mindev_t num) {
-    UNUSED(num);
-    return NULL;
+    if (num >= RAMCHRDEV_MAX)
+        return NULL;
+
+    return ramchrdevs[num];
+}
+
+static void init_ram_char_devices(void) {
+    logmsgf("init_ram_char_devices()\n");
+
+    ramchrdevs[CHRMEM_KMSG] = kmsg_device_get();
 }
 
 devclass  chr1_device_family = {
@@ -46,7 +56,7 @@ devclass  chr1_device_family = {
     .dev_class_name = "character memory devices",
 
     .get_device     = get_ram_char_device,
-    .init_devclass  = NULL,
+    .init_devclass  = init_ram_char_devices,
 };
 
 /*

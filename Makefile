@@ -76,14 +76,14 @@ pipe_file     := pipe
 
 vbox_name   := COSEC
 qemu        := qemu-system-i386
-qemu_flags  := -fda $(image) -boot a -m 64 -net nic,model=rtl8139
+qemu_flags  := -boot a -m 64 -net nic,model=rtl8139
 init        := usr/init
 
 .PHONY: run install mount umount clean
 .PHONY: qemu vbox bochs runq
 
 runq: $(kernel) $(init)
-	cd usr && $(qemu) -m 256 -kernel ../$(kernel) -initrd init -fda ../$(image) -serial stdio
+	cd usr && $(qemu) -m 256 -kernel ../$(kernel) -initrd init -serial stdio
 
 run: install
 	@echo "\n#### Running..." && \
