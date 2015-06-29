@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <time.h>
 
+#define __DEBUG
 #include <cosec/log.h>
 
 #include <arch/i386.h>
@@ -886,6 +887,12 @@ void kshell_vfs(const struct kshell_command __unused *this, const char *arg) {
     }
 }
 #ifdef COSEC_LUA
+
+#define LUA_ERROR(lua, msg) do {      \
+    lua_pushstring((lua), (msg));     \
+    lua_error(lua);                   \
+} while (0)
+
 int syslua_heapinfo() {
     kheap_info();
     return 0;
@@ -906,6 +913,70 @@ int syslua_mem(lua_State *L) {
     return 0;
 }
 
+int syslua_inb(lua_State *L) {
+    const char *funcname = __FUNCTION__;
+    int argc = lua_gettop(L);
+    if (argc < 1)
+        LUA_ERROR(L, "expected a port to read from");
+    if (!lua_isnumber(L, 1))
+        LUA_ERROR(L, "port number is not a number");
+
+    uint16_t port = (uint16_t)lua_tonumber(L, 1);
+    uint8_t val = 0;
+    inb(port, val);
+    lua_pushnumber(L, val);
+    logmsgdf("%s(%d) -> %d\n", funcname, (int)port, (int)val);
+    return 1; /* 1 result */
+}
+
+int syslua_outb(lua_State *L) {
+    const char *funcname = __FUNCTION__;
+    int argc = lua_gettop(L);
+    if (argc != 2)
+        LUA_ERROR(L, "arguments must be <port> and <val>");
+    if (!lua_isnumber(L, 1) || !lua_isnumber(L, 2))
+        LUA_ERROR(L, "arguments must be numbers");
+
+    uint16_t port = (uint16_t)lua_tonumber(L, 1);
+    uint8_t  val  = (uint8_t)lua_tonumber(L, 2);
+    outb(port, val);
+    logmsgdf("%s(%d, %d)\n", funcname, (int)port, (int)val);
+    return 0;
+}
+
+struct luamod_entry {
+    const char *fname;
+    int (*fptr)(lua_State *);
+};
+
+const struct luamod_entry luamod_sys[] = {
+    { .fname = "mem",       .fptr = syslua_mem      },
+    { .fname = "heapinfo",  .fptr = syslua_heapinfo },
+    { .fname = "inb",       .fptr = syslua_inb      },
+    { .fname = "outb",      .fptr = syslua_outb     },
+    { .fname = NULL,        .fptr = NULL            }
+};
+
+static int lua_modinit(
+    lua_State *lua,
+    const char *modname,
+    const struct lua_modentry *entries)
+{
+    lua_newtable(lua);
+
+    struct luamod_entry *entry = entries;
+    while (entry->fname) {
+        lua_pushstring(lua, entry->fname);
+        lua_pushcfunction(lua, entry->fptr);
+        lua_settable(lua, -3);
+
+        ++entry;
+    }
+
+    lua_setglobal(lua, modname);
+    return 0;
+}
+
 void kshell_lua_test(void) {
     const char *prompt = "lua> ";
     char cmd_buf[CMD_SIZE];
@@ -922,19 +993,7 @@ void kshell_lua_test(void) {
     if (!lua)
         logmsge("luaL_newstate() -> NULL");
 
-    /* sys module */
-    lua_newtable(lua);
-
-    lua_pushstring(lua, "heapinfo");
-    lua_pushcfunction(lua, syslua_heapinfo);
-    lua_settable(lua, -3);
-
-    lua_pushstring(lua, "mem");
-    lua_pushcfunction(lua, syslua_mem);
-    lua_settable(lua, -3);
-
-    lua_setglobal(lua, "sys");
-
+    lua_modinit(lua, "sys", luamod_sys);
 
     luaL_openlibs(lua);
 

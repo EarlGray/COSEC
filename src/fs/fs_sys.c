@@ -165,7 +165,7 @@ int sys_write(int fd, const void *buf, size_t count) {
 
     ret = vfs_inode_write(filedes->fd_sb, filedes->fd_ino, filedes->fd_pos,
                 buf, count, &nwritten);
-    return_dbg_if(ret, -ret, "%s: inode_read failed(%d)\n", ret);
+    return_dbg_if(ret, -ret, "%s: inode_write failed(%d)\n", ret);
 
     if (filedes->fd_pos >= 0) {
         filedes->fd_pos += nwritten;

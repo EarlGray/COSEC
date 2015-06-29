@@ -249,6 +249,9 @@ int vsnprintf(char *str, size_t size, const char *format, va_list ap) {
                 }
             } while (changed);
 
+            /* TODO : handle l modifier */
+            if (*fmt_c == 'l') ++fmt_c;
+
             switch (*fmt_c) {
             case 'x': {
                 int arg = va_arg(ap, int);
@@ -291,7 +294,8 @@ int vsnprintf(char *str, size_t size, const char *format, va_list ap) {
                 ++out_c;
                 break;
             default:
-                logmsgef("vsnprintf: unknown format specifier 0x%x", (uint)*fmt_c);
+                logmsgef("vsnprintf: unknown format specifier 0x%x at '%s'",
+                         (uint)*fmt_c, fmt_c);
                 *out_c = *fmt_c;
                 ++out_c;
             }
@@ -615,7 +619,7 @@ long ftell(FILE *stream) {
 }
 
 int fseek(FILE *stream, long offset, int whence) {
-    logmsgdf("fseek(fd=%d, off=%d, %s)\n", stream->file_fd, offset, 
+    logmsgdf("fseek(fd=%d, off=%d, %s)\n", stream->file_fd, offset,
                 (whence == SEEK_SET ? "SET" :
                     (whence == SEEK_CUR ? "CUR" :
                         (whence == SEEK_END ? "END" : "???"))));
@@ -669,7 +673,7 @@ int fclose(FILE *fp) {
 
 int fflush(FILE *stream) {
     theErrNo = 0;
-    logmsgf("fflush(fd=%d): TODO\n", stream->file_fd);
+    logmsgdf("fflush(fd=%d)\n", stream->file_fd);
     if (!stream) {
         logmsgef("fflush(NULL): flush all open streams, TODO\n");
         return 0;
@@ -684,7 +688,10 @@ int fflush(FILE *stream) {
         fstream_clearbuf(stream);
     } else {
         /* write buffer */
-        /* it is now always written immediately */
+
+        /* fwrite() writes immediately at the moment,
+         * no need for fflush() to do anything
+         */
     }
     return 0;
 }
