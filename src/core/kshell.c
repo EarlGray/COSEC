@@ -944,6 +944,44 @@ int syslua_outb(lua_State *L) {
     return 0;
 }
 
+int syslua_symaddr(lua_State *L) {
+    const char *funcname = __FUNCTION__;
+    int argc = lua_gettop(L);
+    if (argc != 1)
+        LUA_ERROR(L, "arguments must be <symbol>");
+    if (!lua_isstring(L, 1))
+        LUA_ERROR(L, "<symbol> must be string");
+
+    const char *symname = lua_tostring(L, 1);
+    logmsgf("%s(%s)\n", funcname, symname);
+
+    elf_section_header_table_t *mboot_syms = mboot_kernel_shdr();
+    if (NULL == mboot_syms)
+        LUA_ERROR(L, "mboot.syms are NULL");
+
+    Elf32_Shdr *shdrs = (Elf32_Shdr *)mboot_syms->addr;
+
+    Elf32_Shdr *strsect = elf_section_by_name(shdrs, mboot_syms->num, ".strtab");
+    char *strtab = (char *) strsect->sh_addr;
+
+    Elf32_Shdr *symsect = elf_section_by_name(shdrs, mboot_syms->num, ".symtab");
+    Elf32_Sym *syms = (Elf32_Sym *)symsect->sh_addr;
+
+    index_t i;
+    size_t symlen = strlen(symname);
+    for (i = 0; i < symsect->sh_size/sizeof(Elf32_Sym); ++i) {
+        Elf32_Sym *sym = syms + i;
+        const char *name = strtab + sym->st_name;
+        if (!strncmp(symname, name, symlen)) {
+            lua_pushnumber(L, sym->st_value);
+            return 1;
+        }
+    }
+
+    lua_pushnil(L);
+    return 1;
+}
+
 struct luamod_entry {
     const char *fname;
     int (*fptr)(lua_State *);
@@ -954,13 +992,14 @@ const struct luamod_entry luamod_sys[] = {
     { .fname = "heapinfo",  .fptr = syslua_heapinfo },
     { .fname = "inb",       .fptr = syslua_inb      },
     { .fname = "outb",      .fptr = syslua_outb     },
+    { .fname = "symaddr",   .fptr = syslua_symaddr  },
     { .fname = NULL,        .fptr = NULL            }
 };
 
 static int lua_modinit(
     lua_State *lua,
     const char *modname,
-    const struct lua_modentry *entries)
+    const struct luamod_entry *entries)
 {
     lua_newtable(lua);
 
