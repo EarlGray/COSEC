@@ -19,6 +19,7 @@ struct FILE_struct {
     int file_fd;
 
     off_t       file_pos;
+    off_t       file_size;
     unsigned    file_flags;
     char        file_ungetc;
     enum buffering_mode_t file_bufmode;
@@ -358,11 +359,15 @@ static int fopen_on(const char *path, const char *mode, FILE *f) {
 
     f->file_flags = flags;
     f->file_pos = 0;
-    if (flags & O_APPEND) {
-        int ret = sys_lseek(fd, 0, SEEK_CUR);
-        if (ret < 0) f->file_pos = -1;
-        else f->file_pos = ret;
+    off_t filesize = sys_lseek(fd, 0, SEEK_END);
+    if (filesize < 0)
+        f->file_pos = -1;
+    else if (flags & O_APPEND) {
+        f->file_pos = filesize;
+    } else {
+        sys_lseek(fd, 0, SEEK_SET);
     }
+    f->file_size = filesize;
     f->file_ungetc = 0;
 
     /* init buffering */
@@ -702,10 +707,10 @@ int setvbuf(FILE *stream, char *buf, int type, size_t size) {
 }
 
 int feof(FILE *stream) {
-    logmsgef("foef(fd=%d)\n", stream->file_fd);
-    if (stream == stdin)
-        return 0;
-    return 1;
+    logmsgdf("feof(fd=%d)\n", stream->file_fd);
+    if (stream->file_size < 0)
+        return false;
+    return (stream->file_pos == stream->file_size);
 }
 
 int rename(const char *old, const char *new) {

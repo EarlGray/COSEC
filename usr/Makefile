@@ -23,4 +23,4 @@ $(LIBCOSEC):
 	make -C ../lib/c cosec.o
 
 clean:
-	rm init
+	rm init || true

@@ -199,12 +199,14 @@ clean_lua:
 $(pipe_file):
 	mkfifo $(pipe_file)
 
-clean:
-	rm -rf $(build)
+clean_kern:
+	rm -rf $(build) || true
 
-distclean: clean clean_lua
+clean: clean_kern
 	make -C lib/c clean || true
 	make -C usr/ clean || true
+
+distclean: clean clean_lua
 
 help:
 	@echo "USAGE:"; \
