@@ -992,11 +992,12 @@ int lua_toint(lua_State *L, int index) {
     if (lua_isnil(L, index))
         return 0;
     LUA_ERROR(L, "<argN> is not converible to native type");
+    return LUA_ERRERR;
 }
 
 int syslua_ccall(lua_State *L) {
     int argc = lua_gettop(L);
-    int arg1, arg2, arg3;
+    int arg1 = 0, arg2 = 0, arg3 = 0;
     switch (argc) {
       case 4: arg3 = lua_toint(L, 4); /* fallthrough */
       case 3: arg2 = lua_toint(L, 3); /* fallthrough */
@@ -1012,6 +1013,7 @@ int syslua_ccall(lua_State *L) {
       case 2: ret = ((int (*)(int))callee)(arg1); break;
       case 3: ret = ((int (*)(int, int))callee)(arg1, arg2); break;
       case 4: ret = ((int (*)(int, int, int))callee)(arg1, arg2, arg3); break;
+      default: return 0;
     }
 
     lua_pushnumber(L, ret);
@@ -1040,7 +1042,7 @@ static int lua_modinit(
 {
     lua_newtable(lua);
 
-    struct luamod_entry *entry = entries;
+    const struct luamod_entry *entry = entries;
     while (entry->fname) {
         lua_pushstring(lua, entry->fname);
         lua_pushcfunction(lua, entry->fptr);
