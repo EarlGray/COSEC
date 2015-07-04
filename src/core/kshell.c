@@ -982,6 +982,42 @@ int syslua_symaddr(lua_State *L) {
     return 1;
 }
 
+int lua_toint(lua_State *L, int index) {
+    if (lua_isnumber(L, index))
+        return (int)lua_tonumber(L, index);
+    if (lua_isstring(L, index))
+        return (int)lua_tostring(L, index);
+    if (lua_isboolean(L, index))
+        return (int)lua_toboolean(L, index);
+    if (lua_isnil(L, index))
+        return 0;
+    LUA_ERROR(L, "<argN> is not converible to native type");
+}
+
+int syslua_ccall(lua_State *L) {
+    int argc = lua_gettop(L);
+    int arg1, arg2, arg3;
+    switch (argc) {
+      case 4: arg3 = lua_toint(L, 4); /* fallthrough */
+      case 3: arg2 = lua_toint(L, 3); /* fallthrough */
+      case 2: arg1 = lua_toint(L, 2); /* fallthrough */
+      case 1: break;
+      default: LUA_ERROR(L, "more than 3 arguments are not supported");
+    }
+
+    void *callee = (void *)(ptr_t)lua_tonumber(L, 1);
+    int ret;
+    switch (argc) {
+      case 1: ret = ((int (*)(void))callee)(); break;
+      case 2: ret = ((int (*)(int))callee)(arg1); break;
+      case 3: ret = ((int (*)(int, int))callee)(arg1, arg2); break;
+      case 4: ret = ((int (*)(int, int, int))callee)(arg1, arg2, arg3); break;
+    }
+
+    lua_pushnumber(L, ret);
+    return 1;
+}
+
 struct luamod_entry {
     const char *fname;
     int (*fptr)(lua_State *);
@@ -993,6 +1029,7 @@ const struct luamod_entry luamod_sys[] = {
     { .fname = "inb",       .fptr = syslua_inb      },
     { .fname = "outb",      .fptr = syslua_outb     },
     { .fname = "symaddr",   .fptr = syslua_symaddr  },
+    { .fname = "ccall",     .fptr = syslua_ccall    },
     { .fname = NULL,        .fptr = NULL            }
 };
 
