@@ -162,18 +162,43 @@ int syslua_memb(lua_State *L) {
     return 1;
 }
 
+int syslua_malloc(lua_State *L) {
+    if (1 != lua_gettop(L))
+        LUA_ERROR(L, "expected one argument");
+    if (!lua_isnumber(L, 1))
+        LUA_ERROR(L, "expected a number");
+
+    size_t size = (size_t)lua_tonumber(L, 1);
+    char *addr = kmalloc(size);
+    lua_pushnumber(L, (unsigned)addr);
+    return 1;
+}
+
+int syslua_free(lua_State *L) {
+    if (1 != lua_gettop(L))
+        LUA_ERROR(L, "expected one argument");
+    if (!lua_isnumber(L, 1))
+        LUA_ERROR(L, "expected a number");
+
+    char *addr = (char *)(unsigned)lua_tonumber(L, 1);
+    kfree(addr);
+    return 0;
+}
+
 struct luamod_entry {
     const char *fname;
     int (*fptr)(lua_State *);
 };
 
 const struct luamod_entry luamod_sys[] = {
-    { .fname = "mem",       .fptr = syslua_mem      },
+    { .fname = "printmem",  .fptr = syslua_mem      },
     { .fname = "memb",      .fptr = syslua_memb     },
     { .fname = "inb",       .fptr = syslua_inb      },
     { .fname = "outb",      .fptr = syslua_outb     },
     { .fname = "symaddr",   .fptr = syslua_symaddr  },
     { .fname = "ccall",     .fptr = syslua_ccall    },
+    { .fname = "malloc",    .fptr = syslua_malloc   },
+    { .fname = "free",      .fptr = syslua_free     },
     { .fname = NULL,        .fptr = NULL            }
 };
 
