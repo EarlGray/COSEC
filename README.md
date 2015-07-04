@@ -18,6 +18,7 @@ Features:
 - preemptive multitasking demo (two example tasks running concurrently);
 - simplest userspace init and syscalls (at the moment, just one actually);
 - posix virtual filesystem (inodes, mountpoints, filelinks), ramfs;
+
 Nothing more yet (no paging, no processes, no decent userland, no lot of things);
 
 
@@ -31,3 +32,8 @@ Run:
 - using Qemu: `qemu-system-i386 -cdrom cosec.iso`;
 - using http://copy.sh/v86 : choose `cosec.iso` as "CD image" and start emulation;
 - set it as a livecd in a x86 virtual machine of your choice.
+
+Resources
+---------
+- a small wiki: https://github.com/EarlGray/COSEC/wiki ;
+- a gitter chat, if you have any questions or would like to contact me: https://gitter.im/EarlGray/COSEC ;
