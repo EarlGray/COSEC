@@ -1,6 +1,7 @@
 #include <dev/pci.h>
 #include <arch/i386.h>
 
+#include <stdlib.h>
 #include <stdio.h>
 #include <cosec/log.h>
 
@@ -22,6 +23,22 @@ const char * pci_class_descriptions[] = {
     "cryptocontroller",
 };
 
+typedef struct {
+    uint32_t pci_id;
+    int (*pci_init)(pci_config_t *);
+    const char *pci_name;
+} pci_driver_t;
+
+extern int net_i8254x_init(pci_config_t *);
+
+const pci_driver_t pci_driver[] = {
+    { .pci_id = 0x100e8086,
+      .pci_init = net_i8254x_init,
+      .pci_name = "Intel 82540EM Gigabit Ethernet" },
+
+    { .pci_init = NULL }
+};
+
 /*
 uint16_t pci_config_read_word(uint16_t bus, uint16_t slot, uint16_t func, uint16_t offset) {
     uint address =
@@ -34,6 +51,21 @@ uint pci_config_read_dword(uint bus, uint slot, uint func, uint offset) {
     uint res;
     inl(PCI_CONFIG_DATA, res);
     return res;
+}
+
+void pci_read_config(uint bus, uint slot, pci_config_t *conf) {
+    assertv(sizeof(pci_config_t)/sizeof(uint32_t) == 0x10,
+            "pci_config_t size is invalid");
+    int i;
+    union {
+        pci_config_t conf;
+        uint32_t val[ 0x10 ];
+    } *u = (void *)conf;
+
+    for (i = 0; i < 0x10; ++i) {
+        uint32_t val = pci_config_read_dword(bus, slot, 0, i * sizeof(uint32_t));
+        u->val[i] = val;
+    }
 }
 
 void pci_info(uint bus, int slot) {
@@ -82,5 +114,51 @@ void pci_list(uint bus) {
         printf(", class %x:%x (%s)\n",
                 (uint)clss, (uint)((dev_class & 0x00FF0000) >> 16),
                 (clss < sizeof(pci_class_descriptions)/sizeof(char*) ? pci_class_descriptions[clss] : "?" ));
+    }
+}
+
+static const pci_driver_t * lookup_pci_driver(uint32_t id) {
+    size_t i;
+    const pci_driver_t *cur = pci_driver;
+    while (cur->pci_init) {
+        if (cur->pci_id == id)
+            return cur;
+        ++cur;
+    }
+    return NULL;
+}
+
+void pci_setup(void) {
+    int bus = 0;
+    int slot;
+    pci_config_t conf;
+
+    uint32_t loop_id = 0;
+    for (slot = 0; slot < 32; ++slot) {
+        pci_read_config(bus, slot, &conf);
+        if (conf.pci.device == 0xffff)
+            continue;
+        if (loop_id == 0)
+            loop_id = conf.pci_id;
+        else if (loop_id == conf.pci_id)
+            break;
+
+        const pci_driver_t *drv = lookup_pci_driver(conf.pci_id);
+        const char *desc = "unknown device type";
+        if (drv) {
+            desc = drv->pci_name;
+        } else if (conf.pci_class < sizeof(pci_class_descriptions)/sizeof(char*)) {
+            desc = pci_class_descriptions[ conf.pci_class ];
+        }
+
+        k_printf("pci:%d:%d\t%x:%x - %s\n", bus, slot,
+               conf.pci.vendor, conf.pci.device, desc);
+
+        if (drv) {
+            int ret = drv->pci_init(&conf);
+            if (ret)
+                k_printf("[%x:%x] init error: %s\n",
+                         conf.pci.vendor, conf.pci.device, strerror(-ret));
+        }
     }
 }

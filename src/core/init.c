@@ -42,6 +42,7 @@ void kinit(uint32_t magic, struct multiboot_info *mbi) {
     /* hardware setup */
     timer_setup();
     kbd_setup();
+    pci_setup();
 
     /* do something useful */
     dev_setup();
