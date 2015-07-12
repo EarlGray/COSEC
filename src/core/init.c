@@ -4,6 +4,7 @@
 #include <dev/kbd.h>
 #include <dev/timer.h>
 #include <dev/screen.h>
+#include <dev/pci.h>
 
 #include <mem/pmem.h>
 #include <fs/devices.h>
@@ -42,7 +43,6 @@ void kinit(uint32_t magic, struct multiboot_info *mbi) {
     /* hardware setup */
     timer_setup();
     kbd_setup();
-    pci_setup();
 
     /* do something useful */
     dev_setup();
@@ -50,6 +50,7 @@ void kinit(uint32_t magic, struct multiboot_info *mbi) {
     vfs_setup();
 
     intrs_enable();
+    pci_setup();
 
     proc_setup();
     kshell_run();

@@ -11,20 +11,34 @@
 #define I8254X_CTRL   0x00    /* NIC control */
 #define I8254X_STA    0x08    /* NIC status */
 #define I8254X_EERD   0x14    /* EEPROM read */
+
 #define I8254X_ICR    0xc0    /* interrupt cause read */
 #define I8254X_IMS    0xd0    /* interrupt mask set/read -- affected by set bits only */
 #define I8254X_IMC    0xd8    /* interrupt mask clear  -- affected by set bits only */
 
 #define I8254X_RCTL   0x100   /* receive control */
+#define I8254X_TCTL   0x400   /* transmit control */
 
-/* RX descriptors ring buffer */
+#define I8254X_TIPG   0x410   /* transmit inter packet gap */
+
+/* RX descriptors ring buffer registers */
 #define I8254X_RDBAL  0x2800    /* RX descr. array base address (00-31b) */
 #define I8254X_RDBAH  0x2804    /* RX descr. array base address (32-63b) */
 #define I8254X_RDLEN  0x2808    /* RX descr. array length in bytes */
 #define I8254X_RDH    0x2810    /* RX descr. head pointer */
 #define I8254X_RDT    0x2818    /* RX descr. tail pointer */
+#define I8254X_RDTR   0x2820    /* RX delay timer */
+#define I8254X_RADV   0x282c    /* RX absolute delay timer */
+#define I8254X_RSRPD  0x2c00    /* small packet received */
 
 #define I8254X_MTA    0x5200    /* multicast table array, 0x80 entries */
+
+/* TX descriptors ring buffer registers */
+#define I8254X_TDBAL  0x3800    /* TX descr. array base address (00-31b) */
+#define I8254X_TDBAH  0x3804    /* TX descr. array base address (32-63b) */
+#define I8254X_TDLEN  0x3808    /* TX descr. array length in bytes */
+#define I8254X_TDH    0x3810    /* TX descr. head pointer */
+#define I8254X_TDT    0x3818    /* TX descr. tail pointer */
 
 /* CTRL register bits */
 #define CTRL_FD       (1u << 0)    /* full-duplex mode */
@@ -36,6 +50,8 @@
 #define EERD_DONE     (1u << 4)
 
 /* interrupt mask register bits */
+#define IM_TXDW      (1u << 0)   /* TX descr. written back */
+#define IM_TXQE      (1u << 1)   /* TX queue is empty */
 #define IM_LSC       (1u << 2)   /* link status change */
 #define IM_RXSEQ     (1u << 3)   /* RX sequence error */
 #define IM_RXDMT0    (1u << 4)   /* RX descr. minimum threshold hit */
@@ -49,8 +65,11 @@
 #define IM_TXD_LOW   (1u << 15)  /* TX descr. low threshold hit */
 #define IM_SRPD      (1u << 16)  /* small receive pocket detected and transferred */
 
-#define INTRMASK_ALL   ( IM_LSC | IM_RXSEQ | IM_RXDMT0 | IM_MDAC | IM_RXCFG \
+#define INTRMASK_ALL ( IM_LSC | IM_RXSEQ | IM_RXDMT0 | IM_MDAC | IM_RXCFG \
                        | IM_PHYINT | IM_GPI0 | IM_GPI1 | IM_TXD_LOW | IM_SRPD)
+#define INTRMASK_OK  (IM_RXT0 | IM_RXDMT0 | IM_LSC | IM_RXO | IM_RXSEQ)
+
+/* Interrupt Cause bits */
 
 /* RX control */
 #define RCTL_EN     (1u << 1)   /* RX enable */
@@ -63,6 +82,12 @@
 #define RCTL_BSEX   (1u << 25)  /* RX buffer size extension */
 #define RCTL_SECRC  (1u << 26)  /* strip Ethernet CRC from frames */
 
+/* TX control */
+#define TCTL_EN     (1u << 1)   /* TX enable */
+#define TCTL_PSP    (1u << 3)   /* TX: pad short packets to 64B */
+#define TCTL_CT       (0x0fu << 4)  /* TX: preferred number of retransmission attempts */
+#define TCTL_COLD_FD  (0x40u << 12) /* TX: preferred 64-byte time for CSMA/CD */
+#define TCTL_RTLC   (1u << 24)  /* TX: retransmit on Late Collision */
 
 #define ETH_BUFSZ           2048
 
@@ -112,19 +137,20 @@ typedef struct {
  *    MMIO
  */
 
-static inline uint32_t *
+static inline volatile uint32_t *
 mmio_port(i8254x_nic *nic, uint32_t offset) {
-    return (uint32_t *)(nic->mmio_addr + offset);
+    return (volatile uint32_t *)(nic->mmio_addr + offset);
 }
 
-static inline uint32_t
+inline uint32_t
 mmio_read(i8254x_nic *nic, uint32_t offset) {
-    return *(uint32_t *)(nic->mmio_addr + offset);
+    uint32_t val = *(volatile uint32_t *)(nic->mmio_addr + offset);
+    return val;
 }
 
-static inline void
+inline void
 mmio_write(i8254x_nic *nic, uint32_t offset, uint32_t val) {
-    *(uint32_t *)(nic->mmio_addr + offset) = val;
+    *(volatile uint32_t *)(nic->mmio_addr + offset) = val;
 }
 
 
@@ -132,7 +158,7 @@ mmio_write(i8254x_nic *nic, uint32_t offset, uint32_t val) {
  *
  */
 uint16_t net_i8254x_read_eeprom(i8254x_nic *nic, uint8_t addr) {
-    volatile uint32_t *eerd = (uint32_t *)(nic->mmio_addr + I8254X_EERD);
+    volatile uint32_t *eerd = mmio_port(nic, I8254X_EERD);
     *eerd = ((uint32_t)(addr) << 8);
     *eerd = EERD_START | ((uint32_t)(addr) << 8);
 
@@ -164,7 +190,6 @@ static inline void i8254x_mta_init(i8254x_nic *nic) {
 
 int i8254x_rx_init(i8254x_nic *nic) {
     const char *funcname = __FUNCTION__;
-    const uint32_t packet_bufsz = 8192 + 16;
     size_t i;
 
     void *rxda = pmem_alloc(NUM_DESCR_PAGES); /* must be 16 bytes aligned */
@@ -178,7 +203,7 @@ int i8254x_rx_init(i8254x_nic *nic) {
     logmsgf("[%x]: rxbuf = *%x (%d pages)\n", nic->hwid, (uint)rxbufs, n_rxbuf_pages);
 
     for (i = 0; i < NUM_RX_DESCRIPTORS; ++i) {
-        nic->rxda[i].address = (uint64_t)(rxbufs + i * ETH_BUFSZ);
+        nic->rxda[i].address = (uint64_t)(uint32_t)(rxbufs + i * ETH_BUFSZ);
         nic->rxda[i].status = 0;
     }
 
@@ -188,6 +213,8 @@ int i8254x_rx_init(i8254x_nic *nic) {
     logmsgf("[%x]: rxda = *%x[ %d rxdescr ]\n", nic->hwid, (uint)rxda, NUM_RX_DESCRIPTORS);
 
     /* rx descr. array length in bytes */
+    assert(NUM_RX_DESCRIPTORS * sizeof(i825xx_rx_desc_t) % 128 == 0,
+           EINVAL, "must be 128B-aligned");
     mmio_write(nic, I8254X_RDLEN, NUM_RX_DESCRIPTORS * sizeof(i825xx_rx_desc_t));
 
     /* setup head and tail pointers */
@@ -205,20 +232,48 @@ int i8254x_rx_init(i8254x_nic *nic) {
     else if (ETH_BUFSZ < 8192) bsize = RCTL_BSIZE10 | RCTL_BSEX;
     else if (ETH_BUFSZ < 16384) bsize = RCTL_BSIZE01 | RCTL_BSEX;
     else return EINVAL;
+
     mmio_write(nic, I8254X_RCTL, RCTL_EN | RCTL_SECRC | bsize);
+    mmio_write(nic, I8254X_RDTR, 0);
+    mmio_write(nic, I8254X_RADV, 0);
+    mmio_write(nic, I8254X_RSRPD, 0);
 
     return 0;
 }
 
 int i8254x_tx_init(i8254x_nic *nic) {
     const char *funcname = __FUNCTION__;
-    int i;
+    size_t i;
 
     void *txda = pmem_alloc(NUM_DESCR_PAGES);
-    assert(txda, ENOMEM, "%s: pmem_alloc() failed\n", funcname);
+    assert(txda, ENOMEM, "%s: pmem_alloc(txda) failed\n", funcname);
+    nic->txda = (volatile i825xx_tx_desc_t *)txda;
 
-    nic->txda = txda;
+    for (i = 0; i < NUM_TX_DESCRIPTORS; ++i) {
+        nic->txda[i].address = 0;
+        nic->txda[i].sta = 0;
+        nic->txda[i].cmd = 0;
+    }
+
+    /* setup TX descr. ring buffer */
+    mmio_write(nic, I8254X_TDBAL, (uint32_t)txda);
+    mmio_write(nic, I8254X_TDBAH, 0);
+    logmsgf("[%x]: txda = *%x[ %d txdescr ]\n", nic->hwid, (uint)txda, NUM_TX_DESCRIPTORS);
+
+    /* TX descr. ring buffer length in bytes */
+    mmio_write(nic, I8254X_TDLEN, NUM_TX_DESCRIPTORS * sizeof(i825xx_tx_desc_t));
+
+    mmio_write(nic, I8254X_TDH, 0);
+    mmio_write(nic, I8254X_TDT, 0); //NUM_TX_DESCRIPTORS - 1);
+    nic->tx_tail = 0;
+
+    mmio_write(nic, I8254X_TCTL, TCTL_EN | TCTL_PSP | TCTL_COLD_FD | TCTL_RTLC);
+    mmio_write(nic, I8254X_TIPG, 0x0060200a);
     return 0;
+}
+
+void i8254x_rx_poll(i8254x_nic *nic) {
+    logmsgif("[%x]: packets pending, TODO\n", nic->hwid);
 }
 
 
@@ -233,7 +288,35 @@ i8254x_nic theI8254NIC = {
  *    the interrupt handler
  */
 void i8254x_irq() {
-    logmsgf("#nic\n");
+    i8254x_nic *nic = &theI8254NIC; /* TODO */
+
+    uint32_t icr = mmio_read(nic, I8254X_ICR);
+    logmsgif("#[%x]: icr=%x", nic->hwid, icr);
+
+    if (icr & IM_LSC) {
+        /* link set up! */
+        icr &= ~IM_LSC;
+        mmio_write(nic, I8254X_CTRL, mmio_read(nic, I8254X_CTRL) | CTRL_SLU);
+
+        logmsgif("[%x]: link status change, STA=0x%x",
+                 nic->hwid, mmio_read(nic, I8254X_STA));
+    }
+    if ((icr & IM_RXDMT0) || (icr & IM_RXO)) {
+        /* RX underrun */
+        icr &= ~(IM_RXDMT0 | IM_RXO);
+        logmsgif("[%x]: RX underrun, rx_head = %d, rx_tail = %x\n",
+                 nic->hwid, mmio_read(nic, I8254X_RDH), nic->rx_tail);
+    }
+    if (icr & IM_RXT0) {
+        /* a packet is pending */
+        icr &= ~IM_RXT0;
+        i8254x_rx_poll(nic);
+    }
+
+    if (icr)
+        logmsgif("[%x]: unhandled interrupts, ICR=%x\n", icr);
+
+    mmio_read(nic, I8254X_ICR);
 }
 
 
@@ -247,14 +330,13 @@ int net_i8254x_init(pci_config_t *conf) {
     assert(theI8254NIC.mmio_addr == NULL,
            -EAGAIN, "%s: only one instance is supported, TODO", funcname);
 
-    theI8254NIC.mmio_addr = (char *)(conf->pci_bar0.val & 0xfffffff0);
-    i8254x_read_mac_addr(&theI8254NIC);
-
-    theI8254NIC.intr = conf->pci_interrupt_line;
     theI8254NIC.hwid = ((uint32_t)conf->pci.vendor << 16) | (uint32_t)conf->pci.device;
+    theI8254NIC.intr = conf->pci_interrupt_line;
+    theI8254NIC.mmio_addr = (char *)(conf->pci_bar0.val & 0xfffffff0);
 
-    k_printf("82540EM: mmio at *%x, intr #%d, mac=%x:%x:%x:%x:%x:%x\n",
-             theI8254NIC.mmio_addr, (uint32_t)theI8254NIC.intr,
+    i8254x_read_mac_addr(&theI8254NIC);
+    logmsgif("[%x]: mmio at *%x, intr #%d, mac=%x:%x:%x:%x:%x:%x",
+             theI8254NIC.hwid, theI8254NIC.mmio_addr, (uint32_t)theI8254NIC.intr,
              (uint)theI8254NIC.mac_addr[0], (uint)theI8254NIC.mac_addr[1],
              (uint)theI8254NIC.mac_addr[2], (uint)theI8254NIC.mac_addr[3],
              (uint)theI8254NIC.mac_addr[4], (uint)theI8254NIC.mac_addr[5]);
@@ -265,8 +347,14 @@ int net_i8254x_init(pci_config_t *conf) {
 
     i8254x_mta_init(&theI8254NIC);
 
+    irq_set_handler(theI8254NIC.intr, i8254x_irq);
+    irq_mask(theI8254NIC.intr, true);
+
     /* enable all interrupts and clear pending ones */
-    mmio_write(&theI8254NIC, I8254X_IMS, INTRMASK_ALL);
+    mmio_write(&theI8254NIC, I8254X_IMC, INTRMASK_ALL);
+    mmio_read(&theI8254NIC, I8254X_ICR);
+
+    mmio_write(&theI8254NIC, I8254X_IMS, INTRMASK_OK);
     mmio_read(&theI8254NIC, I8254X_ICR);
 
     ret = i8254x_rx_init(&theI8254NIC);
@@ -274,8 +362,11 @@ int net_i8254x_init(pci_config_t *conf) {
     ret = i8254x_tx_init(&theI8254NIC);
     assert(ret == 0, ret, "%s: i8254x_tx_init() failed(%d)\n", funcname, ret);
 
-    irq_set_handler(theI8254NIC.intr, i8254x_irq);
-    irq_mask(theI8254NIC.intr, true);
+    /*
+    k_printf("[%x] CTL = %x\n", theI8254NIC.hwid, mmio_read(&theI8254NIC, I8254X_CTRL));
+    k_printf("[%x] STA = %x\n", theI8254NIC.hwid, mmio_read(&theI8254NIC, I8254X_STA));
+    k_printf("[%x] IMS = %x\n", theI8254NIC.hwid, mmio_read(&theI8254NIC, I8254X_IMS));
+    */
 
     return 0;
 }

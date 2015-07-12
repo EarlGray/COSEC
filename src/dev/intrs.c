@@ -135,9 +135,11 @@ inline void irq_set_handler(irqnum_t irq_num, intr_handler_f handler) {
 /****************** IRQs ***********************/
 
 void irq_stub() {
+    logmsgf("irq_stubA(), shouldn't happen\n");
 }
 
 void irq_slave() {
+    logmsgf("irq_stubB(), shouldn't happen\n");
     irq_eoi();
 }
 
