@@ -31,14 +31,18 @@
 #define I8254X_RADV   0x282c    /* RX absolute delay timer */
 #define I8254X_RSRPD  0x2c00    /* small packet received */
 
-#define I8254X_MTA    0x5200    /* multicast table array, 0x80 entries */
-
 /* TX descriptors ring buffer registers */
 #define I8254X_TDBAL  0x3800    /* TX descr. array base address (00-31b) */
 #define I8254X_TDBAH  0x3804    /* TX descr. array base address (32-63b) */
 #define I8254X_TDLEN  0x3808    /* TX descr. array length in bytes */
 #define I8254X_TDH    0x3810    /* TX descr. head pointer */
 #define I8254X_TDT    0x3818    /* TX descr. tail pointer */
+
+#define I8254X_MTA    0x5200    /* multicast table array, 0x80 entries */
+
+#define I8254X_RAL    0x5400
+#define I8254X_RAH    0x5404
+
 
 /* CTRL register bits */
 #define CTRL_FD       (1u << 0) /* full-duplex mode */
@@ -422,6 +426,12 @@ int net_i8254x_init(pci_config_t *conf) {
     k_printf("[%x] CTL = %x\n", theI8254NIC.hwid, mmio_read(&theI8254NIC, I8254X_CTRL));
     k_printf("[%x] STA = %x\n", theI8254NIC.hwid, mmio_read(&theI8254NIC, I8254X_STA));
     k_printf("[%x] IMS = %x\n", theI8254NIC.hwid, mmio_read(&theI8254NIC, I8254X_IMS));
+    int i;
+    for (i = 0; i < 16; ++i) {
+    k_printf("[%x] RAL = %x,%x\n", theI8254NIC.hwid,
+             mmio_read(&theI8254NIC, I8254X_RAH + 8 * i),
+             mmio_read(&theI8254NIC, I8254X_RAL + 8 * i));
+    }
     */
 
     return 0;
