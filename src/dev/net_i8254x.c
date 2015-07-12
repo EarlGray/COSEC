@@ -41,9 +41,10 @@
 #define I8254X_TDT    0x3818    /* TX descr. tail pointer */
 
 /* CTRL register bits */
-#define CTRL_FD       (1u << 0)    /* full-duplex mode */
-#define CTRL_LRST     (1u << 3)    /* link reset */
-#define CTRL_SLU      (1u << 6)    /* set link up */
+#define CTRL_FD       (1u << 0) /* full-duplex mode */
+#define CTRL_LRST     (1u << 3) /* link reset */
+#define CTRL_ASDE     (1u << 5) /* auto-speed detection enable */
+#define CTRL_SLU      (1u << 6) /* set link up */
 
 /* EERD register bits */
 #define EERD_START    (1u << 0)
@@ -95,13 +96,27 @@
 #define NUM_RX_DESCRIPTORS  (PAGE_SIZE * NUM_DESCR_PAGES / sizeof(i825xx_rx_desc_t))
 #define NUM_TX_DESCRIPTORS  (PAGE_SIZE * NUM_DESCR_PAGES / sizeof(i825xx_tx_desc_t))
 
+union i8254x_rxdescr_sta {
+    struct {
+        uint8_t DD:1;   /* hardware is done with the descriptor */
+        uint8_t EOP:1;  /* end of packet */
+        uint8_t IXSM:1; /* ignore checksum */
+        uint8_t VP:1;   /* VLAN header present */
+        uint8_t RSV:1;  /* rsrvd */
+        uint8_t TCPCS:1;/* tcp checksum */
+        uint8_t IPCS:1; /* ip checksum */
+        uint8_t PIF:1;  /* passed inexact filter */
+    };
+    uint8_t byte;
+};
+
 // RX and TX descriptor structures
 typedef struct __packed i825xx_rx_desc_s {
     volatile uint64_t   address;
 
     volatile uint16_t   length;
     volatile uint16_t   checksum;
-    volatile uint8_t    status;
+    volatile union i8254x_rxdescr_sta sta;
     volatile uint8_t    errors;
     volatile uint16_t   special;
 } i825xx_rx_desc_t;
@@ -204,7 +219,7 @@ int i8254x_rx_init(i8254x_nic *nic) {
 
     for (i = 0; i < NUM_RX_DESCRIPTORS; ++i) {
         nic->rxda[i].address = (uint64_t)(uint32_t)(rxbufs + i * ETH_BUFSZ);
-        nic->rxda[i].status = 0;
+        nic->rxda[i].sta.byte = 0;
     }
 
     /* rx array base address */
@@ -272,8 +287,34 @@ int i8254x_tx_init(i8254x_nic *nic) {
     return 0;
 }
 
-void i8254x_rx_poll(i8254x_nic *nic) {
+void i8254x_recv(i8254x_nic *nic) {
     logmsgif("[%x]: packets pending, TODO\n", nic->hwid);
+
+    i825xx_rx_desc_t *tail_rxd = (i825xx_rx_desc_t *)(nic->rxda + nic->rx_tail);
+    while (tail_rxd->sta.DD) {
+        uint8_t *packet = (uint8_t *)(uint32_t)tail_rxd->address;
+        uint16_t pktlen = tail_rxd->length;
+
+        bool dropflag = false;
+        if (!tail_rxd->sta.EOP) {
+            logmsgf("[%x]: multiple-descriptor flags are not supported\n", nic->hwid);
+            dropflag = true;
+        }
+
+        if (tail_rxd->errors) {
+            logmsgf("[%x]: RX error 0x%x\n", tail_rxd->errors);
+            dropflag = true;
+        }
+
+        if (!dropflag) {
+            /* handle the packet, TODO */
+        }
+        tail_rxd->sta.byte = 0; /* dropped */
+
+        nic->rx_tail = (nic->rx_tail + 1) % NUM_RX_DESCRIPTORS;
+        tail_rxd = (i825xx_rx_desc_t *)(nic->rxda + nic->rx_tail);
+        mmio_write(nic, I8254X_RDT, nic->rx_tail);
+    }
 }
 
 
@@ -310,7 +351,7 @@ void i8254x_irq() {
     if (icr & IM_RXT0) {
         /* a packet is pending */
         icr &= ~IM_RXT0;
-        i8254x_rx_poll(nic);
+        i8254x_recv(nic);
     }
 
     if (icr)
@@ -343,7 +384,7 @@ int net_i8254x_init(pci_config_t *conf) {
 
     /* set link up */
     mmio_write(&theI8254NIC, I8254X_CTRL,
-               mmio_read(&theI8254NIC, I8254X_CTRL) | CTRL_SLU);
+               mmio_read(&theI8254NIC, I8254X_CTRL) | CTRL_SLU | CTRL_ASDE);
 
     i8254x_mta_init(&theI8254NIC);
 
@@ -351,7 +392,7 @@ int net_i8254x_init(pci_config_t *conf) {
     irq_mask(theI8254NIC.intr, true);
 
     /* enable all interrupts and clear pending ones */
-    mmio_write(&theI8254NIC, I8254X_IMC, INTRMASK_ALL);
+    mmio_write(&theI8254NIC, I8254X_IMC, 0xffffffff);
     mmio_read(&theI8254NIC, I8254X_ICR);
 
     mmio_write(&theI8254NIC, I8254X_IMS, INTRMASK_OK);
