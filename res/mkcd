@@ -25,8 +25,9 @@ cp $BLDDIR/kernel $CD_DIR \
 cp $BLDDIR/kernel.nm $CD_DIR \
     || die "$BLDDIR/kernel not found"
 
-mkdir -p $SRC_DIR/res
-cp -R include/ lib/ src/ usr/ $SRC_DIR
+mkdir -p $SRC_DIR/res $SRC_DIR/lib
+cp -R include/ src/ usr/ $SRC_DIR/
+cp -R lib/c lib/lua-5.2.2/ $SRC_DIR/lib/
 cp res/fd.img.bz2 res/menu.lst res/mkcd res/mkinitfs $SRC_DIR/res
 cp README.md INSTALL.md TODO Makefile $SRC_DIR
 
