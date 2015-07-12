@@ -162,6 +162,24 @@ int syslua_memb(lua_State *L) {
     return 1;
 }
 
+int syslua_meml(lua_State *L) {
+    int argc = (int)lua_gettop(L);
+    if ((argc < 1) || (argc > 2))
+        LUA_ERROR(L, "arguments: (addr, [val])");
+    if (!lua_isnumber(L, 1))
+        LUA_ERROR(L, "address is not a number");
+
+    uint32_t *addr = (uint32_t *)(ptr_t)lua_tonumber(L, 1);
+    if (argc == 2) {
+        /* set */
+        *addr = (uint32_t)lua_tonumber(L, 2);
+        return 0;
+    }
+    /* get */
+    lua_pushnumber(L, *(unsigned int *)addr);
+    return 1;
+}
+
 int syslua_malloc(lua_State *L) {
     if (1 != lua_gettop(L))
         LUA_ERROR(L, "expected one argument");
@@ -193,6 +211,7 @@ struct luamod_entry {
 const struct luamod_entry luamod_sys[] = {
     { .fname = "printmem",  .fptr = syslua_mem      },
     { .fname = "memb",      .fptr = syslua_memb     },
+    { .fname = "meml",      .fptr = syslua_meml     },
     { .fname = "inb",       .fptr = syslua_inb      },
     { .fname = "outb",      .fptr = syslua_outb     },
     { .fname = "symaddr",   .fptr = syslua_symaddr  },
