@@ -290,31 +290,46 @@ int i8254x_tx_init(i8254x_nic *nic) {
 void i8254x_recv(i8254x_nic *nic) {
     logmsgif("[%x]: packets pending, TODO\n", nic->hwid);
 
-    i825xx_rx_desc_t *tail_rxd = (i825xx_rx_desc_t *)(nic->rxda + nic->rx_tail);
-    while (tail_rxd->sta.DD) {
-        uint8_t *packet = (uint8_t *)(uint32_t)tail_rxd->address;
-        uint16_t pktlen = tail_rxd->length;
+    i825xx_rx_desc_t *rxdescr = (i825xx_rx_desc_t *)(nic->rxda + nic->rx_tail);
+    while (rxdescr->sta.DD) {
+        uint8_t *packet = (uint8_t *)(uint32_t)rxdescr->address;
+        uint16_t pktlen = rxdescr->length;
 
         bool dropflag = false;
-        if (!tail_rxd->sta.EOP) {
+        if (!rxdescr->sta.EOP) {
             logmsgf("[%x]: multiple-descriptor flags are not supported\n", nic->hwid);
             dropflag = true;
         }
 
-        if (tail_rxd->errors) {
-            logmsgf("[%x]: RX error 0x%x\n", tail_rxd->errors);
+        if (rxdescr->errors) {
+            logmsgf("[%x]: RX error 0x%x\n", rxdescr->errors);
             dropflag = true;
         }
 
         if (!dropflag) {
             /* handle the packet, TODO */
         }
-        tail_rxd->sta.byte = 0; /* dropped */
+        rxdescr->sta.byte = 0; /* dropped */
 
         nic->rx_tail = (nic->rx_tail + 1) % NUM_RX_DESCRIPTORS;
-        tail_rxd = (i825xx_rx_desc_t *)(nic->rxda + nic->rx_tail);
+        rxdescr = (i825xx_rx_desc_t *)(nic->rxda + nic->rx_tail);
         mmio_write(nic, I8254X_RDT, nic->rx_tail);
     }
+}
+
+void i8254x_send(i8254x_nic *nic, uint8_t *pkt, uint16_t pktlen) {
+    i825xx_tx_desc_t *txdescr = (i825xx_tx_desc_t *)nic->txda + nic->tx_tail;
+
+    txdescr->address = (volatile uint64_t)(uint32_t)pkt;
+    txdescr->length = pktlen;
+    txdescr->cmd = 0x0e;
+
+    /* ready to transmit */
+    uint16_t oldtail = nic->tx_tail;
+    nic->tx_tail = (nic->tx_tail + 1) % NUM_TX_DESCRIPTORS;
+    mmio_write(nic, I8254X_TDT, nic->tx_tail);
+
+    while (!(nic->txda[oldtail].sta & 0x0f));
 }
 
 
