@@ -2,6 +2,7 @@ cosec.img
 res/initfs
 build/*
 tags
+tmp
 .bochsrc
 .*.swp
 *.o

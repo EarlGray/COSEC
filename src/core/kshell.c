@@ -239,6 +239,7 @@ void kshell_io(const struct kshell_command *, const char *);
 void kshell_ls();
 void kshell_time();
 void kshell_panic();
+void kshell_off();
 #if COSEC_LUA
 void kshell_lua();
 #endif
@@ -309,6 +310,10 @@ const struct kshell_command main_commands[] = {
         .handler = kshell_time,
         .description = "system time",
         .options = ""  },
+    { .name = "off",
+        .handler = kshell_off,
+        .description = "ACPI poweroff",
+        .options = "" },
 #if COSEC_LUA
     { .name = "lua",
         .handler = kshell_lua,
@@ -761,6 +766,10 @@ void kshell_vfs(const struct kshell_command __unused *this, const char *arg) {
     } else {
         k_printf("Options: %s\n", this->options);
     }
+}
+
+void kshell_off() {
+    acpi_poweroff();
 }
 
 void kshell_unknown_cmd() {
