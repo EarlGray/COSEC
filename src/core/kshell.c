@@ -15,6 +15,7 @@
 #include <dev/kbd.h>
 #include <dev/tty.h>
 #include <dev/pci.h>
+#include <dev/acpi.h>
 
 #include <mem/pmem.h>
 #include <mem/kheap.h>
@@ -256,7 +257,7 @@ const struct kshell_command main_commands[] = {
     { .name = "test",
         .handler = kshell_test,
         .description = "test utility",
-        .options = "sprintf kbd timer serial tasks ring3 usleep" },
+        .options = "sprintf kbd timer serial tasks acpi ring3 usleep" },
     { .name = "info",
         .handler = kshell_info,
         .description = "various info",
@@ -333,6 +334,7 @@ const struct kshell_subcmd  test_cmds[] = {
     { .name = "tasks",   .handler = test_tasks,     },
     { .name = "ring3",   .handler = test_userspace, },
     { .name = "usleep",  .handler = test_usleep,    },
+    { .name = "acpi",    .handler = test_acpi,      },
     { .name = "str",     .handler = test_strs,      },
     { .name = 0, .handler = 0    },
 };

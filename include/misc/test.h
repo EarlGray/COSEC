@@ -9,5 +9,6 @@ void test_tasks(void);
 void test_userspace(void);
 void test_usleep(void);
 void test_init(void);
+void test_acpi(void);
 
 #endif //__TEST_H__

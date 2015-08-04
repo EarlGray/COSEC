@@ -17,6 +17,7 @@
 
 #include <dev/timer.h>
 #include <dev/kbd.h>
+#include <dev/acpi.h>
 #include <arch/i386.h>
 
 #include <kshell.h>
@@ -81,6 +82,10 @@ void test_eflags(void) {
 void test_usleep(void) {
     usleep(2 * 1000000);
     k_printf("Done\n\n");
+}
+
+void test_acpi(void) {
+    acpi_init();
 }
 
 

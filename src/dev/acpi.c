@@ -15,6 +15,7 @@
 #define ACPI_TBL_LEN_OFF  1
 
 #define FADT_SIGNITURE    0x50434146
+#define DSDT_SIGNITURE    0x54445344
 #define _S5_AML_BYTECODE  0x5f35535f
 
 typedef struct __packed {
@@ -104,7 +105,7 @@ int acpi_init(void) {
 
     /* look for RSDP pointer structure in BIOS */
     ret = acpi_lookup_rsdp();
-    return_msg_if(ret, ret, "%s: acpi_lookup_rsdp() failed(%d)\n", __FUNCTION__, ret);
+    return_msg_if(ret, ret, "%s: acpi_lookup_rsdp() failed(%d)", __FUNCTION__, ret);
     logmsgf("%s: RSDP = *%x\n", __FUNCTION__, (uint)theAcpi.rsdp);
     logmsgf("%s: RSDT = *%x\n", __FUNCTION__, (uint)theAcpi.rsdt);
     return_msg_if(theAcpi.rsdt->signi != (uint32_t)0x54445352,
@@ -129,8 +130,10 @@ int acpi_init(void) {
 
         if (table[0] == FADT_SIGNITURE) {
             theAcpi.fadt = (fadt_t *)table;
-            theAcpi.dsdt = (uint32_t *)theAcpi.fadt->dsdt;
-            logmsgif("%s: DSDT at *%p", __FUNCTION__, theAcpi.dsdt);
+            uint32_t *dsdt = (uint32_t *)theAcpi.fadt->dsdt;
+            if (dsdt[0] != DSDT_SIGNITURE) continue;
+            theAcpi.dsdt = dsdt;
+            logmsgif("%s: found DSDT at *%p", __FUNCTION__, theAcpi.dsdt);
         }
     }
 
