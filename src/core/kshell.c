@@ -272,8 +272,8 @@ const struct kshell_command main_commands[] = {
     { .name = "io",
         .handler = kshell_io,
         .description = "io[bwd][rw] <port> [<value>]",
-        .options = "\n\tbr/wr/dr <port> -- read port;"
-                   "\n\tbw/ww/dw <port> <value> - write value to port" },
+        .options = "\n\tbr/wr/ir <port> -- read port;"
+                   "\n\tbw/ww/iw <port> <value> - write value to port" },
     { .name = "heap",
         .handler = kshell_heap,
         .description = "heap utility",
