@@ -122,6 +122,10 @@ inline void irq_eoi(void) {
 }
 
 void irq_handler(uint32_t irq_num) {
+    /*
+    if (irq_num > 0)
+        logmsgf("%s(%d)\n", __FUNCTION__, irq_num);
+        */
     irq_happened[irq_num] = true;
     intr_handler_f callee = irq[irq_num];
     callee((void *)cpu_stack());

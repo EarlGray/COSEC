@@ -12,6 +12,11 @@
 #define I8254X_STA    0x08    /* NIC status */
 #define I8254X_EERD   0x14    /* EEPROM read */
 
+#define I8254X_FCAL   0x28    /* flow control address, low */
+#define I8254X_FCAH   0x2c
+#define I8254X_FCT    0x30    /* flow control type */
+#define I8254X_FCTTV  0x170   /* Flow control transmit timer value */
+
 #define I8254X_ICR    0xc0    /* interrupt cause read */
 #define I8254X_IMS    0xd0    /* interrupt mask set/read -- affected by set bits only */
 #define I8254X_IMC    0xd8    /* interrupt mask clear  -- affected by set bits only */
@@ -20,6 +25,9 @@
 #define I8254X_TCTL   0x400   /* transmit control */
 
 #define I8254X_TIPG   0x410   /* transmit inter packet gap */
+
+#define I8254X_FCRTL  0x2160  /* flow control RX threshold low */
+#define I8254X_FCRTH  0x2168
 
 /* RX descriptors ring buffer registers */
 #define I8254X_RDBAL  0x2800    /* RX descr. array base address (00-31b) */
@@ -351,7 +359,7 @@ void i8254x_irq() {
     i8254x_nic *nic = &theI8254NIC; /* TODO */
 
     uint32_t icr = mmio_read(nic, I8254X_ICR);
-    logmsgif("#[%x]: icr=%x", nic->hwid, icr);
+    logmsgif("#IRQ[%x]: icr=%x", nic->hwid, icr);
 
     if (icr & IM_LSC) {
         /* link set up! */
@@ -383,46 +391,52 @@ void i8254x_irq() {
 int net_i8254x_init(pci_config_t *conf) {
     const char *funcname = __FUNCTION__;
     int ret;
+    i8254x_nic *nic = &theI8254NIC;
 
     assert(conf->pci_bar0.val, -ENXIO, "%s: bar0 is %x",
            funcname, conf->pci_bar0.val);
     assert(conf->pci_bar0.not_mmio, -EINVAL, "%s: bar0 is port", funcname);
-    assert(theI8254NIC.mmio_addr == NULL,
+    assert(nic->mmio_addr == NULL,
            -EAGAIN, "%s: only one instance is supported, TODO", funcname);
 
-    theI8254NIC.hwid = ((uint32_t)conf->pci.vendor << 16) | (uint32_t)conf->pci.device;
-    theI8254NIC.intr = conf->pci_interrupt_line;
-    theI8254NIC.mmio_addr = (char *)(conf->pci_bar0.val & 0xfffffff0);
+    nic->hwid = ((uint32_t)conf->pci.vendor << 16) | (uint32_t)conf->pci.device;
+    nic->intr = conf->pci_interrupt_line;
+    nic->mmio_addr = (char *)(conf->pci_bar0.val & 0xfffffff0);
 
-    i8254x_read_mac_addr(&theI8254NIC);
+    i8254x_read_mac_addr(nic);
     logmsgif("[%x]: mmio at *%x, intr #%d, mac=%x:%x:%x:%x:%x:%x",
-             theI8254NIC.hwid, theI8254NIC.mmio_addr, (uint32_t)theI8254NIC.intr,
-             (uint)theI8254NIC.mac_addr[0], (uint)theI8254NIC.mac_addr[1],
-             (uint)theI8254NIC.mac_addr[2], (uint)theI8254NIC.mac_addr[3],
-             (uint)theI8254NIC.mac_addr[4], (uint)theI8254NIC.mac_addr[5]);
+             nic->hwid, nic->mmio_addr, (uint32_t)nic->intr,
+             (uint)nic->mac_addr[0], (uint)nic->mac_addr[1],
+             (uint)nic->mac_addr[2], (uint)nic->mac_addr[3],
+             (uint)nic->mac_addr[4], (uint)nic->mac_addr[5]);
+
+    irq_set_handler(nic->intr, i8254x_irq);
+    irq_mask(nic->intr, true);
+
+    i8254x_mta_init(nic);
 
     /* set link up */
-    mmio_write(&theI8254NIC, I8254X_CTRL,
-               mmio_read(&theI8254NIC, I8254X_CTRL) | CTRL_SLU | CTRL_ASDE);
-
-    i8254x_mta_init(&theI8254NIC);
-
-    irq_set_handler(theI8254NIC.intr, i8254x_irq);
-    irq_mask(theI8254NIC.intr, true);
+    uint32_t ctl = mmio_read(nic, I8254X_CTRL);
+    ctl = ctl | CTRL_SLU; // | CTRL_ASDE | CTRL_LRST;
+    mmio_write(nic, I8254X_CTRL, ctl);
 
     /* enable all interrupts and clear pending ones */
-    mmio_write(&theI8254NIC, I8254X_IMC, 0xffffffff);
-    mmio_read(&theI8254NIC, I8254X_ICR);
+    mmio_write(nic, I8254X_IMC, 0xffffffff);
+    mmio_read(nic, I8254X_ICR);
 
-    mmio_write(&theI8254NIC, I8254X_IMS, INTRMASK_OK);
-    mmio_read(&theI8254NIC, I8254X_ICR);
+    mmio_write(nic, I8254X_IMS, 0x1f600 | INTRMASK_OK);
+    mmio_read(nic, I8254X_ICR);
 
-    ret = i8254x_rx_init(&theI8254NIC);
+    ret = i8254x_rx_init(nic);
     assert(ret == 0, ret, "%s: i8254x_rx_init() failed(%d)\n", funcname, ret);
-    ret = i8254x_tx_init(&theI8254NIC);
+    ret = i8254x_tx_init(nic);
     assert(ret == 0, ret, "%s: i8254x_tx_init() failed(%d)\n", funcname, ret);
 
     /*
+    mmio_write(nic, I8254X_FCAL, 0x00c28001);
+    mmio_write(nic, I8254X_FCAH, 0x00000100);
+    mmio_write(nic, I8254X_FCT,  0x00008808);
+    mmio_write(nic, I8254X_FCTTV, 0x00000100);
     k_printf("[%x] CTL = %x\n", theI8254NIC.hwid, mmio_read(&theI8254NIC, I8254X_CTRL));
     k_printf("[%x] STA = %x\n", theI8254NIC.hwid, mmio_read(&theI8254NIC, I8254X_STA));
     k_printf("[%x] IMS = %x\n", theI8254NIC.hwid, mmio_read(&theI8254NIC, I8254X_IMS));
