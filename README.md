@@ -16,10 +16,11 @@ Features:
 - built-in Lua shell with `sys` module;
 - a subset of libc, heap management;
 - preemptive multitasking demo (two example tasks running concurrently);
-- simplest userspace init and syscalls (at the moment, just one actually);
+- simplest userspace init and syscalls;
 - posix virtual filesystem (inodes, mountpoints, filelinks), ramfs;
+- processes are work in progress;
 
-Nothing more yet (no paging, no processes, no decent userland, no lot of things);
+Nothing more yet (no paging, no decent userland, no lot of things);
 
 
 Try it!

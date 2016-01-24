@@ -38,8 +38,6 @@
 bool kshell_autocomplete(char *buf);
 static char * get_args(char *command);
 static const char * get_int_opt(const char *arg, int *res, uint8_t base);
-int run_lisp(void);
-
 
 /***
   *     Panic and other print routines
