@@ -108,7 +108,7 @@ int atoi(const char *nptr) {
     return sign * res;
 }
 
-inline int getbasedigit(char c, int base) {
+inline static int getbasedigit(char c, int base) {
     char lc = tolower(c);
     if ((base <= 0) || (base > 36))
         return -1;
