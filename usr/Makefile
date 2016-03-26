@@ -1,6 +1,6 @@
 CROSSCOMP  =
 ifeq ($(shell uname),Darwin)
-CROSSCOMP  = i386-elf-
+CROSSCOMP  = /usr/local/gcc-4.8.1-for-linux64/bin/x86_64-pc-linux-
 endif
 
 CC = $(CROSSCOMP)gcc

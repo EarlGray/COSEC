@@ -16,10 +16,22 @@
 #define PCI_CONF_INTR_OFF       0x3c
 
 const char * pci_class_descriptions[] = {
-    "class 0",                  "mass storage controller",  "network controller",   "display controller",       // 0x00 - 0x03
-    "multimedia controller",    "memory controller",        "bridge device",        "simple communication controllr",  // 0x04 - 0x07
-    "base system peripherals",  "input device",             "docking station",     "processor",            // 0x08-0xB
-    "serial bus controller",    "wireless controller",      "intelligent I/O controller",  "class 0xF",
+    "class 0",
+    "mass storage controller",
+    "network controller",
+    "display controller",       // 0x00 - 0x03
+    "multimedia controller",
+    "memory controller",
+    "bridge device",
+    "simple communication controller", // 0x04 - 0x07
+    "base system peripherals",
+    "input device",
+    "docking station",
+    "processor",            // 0x08-0xB
+    "serial bus controller",
+    "wireless controller",
+    "intelligent I/O controller",
+    "class 0xF",
     "cryptocontroller",
 };
 

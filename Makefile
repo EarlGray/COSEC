@@ -11,7 +11,7 @@ LUA          := 1
 host_os := $(shell uname)
 
 ifeq ($(host_os),Darwin)
-crosscompile ?= i386-elf-
+crosscompile ?= /usr/local/gcc-4.8.1-for-linux64/bin/x86_64-pc-linux-
 endif
 
 cc      ?= $(crosscompile)gcc
@@ -93,7 +93,8 @@ run: install
 	else $(qemu) $(qemu_flags) -curses; fi
 
 qemu: $(cd_img)
-	$(qemu) -m 64 -cdrom $(cd_img) -boot d -serial stdio
+	$(qemu) -m 64 -cdrom $(cd_img) -boot d -serial stdio -net nic,model=virtio -net user
+
 
 vbox: install
 	VBoxManage startvm $(vbox_name)
