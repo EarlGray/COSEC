@@ -76,25 +76,28 @@ pipe_file     := pipe
 
 vbox_name   := COSEC
 qemu        := qemu-system-i386
-qemu_flags  := -boot a -m 64 -net nic,model=rtl8139
+qemu_cdboot := -cdrom $(cd_img) -boot d
+qemu_mltboot:= -kernel ../$(kernel) -initrd init
+qemu_debug  := -d int,unimp,guest_errors -D qemu.log -net dump,file=qemu.pcap
+qemu_flags  := -m 64 -serial stdio $(qemu_debug)
+qemu_net    := -net nic,model=virtio -net user
 init        := usr/init
 
 .PHONY: run install mount umount clean
 .PHONY: qemu vbox bochs runq
 
+qemu: $(cd_img)
+	$(qemu) $(qemu_cdboot) $(qemu_flags) $(qemu_net)
+
 runq: $(kernel) $(init)
-	cd usr && $(qemu) -m 256 -kernel ../$(kernel) -initrd init -serial stdio
+	cd usr && $(qemu) $(qemu_flags) $(qemu_mltboot)
 
 run: install
 	@echo "\n#### Running..." && \
 	if [ $$DISPLAY ] ; then      \
 	    make krun || make qemu || make vbox || make bochs || \
 	        echo "@@@@ Error: VirtualBox, qemu or Bochs must be installed"; \
-	else $(qemu) $(qemu_flags) -curses; fi
-
-qemu: $(cd_img)
-	$(qemu) -m 64 -cdrom $(cd_img) -boot d -serial stdio -net nic,model=virtio -net user
-
+	else $(qemu) $(qemu_cdboot) $(qemu_flags) -curses; fi
 
 vbox: install
 	VBoxManage startvm $(vbox_name)
