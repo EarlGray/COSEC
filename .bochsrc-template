@@ -1,0 +1,6 @@
+megs: 8
+
+floppya: 1_44="cosec.img", status=inserted
+boot: floppy
+
+panic: action=report

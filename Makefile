@@ -103,7 +103,7 @@ vbox: install
 	VBoxManage startvm $(vbox_name)
 
 bochs: install
-	bochs
+	bochs -qf .bochsrc-template
 
 $(init):
 	make -C $(dir $(init))
@@ -115,6 +115,7 @@ $(cd_img): $(kernel)
 install:  $(kernel) $(initfs)
 	@make mount \
 	    && $(do_install) $(kernel) $(mnt_img)   \
+	    && $(do_install) $(kernel).nm $(mnt_img)   \
 	    && echo "\n## Kernel installed";        \
 	$(do_install) $(initfs) $(mnt_img)          \
 	    && echo "## Initfs installed";          \
@@ -143,7 +144,7 @@ $(image):
 	    mv fd.img $(image); \
 	    make mount \
 	        && mkdir -p $(mnt_img)/boot/grub/ \
-	        && $(do_install) res/menu.lst $(mnt_img)/boot/grub \
+	        && $(do_install) res/bochs-menu.lst $(mnt_img)/boot/grub/menu.lst \
 	        && make umount; \
 	    echo -e "## ...generated\n"; \
 	fi
