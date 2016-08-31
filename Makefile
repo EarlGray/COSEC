@@ -102,8 +102,8 @@ run: install
 vbox: install
 	VBoxManage startvm $(vbox_name)
 
-bochs: install
-	bochs -qf .bochsrc-template
+bochs: $(cd_img)
+	bochs -qf res/.bochsrc-template
 
 $(init):
 	make -C $(dir $(init))
@@ -144,7 +144,7 @@ $(image):
 	    mv fd.img $(image); \
 	    make mount \
 	        && mkdir -p $(mnt_img)/boot/grub/ \
-	        && $(do_install) res/bochs-menu.lst $(mnt_img)/boot/grub/menu.lst \
+	        && $(do_install) res/menu.lst $(mnt_img)/boot/grub \
 	        && make umount; \
 	    echo -e "## ...generated\n"; \
 	fi
