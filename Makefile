@@ -102,8 +102,8 @@ run: install
 vbox: install
 	VBoxManage startvm $(vbox_name)
 
-bochs: install
-	bochs
+bochs: $(cd_img)
+	bochs -qf res/.bochsrc-template
 
 $(init):
 	make -C $(dir $(init))
@@ -115,6 +115,7 @@ $(cd_img): $(kernel)
 install:  $(kernel) $(initfs)
 	@make mount \
 	    && $(do_install) $(kernel) $(mnt_img)   \
+	    && $(do_install) $(kernel).nm $(mnt_img)   \
 	    && echo "\n## Kernel installed";        \
 	$(do_install) $(initfs) $(mnt_img)          \
 	    && echo "## Initfs installed";          \

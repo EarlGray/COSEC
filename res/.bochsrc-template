@@ -1,0 +1,6 @@
+megs: 8
+
+ata0-slave:  type=cdrom, path="cosec.iso", status=inserted
+boot: cdrom
+
+panic: action=report
