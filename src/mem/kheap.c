@@ -8,10 +8,15 @@
 
 #define KHEAP_INITIAL_SIZE  (256 * PAGE_SIZE)
 
-#if (0)
+#if (1)
 #   define mem_logf(msg, ...) logmsgf(msg, __VA_ARGS__)
+#   define mem_corruption_check() do { \
+       void *corrupted = firstfit_corruption(theHeap); \
+       if (corrupted) logmsgef("kheap corrupted at *0x%x\n", corrupted); \
+    } while (0);
 #else 
 #   define mem_logf(msg, ...)
+#   define mem_corruption_check()
 #endif
 
 struct firstfit_allocator *theHeap;
@@ -30,18 +35,23 @@ void kheap_setup(void) {
 
 void *kmalloc(size_t size) {
     void * ptr = firstfit_malloc(theHeap, size);
-    mem_logf("kmalloc(0x%x) -> *0x%x\n", size, ptr);
+    mem_logf("~~ kmalloc(0x%x) -> *0x%x\n", size, ptr);
+    mem_corruption_check();
     return ptr;
 }
 
 int kfree(void *p) {
-    mem_logf("kfree(*0x%x)\n", p);
+    mem_logf("~~ kfree(*0x%x)\n", p);
     firstfit_free(theHeap, p);
+    mem_corruption_check();
     return 0;
 }
 
 void *krealloc(void *p, size_t size) {
-    return firstfit_realloc(theHeap, p, size);
+    void *r = firstfit_realloc(theHeap, p, size);
+    mem_logf("~~ krealloc(*0x%x, 0x%x) -> *0x%x\n", p, size, r);
+    mem_corruption_check();
+    return r;
 }
 
 void kheap_info(void) {

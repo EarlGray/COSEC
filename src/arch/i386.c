@@ -152,4 +152,6 @@ void cpu_setup(void) {
 
     idt_setup();
     idt_deploy();
+
+    asm("finit  " ::);
 }

@@ -44,7 +44,7 @@ static const char * get_int_opt(const char *arg, int *res, uint8_t base);
  ***/
 
 void __noreturn
-panic(const char *fatal_error) {
+kpanic(const char *fatal_error) {
     intrs_disable();
 
     char buf [100] = { 0 };
@@ -777,7 +777,7 @@ void kshell_unknown_cmd() {
 }
 
 void kshell_panic() {
-    panic("THIS IS JUST A TEST");
+    kpanic("THIS IS JUST A TEST");
     //asm (".word 0xB9F0 \n");
 }
 

@@ -161,7 +161,7 @@ void int_odd_exception() {
 
 void int_double_fault() {
     logmsg("#DF -- Double fault...\n");
-    panic("DOUBLE FAULT");
+    kpanic("DOUBLE FAULT");
 }
 
 void int_division_by_zero(void ) {
@@ -178,7 +178,7 @@ void int_invalid_op(void *stack) {
     snprintf(buf, 80, "#UD at %.8x:%0.8x",    
                 (uint) *((uint32_t *)stack + 11), 
                 (uint) *((uint32_t *)stack + 10) );
-    panic(buf);
+    kpanic(buf);
 }
 
 

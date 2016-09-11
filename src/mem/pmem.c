@@ -97,7 +97,7 @@ inline static void pf_list_insert(pagelist_t *list, pageframe_t *pf) {
             (node)->next->prev = (node)->prev;  \
             (node)->prev->next = (node)->next;  \
             (list)->head = (node)->next;        \
-        } else panic("Removing the last node"); \
+        } else kpanic("Removing the last node"); \
     else {  \
         (node)->prev->next = (node)->next;    \
         (node)->next->prev = (node)->prev;    \
@@ -111,7 +111,7 @@ inline static void pf_list_remove(pagelist_t *list, pageframe_t *node) {
             node->prev->next = node->next;
             list->head = node->next;
         }
-        else panic("Removing the last node");
+        else kpanic("Removing the last node");
     else {
         node->prev->next = node->next;
         node->next->prev = node->prev;
@@ -203,7 +203,7 @@ void pmem_setup(void) {
 
     // allocate virtual 4M pages
     if (pfmap_end > (ptr_t)__va(0x800000)) {
-        panic("TODO: allocate memory for pageframe table more than 8Mb long\n");
+        kpanic("TODO: allocate memory for pageframe table more than 8Mb long\n");
     }
     the_pageframe_map = (pageframe_t *)pfmap;
     memset(the_pageframe_map, 0, pfmap_len * sizeof(pageframe_t));

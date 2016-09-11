@@ -310,7 +310,7 @@ task_struct *next_task(/*uint tick*/) {
 
     if (current == &task0) return &task1;
     if (current == &task1) return &task0;
-    panic("Invalid task");
+    kpanic("Invalid task");
     return null;
 }
 

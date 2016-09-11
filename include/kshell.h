@@ -2,7 +2,7 @@
 #define __KSHELL_H__
 
 void kshell_run(void);
-void panic(const char *);
+void kpanic(const char *);
 
 void print_mem(const char *p, size_t count);
 void print_cpu(void);

@@ -65,6 +65,6 @@ int k_printf(const char *fmt, ...);
     if (!(assertion)) { logmsgef(__VA_ARGS__); return; }
 
 
-extern void panic(const char *fatal_error);
+extern void kpanic(const char *fatal_error);
 
 #endif  //__KERN_LOG_H__

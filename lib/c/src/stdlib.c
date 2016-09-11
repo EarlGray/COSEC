@@ -590,7 +590,7 @@ void longjmp(jmp_buf env, int val) {
 }
 
 void __stack_chk_fail(void) {
-    panic("__stack_chk_fail()");
+    kpanic("__stack_chk_fail()");
 }
 
 struct {

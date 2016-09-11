@@ -17,6 +17,13 @@
 
 #define CMD_SIZE 256
 
+#define LUA_DEBUG 1
+#if (LUA_DEBUG)
+#  define luamsgf logmsgf
+#else
+#  define luamsgf(...)
+#endif
+
 #define LUA_ERROR(lua, msg) do {      \
     lua_pushstring((lua), (msg));     \
     lua_error(lua);                   \
@@ -256,9 +263,12 @@ void kshell_lua_test(void) {
     lua = luaL_newstate();
     if (!lua)
         logmsge("luaL_newstate() -> NULL");
+    luamsgf("luaL_newstate() -> *0x%x\n", lua);
 
+    luamsgf("lua_modinit\n");
     lua_modinit(lua, "sys", luamod_sys);
 
+    luamsgf("luaL_openlibs\n");
     luaL_openlibs(lua);
 
     for (;;) {
@@ -268,8 +278,11 @@ void kshell_lua_test(void) {
         if (!strcasecmp(cmd_buf, "q"))
             break;
 
-        int err = luaL_loadbuffer(lua, cmd_buf, strlen(cmd_buf), "line")
-               || lua_pcall(lua, 0, 0, 0);
+        luamsgf("lua: execute '%s'\n", cmd_buf);
+        int err = luaL_loadbuffer(lua, cmd_buf, strlen(cmd_buf), "line");
+        luamsgf("luaL_loadbuffer() -> %d\n", err);
+        if (!err) 
+            err = lua_pcall(lua, 0, 0, 0);
         if (err) {
             fprintf(stderr, "### Error: %s\n", lua_tostring(lua, -1));
             lua_pop(lua, 1);
