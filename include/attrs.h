@@ -20,6 +20,7 @@
 
 # define likely(x)   __builtin_expect(!!(x), 1)
 # define unlikely(x) __builtin_expect(!!(x), 0)
+# define FALLTHROUGH __attribute__((fallthrough))
 #else
 # define __constf
 # define __pure
@@ -31,6 +32,7 @@
 # define __packed
 # define likely(x)
 # define unlikely(x)
+# define FALLTHROUGH
 #endif
 
 #endif // __LANGEXTS__

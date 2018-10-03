@@ -23,6 +23,10 @@
 #include <kshell.h>
 
 void test_strs(void) {
+    printf("strcmp('DUM', 'DUM') = %d\n", strcmp("DUM", "DUM"));
+    printf("strcmp('DUM', 'DUM1') = %d\n", strcmp("DUM", "DUM1"));
+    printf("strcmp('DUM', 'DU') = %d\n", strcmp("DUM", "DU"));
+    printf("strcmp('DUM', 'DUN') = %d\n", strcmp("DUM", "DUN"));
     printf("'abc' 'ABC %d\n", strcasecmp("abc", "ABC"));
     printf("'ABC' 'abc %d\n", strcasecmp("ABC", "abc"));
     printf("'aa' 'AAA' %d\n", strcasecmp("aa", "AAA"));

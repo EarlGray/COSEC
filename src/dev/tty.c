@@ -72,13 +72,11 @@ struct termios stty_raw = {
 static inline void small_memcpy(char *dst, const char *src, size_t len) {
     /* Duff's device: is it worth it? */
     switch (len) {
-      case 4: dst[3] = src[3];
-      case 3: dst[2] = src[2];
-      case 2: dst[1] = src[1];
-      case 1: dst[0] = src[0];
-        break;
-      default:
-        memcpy(dst, src, len);
+      case 4: dst[3] = src[3]; FALLTHROUGH;
+      case 3: dst[2] = src[2]; FALLTHROUGH;
+      case 2: dst[1] = src[1]; FALLTHROUGH;
+      case 1: dst[0] = src[0]; break;
+      default: memcpy(dst, src, len);
     }
 }
 

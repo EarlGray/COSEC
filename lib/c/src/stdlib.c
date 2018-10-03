@@ -276,10 +276,11 @@ void free(void *ptr) {
  *  string operations from string.h
  */
 int strncmp(const char *s1, const char *s2, size_t n) {
+    //logmsgdf("strcmp(*%x, *%x, %x)\n", (size_t)s1, (size_t)s2, n);
     if (s1 == s2) return 0;
     size_t i = 0;
     while (i++ < n) {
-        if ((*s1) != (*s2)) return ((*s2) - (*s1));
+        if ((*s1) != (*s2)) return ((*s1) - (*s2));
         if (0 == (*s1)) return 0;
         ++s1, ++s2;
     }
@@ -292,6 +293,7 @@ int strcoll(const char *s1, const char *s2) {
 }
 
 int strcmp(const char *s1, const char *s2) {
+    //logmsgdf("strcmp(*%x, *%x)\n", (size_t)s1, (size_t)s2);
     return strncmp(s1, s2, UINT_MAX);
 }
 
@@ -530,6 +532,8 @@ int iscntrl(int c) { return (ascii_chrgrp[c] & CHARGRP_CNTRL); }
 int isgraph(int c) { return (ascii_chrgrp[c] & CHARGRP_GRAPH); }
 int ispunct(int c) { return (ascii_chrgrp[c] & CHARGRP_PUNCT); }
 int isxdigit(int c) { return (ascii_chrgrp[c] & CHARGRP_XDIGIT); }
+
+int isprint(int c) { return (ascii_chrgrp[c] & CHARGRP_PRINT); }
 
 int tolower(int c) {
     if (('A' <= c) && (c <= 'Z')) return c + 'a' - 'A';

@@ -6,7 +6,7 @@
 
 #include <arch/i386.h>
 
-#define KHEAP_INITIAL_SIZE  (256 * PAGE_SIZE)
+#define KHEAP_INITIAL_SIZE  (3 * 256 * PAGE_SIZE)
 
 #if (0)
 #   define mem_logf(msg, ...) logmsgf(msg, __VA_ARGS__)

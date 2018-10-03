@@ -29,6 +29,7 @@
 #include <kshell.h>
 #include <ctype.h>
 
+
 #define CMD_SIZE    256
 
 /***
@@ -242,6 +243,9 @@ void kshell_off();
 #if COSEC_LUA
 void kshell_lua();
 #endif
+#if COSEC_SECD
+void kshell_secd();
+#endif
 
 void kshell_init() {
     run_init();
@@ -318,6 +322,12 @@ const struct kshell_command main_commands[] = {
         .handler = kshell_lua,
         .description = "Lua REPL",
         .options = "" },
+#endif
+#if COSEC_SECD
+    { .name = "secd",
+        .handler = kshell_secd,
+        .description = "Scheme REPL",
+        .options = "<file.secd>" },
 #endif
     { .name = NULL,
         .handler = 0    }

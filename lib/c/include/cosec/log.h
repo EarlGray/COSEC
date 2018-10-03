@@ -29,6 +29,7 @@ int k_printf(const char *fmt, ...);
 
 #ifdef __DEBUG
 #   define logmsgdf(...) logmsgf(__VA_ARGS__)
+#   define logmsgd(msg) logmsgf(msg)
 #else
 #   define logmsgd(msg)
 #   define logmsgdf(...)

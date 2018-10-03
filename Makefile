@@ -7,6 +7,7 @@ STDINC_DIR   := lib/c/include
 CACHE_DIR    ?= $(top_dir)/.cache
 
 LUA          := 1
+#SECD		 := 1
 
 host_os := $(shell uname)
 
@@ -35,13 +36,18 @@ lds     := vmcosec.lds
 
 cc_includes := $(addprefix -I, $(include_dir) $(STDINC_DIR))
 
-cc_flags    := -ffreestanding -nostdinc -Wall -Wextra -Winline -Wno-unused -O2 -MD -DCOSEC=1
+cc_flags    := -ffreestanding -nostdinc -fno-stack-protector -Wall -Wextra -Wno-inline -Wno-implicit-fallthrough -Wno-unused -O2 -MD -DCOSEC=1
 as_flags    := -nostdinc -Wall -MD $(cc_includes)
 ld_flags    := -static -nostdlib -T$(build)/$(lds)
 
 ifneq ($(LUA),)
 liblua      := lib/liblua.a
 cc_flags    += -DCOSEC_LUA=1
+endif
+ifneq ($(SECD),)
+libsecd		:= $(build)/libsecd.o
+secdsrc		:= build/libsecd.c
+cc_flags	+= -DCOSEC_SECD=1
 endif
 
 ### for 64bit host
@@ -149,9 +155,9 @@ $(image):
 	    echo -e "## ...generated\n"; \
 	fi
 
-$(kernel): $(libc) $(build) $(liblua) $(objs) $(build)/$(lds)
+$(kernel): $(libc) $(build) $(liblua) $(libsecd) $(objs) $(build)/$(lds)
 	@echo "\n#### Linking..."
-	$(ld) -o $(kernel) $(objs) $(liblua) $(libc) $(ld_flags)
+	$(ld) -o $(kernel) $(objs) $(libsecd) $(liblua) $(libc) $(ld_flags)
 	@echo "## ...linked"
 	@[ `which $(objdump) 2>/dev/null` ] && $(objdump) -d $(kernel) > $(objdfile) || true
 	@[ `which $(nm) 2>/dev/null` ] && $(nm) $(kernel) | sort > $(kernel).nm || true
@@ -159,7 +165,7 @@ $(kernel): $(libc) $(build) $(liblua) $(objs) $(build)/$(lds)
 
 $(libc):
 	@make CROSSCOMP=$(crosscompile) -C lib/c
-	
+
 $(build):
 	@echo "\n#### Compiling"
 	@mkdir -p $(build)
@@ -185,7 +191,7 @@ LUA_DIR  := lib/lua-$(LUA_VER)
 
 $(CACHE_DIR)/lua-$(LUA_VER).tar.gz:
 	mkdir -p $(CACHE_DIR) ; cd $(CACHE_DIR); \
-    curl -R -O http://www.lua.org/ftp/$(notdir $@)
+    curl -LR -O http://www.lua.org/ftp/$(notdir $@)
 
 $(LUA_DIR): $(CACHE_DIR)/lua-$(LUA_VER).tar.gz
 	tar xf $< -C lib/
@@ -194,24 +200,59 @@ $(LUA_DIR): $(CACHE_DIR)/lua-$(LUA_VER).tar.gz
 $(liblua): $(LUA_DIR)
 	TOP_DIR=`pwd` && cd $(LUA_DIR)/src \
 	&& make CC=$(cc) RANLIB=$(ranlib) AR='$(ar) rcu --target elf32-i386' \
-	        SYSCFLAGS="-m32 -nostdinc -I$$TOP_DIR/$(STDINC_DIR)" liblua.a
+	        SYSCFLAGS="-m32 -nostdinc -fno-stack-protector -I$$TOP_DIR/$(STDINC_DIR)" liblua.a
 	mv $(LUA_DIR)/src/liblua.a $(top_dir)/$@
 
 endif
 clean_lua:
 	rm -rf include/lua lib/liblua.a $(LUA_DIR) || true
 
+ifneq ($(SECD),)
+SECD_VER 	:= 0.1.2
+SECD_TARGZ	:= $(CACHE_DIR)/secd-$(SECD_VER).tar.gz
+
+$(libsecd): $(secdsrc)
+	$(cc) -c $< -o $@ $(cc_includes) $(cc_flags)
+
+$(secdsrc): lib/secd/libsecd.c include/secd
+	cp lib/secd/libsecd.c $@
+
+include/secd: lib/secd lib/secd/repl.secd
+	mkdir -p $@
+	cp -r lib/secd/include/secd/* $@/
+	xxd -i lib/secd/repl.secd > $@/repl.inc
+
+lib/secd/libsecd.c: lib/secd
+	make -C $^ libsecd.c
+
+lib/secd/repl.secd:
+	make -C lib/secd repl.secd
+
+lib/secd: $(SECD_TARGZ)
+	tar -C lib/ -xf $(SECD_TARGZ)
+	mv lib/SECD-$(SECD_VER) lib/secd
+
+$(SECD_TARGZ):
+	mkdir -p $(CACHE_DIR)
+	curl -R -L -o $@ https://github.com/EarlGray/SECD/archive/$(SECD_VER).tar.gz
+
+endif
+clean_secd:
+	rm -r $(secdsrc) include/secd || true
+	make -C lib/secd clean || true
+
 $(pipe_file):
 	mkfifo $(pipe_file)
 
 clean_kern:
+	rm -r $(secdsrc) include/secd || true
 	rm -rf $(build) || true
 
 clean: clean_kern
 	make -C lib/c clean || true
 	make -C usr/ clean || true
 
-distclean: clean clean_lua
+distclean: clean clean_lua clean_secd
 
 help:
 	@echo "USAGE:"; \

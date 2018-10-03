@@ -607,24 +607,28 @@ void print_mount(void) {
     }
 }
 
-const char *build_date = "COSEC\n(c) Dmytro Sirenko\n"__DATE__", "__TIME__"\n";
-
-static void build_info_file() {
+static void build_file_from_string(const char *path, const char *s, size_t size) {
     int ret;
-    ret = vfs_mknod("/BUILD", 0644, 0);
-    returnv_err_if(ret, "mknod /BUILD: %s\n", strerror(ret));
+    ret = vfs_mknod(path, 0644, 0);
+    returnv_err_if(ret, "mknod %s: %s\n", path, strerror(ret));
 
     mountnode *sb = NULL;
     inode_t ino = 0;
 
-    ret = vfs_lookup("/BUILD", &sb, &ino);
-    returnv_err_if(ret, "lookup /BUILD: %s", strerror(ret));
+    ret = vfs_lookup(path, &sb, &ino);
+    returnv_err_if(ret, "lookup %s: %s", path, strerror(ret));
 
     off_t pos = 0;
     size_t nwrit = 0;
-    vfs_inode_write(sb, ino, pos, build_date, strlen(build_date), &nwrit);
+    vfs_inode_write(sb, ino, pos, s, size, &nwrit);
     pos += nwrit;
 }
+
+#if COSEC_SECD
+# include <secd/repl.inc>
+#endif
+
+const char *build_date = "COSEC\n(c) Dmytro Sirenko\n"__DATE__", "__TIME__"\n";
 
 void vfs_setup(void) {
     int ret;
@@ -646,7 +650,12 @@ void vfs_setup(void) {
     ret = vfs_mkdir("/tmp", 0777);
     returnv_err_if(ret, "mkdir /tmp: %s", strerror(ret));
 
-    build_info_file();
+    build_file_from_string("/BUILD",
+        build_date, strlen(build_date));
+#if COSEC_SECD
+    build_file_from_string("/repl.secd",
+        lib_secd_repl_secd, lib_secd_repl_secd_len);
+#endif
 
     char ttyname[] = "/dev/tty0";
     int i;

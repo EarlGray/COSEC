@@ -18,4 +18,6 @@ int isupper(int c);
 int isalnum(int c);
 int isxdigit(int c);
 
+int isprint(int c);
+
 #endif //__CTYPE_H__
