@@ -51,6 +51,7 @@ void kinit(uint32_t magic, struct multiboot_info *mbi) {
     intrs_enable();
     pci_setup();
 
+    hello_rust();
     proc_setup();
     panic("kinit: an unreachable point");
 }

@@ -61,6 +61,7 @@ ld_flags  += -melf_i386
 
 kernel    := $(build)/kernel
 libkernc  := lib/c/libc0.a
+librs     := lib/rosec/librosec.a
 init      := usr/init
 
 cd_img      := cosec.iso
@@ -114,9 +115,9 @@ $(cd_img): $(kernel) $(init)
 	@echo "Creating a LiveCD..."
 	@res/mkcd
 
-$(kernel): $(libkernc) $(liblua) $(libsecd) $(build) $(objs) $(build)/$(lds)
+$(kernel): $(libkernc) $(liblua) $(librs) $(libsecd) $(build) $(objs) $(build)/$(lds)
 	@echo "\n#### Linking..."
-	$(ld) -o $(kernel) $(objs) $(libsecd) $(liblua) $(libkernc) $(ld_flags)
+	$(ld) -o $(kernel) $(objs) $(libsecd) $(liblua) $(librs) $(libkernc) $(ld_flags)
 	@echo "## ...linked"
 	@[ `which $(objdump) 2>/dev/null` ] && $(objdump) -d $(kernel) > $(objdfile) || true
 	@[ `which $(nm) 2>/dev/null` ] && $(nm) $(kernel) | sort > $(kernel).nm || true
@@ -133,6 +134,9 @@ $(init):
 
 init:
 	@make CROSSCOMP=$(crosscompile) -C $(dir $(init))
+
+$(librs):
+	make -C lib/rosec
 
 $(build):
 	@echo "\n#### Compiling"
@@ -151,6 +155,7 @@ $(build)/%.o : $(src_dir)/%.S
 	$(as) -c $< -o $@ $(as_flags) -MT $(subst .d,.c,$@)
 
 clean_kern:
+	make -C lib/rosec clean || true
 	rm -r $(secdsrc) include/secd || true
 	rm -rf $(build) || true
 
