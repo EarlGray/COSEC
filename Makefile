@@ -56,6 +56,7 @@ as_flags  += -m32
 ld_flags  += -melf_i386
 
 libc      := lib/c/libc.a
+librs	  := lib/rosec/librosec.a
 kernel    := $(build)/kernel
 initfs    := res/initfs
 
@@ -155,9 +156,9 @@ $(image):
 	    echo -e "## ...generated\n"; \
 	fi
 
-$(kernel): $(libc) $(build) $(liblua) $(libsecd) $(objs) $(build)/$(lds)
+$(kernel): $(libc) $(build) $(liblua) $(libsecd) $(librs) $(objs) $(build)/$(lds)
 	@echo "\n#### Linking..."
-	$(ld) -o $(kernel) $(objs) $(libsecd) $(liblua) $(libc) $(ld_flags)
+	$(ld) -o $(kernel) $(objs) $(libsecd) $(liblua) $(librs) $(libc) $(ld_flags)
 	@echo "## ...linked"
 	@[ `which $(objdump) 2>/dev/null` ] && $(objdump) -d $(kernel) > $(objdfile) || true
 	@[ `which $(nm) 2>/dev/null` ] && $(nm) $(kernel) | sort > $(kernel).nm || true
@@ -165,6 +166,9 @@ $(kernel): $(libc) $(build) $(liblua) $(libsecd) $(objs) $(build)/$(lds)
 
 $(libc):
 	@make CROSSCOMP=$(crosscompile) -C lib/c
+
+$(librs):
+	make -C lib/rosec
 
 $(build):
 	@echo "\n#### Compiling"
@@ -245,6 +249,7 @@ $(pipe_file):
 	mkfifo $(pipe_file)
 
 clean_kern:
+	make -C lib/rosec clean || true
 	rm -r $(secdsrc) include/secd || true
 	rm -rf $(build) || true
 

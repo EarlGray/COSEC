@@ -53,6 +53,7 @@ void kinit(uint32_t magic, struct multiboot_info *mbi) {
     pci_setup();
 
     proc_setup();
+    hello_rust();
     kshell_run();
 }
 
