@@ -84,9 +84,9 @@ vbox_name   := COSEC
 qemu        := qemu-system-i386
 qemu_cdboot := -cdrom $(cd_img) -boot d
 qemu_mltboot:= -kernel ../$(kernel) -initrd init
-qemu_debug  := -d int,unimp,guest_errors -D qemu.log -net dump,file=qemu.pcap
+qemu_debug  := -d unimp,guest_errors,trace:pci_cfg_read,trace:pci_cfg_write,trace:virtio_notify,trace:virtio_queue_notify,trace:jvirtio_set_status -D qemu.log -net dump,file=qemu.pcap
 qemu_flags  := -m 64 -serial stdio $(qemu_debug)
-qemu_net    := -net nic,model=virtio -net user
+qemu_net    := -net nic,model=virtio -net tap,ifname=tap0
 init        := usr/init
 
 .PHONY: run install mount umount clean

@@ -259,7 +259,7 @@ const struct kshell_command main_commands[] = {
     { .name = "test",
         .handler = kshell_test,
         .description = "test utility",
-        .options = "sprintf kbd timer serial tasks acpi ring3 usleep" },
+        .options = "sprintf kbd timer serial tasks acpi ring3 usleep net" },
     { .name = "info",
         .handler = kshell_info,
         .description = "various info",
@@ -334,6 +334,7 @@ const struct kshell_command main_commands[] = {
 };
 
 void test_strs(void);
+void test_virtio_net(void);
 const struct kshell_subcmd  test_cmds[] = {
     { .name = "sprintf", .handler = test_sprintf    },
     { .name = "timer",   .handler = test_timer,     },
@@ -344,6 +345,7 @@ const struct kshell_subcmd  test_cmds[] = {
     { .name = "usleep",  .handler = test_usleep,    },
     { .name = "acpi",    .handler = test_acpi,      },
     { .name = "str",     .handler = test_strs,      },
+    { .name = "net",     .handler = test_virtio_net },
     { .name = 0, .handler = 0    },
 };
 

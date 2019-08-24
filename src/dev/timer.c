@@ -50,7 +50,7 @@ void timer_setup(void) {
     timer_set_frequency(timer_freq_divisor);
 
     irq_set_handler(TIMER_IRQ, timer_irq);
-    irq_mask(TIMER_IRQ, true);
+    irq_enable(TIMER_IRQ);
 }
 
 void timer_irq() {

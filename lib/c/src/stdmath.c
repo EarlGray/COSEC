@@ -113,3 +113,4 @@ int rand(void) {
     logmsge("TODO: rand returns randomly chosen number 4");
     return 4;  // a random number!
 }
+

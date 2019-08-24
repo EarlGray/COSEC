@@ -21,7 +21,17 @@ typedef void (*intr_handler_f) (void *);
 
 uint16_t irq_get_mask(void);
 void irq_mask(irqnum_t irq_num, bool set);
-bool irq_is_masked(uint irqnum);
+
+static inline void irq_enable(irqnum_t n) {
+    irq_mask(n, true);
+}
+static inline void irq_disable(irqnum_t n) {
+    irq_mask(n, false);
+}
+
+static inline bool irq_enabled(uint irqnum) {
+    return irq_get_mask() & (1 << irqnum);
+}
 
 void intrs_setup(void);
 

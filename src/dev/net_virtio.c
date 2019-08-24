@@ -10,6 +10,7 @@
 
 #define __DEBUG
 #include <cosec/log.h>
+#include <algo.h>
 
 /* virtio registers offsets from `portbase` */
 #define VIO_DEV_FEATURE       0   /* 32, R  */
@@ -40,41 +41,6 @@
 
 #define VIRTIO_PAD  4096
 
-/* VIO_Dxx_FEATURE register */
-enum vio_features {
-    /* notify on empty avail_ring even if supppressed */
-    VIRTIO_F_NOTIFY_ON_EMPTY  = (1u << 24),
-    /* enable VIRTQ_DESC_F_INDIR */
-    VIRTIO_F_RING_INDIR_DESC  = (1u << 28),
-    /* enable `used_event` and `avail_event` */
-    VIRTIO_F_RING_EVENT_IDX   = (1u << 29),
-};
-
-/* VIO_Dxx_FEATURE for a network device */
-enum vio_net_features {
-    /* device handles packets with a partial checksum */
-    VIRTIO_NET_F_CSUM       = (1u << 0),
-    /* guest handles packets with a partial checksum */
-    VIRTIO_NET_F_GUEST_CSUM = (1u << 1),
-    /* device has given MAC address */
-    VIRTIO_NET_F_MAC        = (1u << 5),
-    VIRTIO_NET_F_GSO        = (1u << 6),
-    VIRTIO_NET_F_GUEST_TSOV4 = (1u << 7),
-    VIRTIO_NET_F_GUEST_TSOV6 = (1u << 8),
-    VIRTIO_NET_F_GUEST_ECN  = (1u << 9),
-    VIRTIO_NET_F_GUEST_UFO  = (1u << 10),
-    VIRTIO_NET_F_HOST_TSO4  = (1u << 11),
-    VIRTIO_NET_F_HOST_TSO6  = (1u << 12),
-    VIRTIO_NET_F_HOST_ECN   = (1u << 13),
-    VIRTIO_NET_F_HOST_UFO   = (1u << 14),
-    VIRTIO_NET_F_MRG_RXBUF  = (1u << 15),
-    VIRTIO_NET_F_STATUS     = (1u << 16),
-    VIRTIO_NET_F_CTRL_VQ    = (1u << 17),
-    VIRTIO_NET_F_CTRL_RX    = (1u << 18),
-    VIRTIO_NET_F_CTRL_VLAN  = (1u << 19),
-    VIRTIO_NET_F_GUEST_ANNOUNCE = (1u << 21),
-};
-
 /* VIO_DEV_STA register */
 enum vio_dev_sta {
     STA_ACK           = 0x01,
@@ -83,10 +49,14 @@ enum vio_dev_sta {
     STA_FAILED        = 0x80,
 };
 
-/* VIO_NET_STA register */
-enum vio_net_sta {
-    VIRTIO_NET_S_LINK_UP    = 1,
-    VIRTIO_NET_S_ANNOUNCE   = 2,
+/* VIO_Dxx_FEATURE register */
+enum vio_features {
+    /* notify on empty avail_ring even if supppressed */
+    VIRTIO_F_NOTIFY_ON_EMPTY  = (1u << 24),
+    /* enable VIRTQ_DESC_F_INDIR */
+    VIRTIO_F_RING_INDIR_DESC  = (1u << 28),
+    /* enable `used_event` and `avail_event` */
+    VIRTIO_F_RING_EVENT_IDX   = (1u << 29),
 };
 
 enum vring_desc_flags {
@@ -121,6 +91,12 @@ struct __packed vring_used {
     struct vring_used_elem ring[];
 };
 
+struct virtio_device {
+    uint16_t    iobase;
+    uint16_t    intr;
+    uint32_t    features;
+};
+
 struct virtioq {
     uint16_t size;
     size_t npages;
@@ -129,10 +105,74 @@ struct virtioq {
     struct vring_used   *used;
 };
 
+static int virtio_vring_alloc(struct virtioq *q, uint16_t qsz) {
+    const char *funcname = __FUNCTION__;
+
+    size_t desctbl_sz = qsz * sizeof(struct vring_desc);
+    size_t avail_sz = (3 + qsz) * sizeof(uint16_t);
+    size_t used_sz = 3 * sizeof(uint16_t) + qsz * sizeof(struct vring_used_elem);
+
+    size_t p = desctbl_sz + avail_sz;
+    if (p % PAGE_SIZE) {
+        p = ((p / PAGE_SIZE) + 1) * PAGE_SIZE;
+    }
+    size_t used_off = p;
+    p += used_sz;
+    if (p % PAGE_SIZE) {
+        p = ((p / PAGE_SIZE) + 1) * PAGE_SIZE;
+    }
+
+    size_t npages = p / PAGE_SIZE;
+    char *qmem = pmem_alloc(npages);
+    return_err_if(!qmem, -ENOMEM,
+                  "%s: pmem_alloc(%d) failed\n", funcname, npages);
+    memset(qmem, 0, npages * PAGE_SIZE);
+    q->size = qsz;
+    q->npages = npages;
+    q->desc = (struct vring_desc *)qmem;
+    q->avail = (struct vring_avail *)(qmem + desctbl_sz);
+    q->used = (struct vring_used *)(qmem + used_off);
+
+    return 0;
+}
+
+
+/* VIO_Dxx_FEATURE for a network device */
+enum vio_net_features {
+    /* device handles packets with a partial checksum */
+    VIRTIO_NET_F_CSUM       = (1u << 0),
+    /* guest handles packets with a partial checksum */
+    VIRTIO_NET_F_GUEST_CSUM = (1u << 1),
+    /* device has given MAC address */
+    VIRTIO_NET_F_MAC        = (1u << 5),
+    VIRTIO_NET_F_GSO        = (1u << 6),
+    VIRTIO_NET_F_GUEST_TSOV4 = (1u << 7),
+    VIRTIO_NET_F_GUEST_TSOV6 = (1u << 8),
+    VIRTIO_NET_F_GUEST_ECN  = (1u << 9),
+    VIRTIO_NET_F_GUEST_UFO  = (1u << 10),
+    VIRTIO_NET_F_HOST_TSO4  = (1u << 11),
+    VIRTIO_NET_F_HOST_TSO6  = (1u << 12),
+    VIRTIO_NET_F_HOST_ECN   = (1u << 13),
+    VIRTIO_NET_F_HOST_UFO   = (1u << 14),
+    VIRTIO_NET_F_MRG_RXBUF  = (1u << 15),
+    VIRTIO_NET_F_STATUS     = (1u << 16),
+    VIRTIO_NET_F_CTRL_VQ    = (1u << 17),
+    VIRTIO_NET_F_CTRL_RX    = (1u << 18),
+    VIRTIO_NET_F_CTRL_VLAN  = (1u << 19),
+    VIRTIO_NET_F_GUEST_ANNOUNCE = (1u << 21),
+};
+
+/* VIO_NET_STA register */
+enum vio_net_sta {
+    VIRTIO_NET_S_LINK_UP    = 1,
+    VIRTIO_NET_S_ANNOUNCE   = 2,
+};
+
 
 enum vio_net_hdr_flags {
     VIRTIO_NET_HDR_F_NEEDS_CSUM = 0x01,
 };
+
 enum vio_net_gso {
     VIRTIO_NET_HDR_GSO_NONE     = 0,
     VIRTIO_NET_HDR_GSO_TCPv4    = 1,
@@ -148,7 +188,7 @@ struct __packed virtio_net_hdr {
     uint16_t gso_size;
     uint16_t csum_start;
     uint16_t csum_offset;
-    uint16_t num_buffers; /* if VIRTIO_NET_F_MRG_RXBUF */
+    // uint16_t num_buffers; /* if VIRTIO_NET_F_MRG_RXBUF */
 };
 
 #define ETH_ALEN    6
@@ -157,12 +197,6 @@ typedef union {
     uint8_t oct[ETH_ALEN];
     uint16_t word[ETH_ALEN/2];
 } macaddr_t;
-
-struct virtio_device {
-    uint16_t    iobase;
-    int         intr;
-    uint32_t    features;
-};
 
 struct virtio_net_device {
     struct virtio_device virtio;
@@ -175,47 +209,73 @@ struct virtio_net_device {
     size_t netbuf_npages;
 };
 
+struct virtio_net_device *theVirtNIC = NULL;
 
-struct virtio_net_device *theVirtNIC = 0;
-
-static int virtio_vring_alloc(struct virtioq *q, uint16_t qsz) {
+void net_virtio_irq() {
     const char *funcname = __FUNCTION__;
 
-    size_t desctbl_sz = sizeof(struct vring_desc) * qsz;
-    size_t avail_sz = sizeof(uint16_t) * (3 + qsz);
-    size_t used_sz = 6 + sizeof(struct vring_used_elem);
+    uint8_t val;
+    inb(theVirtNIC->virtio.iobase + VIO_ISR_STA, val);
+    logmsge("%s: isr=0x%x\n", funcname, val);
+}
 
-    size_t npages = desctbl_sz + avail_sz;
-    if (npages % VIRTIO_PAD) {
-        npages = ((npages >> 12) + 1) << 12;
-    }
-    size_t used_off = npages;
-    npages += used_sz;
-    if (npages % VIRTIO_PAD) {
-        npages = ((npages >> 12) + 1) << 12;
-    }
-    npages = npages / PAGE_SIZE;
+uint8_t * net_virtio_alloc_eth_frame(uint8_t *mac_dst, uint16_t ethertype, size_t payload_len) {
+    uint8_t *buf = pmem_alloc(1);
+    if (!buf) return NULL;
 
-    char *qmem = pmem_alloc(npages);
-    return_err_if(!qmem, -ENOMEM,
-                  "%s: pmem_alloc(%d) failed\n", funcname, npages);
-    memset(qmem, 0, npages * PAGE_SIZE);
-    q->size = qsz;
-    q->npages = npages;
-    q->desc = (struct vring_desc *)qmem;
-    q->avail = (struct vring_avail *)(qmem + avail_sz);
-    q->used = (struct vring_used *)(qmem + used_off);
+    /* virtio net header */
+    struct virtio_net_hdr *vhdr = (struct virtio_net_hdr *)buf;
+    vhdr->flags = VIRTIO_NET_HDR_F_NEEDS_CSUM;
+
+    /* set the ethernet header */
+    __packed struct eth_hdr_t {
+        uint8_t dst[6];
+        uint8_t src[6];
+        uint16_t ethertype;
+    };
+    struct eth_hdr_t *eth_hdr = (struct eth_hdr_t *)
+            (buf + sizeof(struct virtio_net_hdr));
+
+    memcpy(eth_hdr->dst, mac_dst, 6);
+    memcpy(eth_hdr->src, theVirtNIC->mac.oct, 6);
+    eth_hdr->ethertype = ethertype;
+
+    /* remember it in txq */
+    struct vring_desc *desc = theVirtNIC->txq.desc + 0;
+    desc->addr = (uint64_t)(uint32_t)buf;
+    desc->len = sizeof(struct virtio_net_hdr) + sizeof(struct eth_hdr_t) + 4 + payload_len;
+    desc->flags = 0;
+
+    return buf + sizeof(struct virtio_net_hdr) + sizeof(struct eth_hdr_t);
+}
+
+int net_virtio_transmit(void) {
+	const size_t buf_idx = 0;
+    struct virtioq *txq = &theVirtNIC->txq;
+
+	/* ethernet crc32 */
+	struct vring_desc *desc = theVirtNIC->txq.desc + buf_idx;
+	uint8_t *buf = (uint8_t *)(size_t)desc->addr;
+
+	uint8_t *p = buf+sizeof(struct virtio_net_hdr);
+	size_t len = desc->len - sizeof(struct virtio_net_hdr) - 4;
+	uint32_t crc = ethernet_crc32(p, len);
+	*(uint32_t*)(p + len) = crc;
+
+    txq->avail->ring[txq->avail->idx % txq->size] = buf_idx;
+    txq->avail->idx += 1;
+	txq->avail->idx %= txq->size;
+
+    /* notify the NIC */
+    uint16_t val = VIRTIO_NET_TXQ;
+    outw(theVirtNIC->virtio.iobase + VIO_Q_NOTIFY, val);
 
     return 0;
 }
 
-static void net_virtio_irq() {
-    const char *funcname = __FUNCTION__;
-    logmsgf("%s: tick\n", funcname);
-}
-
 static int net_virtio_setup(struct virtio_net_device *nic) {
     const char *funcname = __FUNCTION__;
+
     int i, ret = 0;
     uint16_t port, hval;
     uint32_t val;
@@ -223,28 +283,48 @@ static int net_virtio_setup(struct virtio_net_device *nic) {
     hval = STA_ACK | STA_DRV;
     outw(nic->virtio.iobase + VIO_DEV_STA, hval);
 
+    /* tx queue */
+    hval = VIRTIO_NET_TXQ;
+    outw(nic->virtio.iobase + VIO_Q_SELECT, hval);
+    inw(nic->virtio.iobase + VIO_Q_SIZE, hval);
+    assert(hval > 0, -ENOSYS, "%s: TX queue size is 0", funcname);
+
+    ret = virtio_vring_alloc(&nic->txq, hval);
+    return_msg_if(ret, ret, "%s: txq setup failed(%d)\n", funcname, ret);
+
+    //nic->txq.avail->flags |= VIRTQ_AVAIL_F_NOINTR;
+
+    logmsgdf("%s: tx_q[%d] at *%x (%d pages)\n", funcname,
+             (int)hval, nic->txq.desc, nic->txq.npages);
+
+    val = (uint32_t)nic->txq.desc / PAGE_SIZE;
+    outl(nic->virtio.iobase + VIO_Q_ADDR, val);
+
     /* rx queue */
     hval = VIRTIO_NET_RXQ;
     outw(nic->virtio.iobase + VIO_Q_SELECT, hval);
     inw(nic->virtio.iobase + VIO_Q_SIZE, hval);
+    assert(hval > 0, -ENOSYS, "%s: RX queue size is 0", funcname);
 
     ret = virtio_vring_alloc(&nic->rxq, hval);
-    return_msg_if(ret, ret,
-                  "%s: rxq setup failed(%d)\n", funcname, ret);
+    return_msg_if(ret, ret, "%s: rxq setup failed(%d)\n", funcname, ret);
 
     logmsgdf("%s: rx_q[%d] at *%x (%d pages)\n",
              funcname, (int)hval, nic->rxq.desc, nic->rxq.npages);
 
-    /* fill rx queue */
+    /* netbuf: fill rx queue */
     const uint16_t packetsz = 2048;
-    const size_t netbufsz = 1 + (nic->rxq.size * packetsz) / PAGE_SIZE;
-    uint8_t *netbuf = pmem_alloc(netbufsz);
+    const uint32_t netbufsz = nic->rxq.size * packetsz;
+    size_t netbuf_pages = netbufsz / PAGE_SIZE;
+    if (netbufsz % PAGE_SIZE)
+        ++netbuf_pages;
+    uint8_t *netbuf = pmem_alloc(netbuf_pages);
     return_err_if(!netbuf, -ENOMEM,
                   "%s: failed to allocate netbuf\n", funcname);
 
     nic->netbuf = netbuf;
-    nic->netbuf_npages = netbufsz;
-    logmsgdf("%s: netbuf at *%x (%d pages)\n", funcname, netbuf, netbufsz);
+    nic->netbuf_npages = netbuf_pages;
+    logmsgdf("%s: netbuf at *%x (%d pages)\n", funcname, netbuf, netbuf_pages);
 
     struct vring_avail *rxavail = nic->rxq.avail;
     rxavail->flags = 0;  // we do need an interrupt after each packet
@@ -257,29 +337,17 @@ static int net_virtio_setup(struct virtio_net_device *nic) {
         vrd->next = 0;
         /* write this descriptor index into vring_avail */
         rxavail->ring[i] = (uint16_t)i;
+        rxavail->idx += 1;
     }
 
-    val = (uint32_t)nic->rxq.desc / VIRTIO_PAD;
-    outl(nic->virtio.iobase + VIO_Q_ADDR, val);
-
-    /* tx queue */
-    hval = VIRTIO_NET_TXQ;
-    outw(nic->virtio.iobase + VIO_Q_SELECT, hval);
-    inw(nic->virtio.iobase + VIO_Q_SIZE, hval);
-    ret = virtio_vring_alloc(&nic->txq, hval);
-    return_msg_if(ret, ret,
-                  "%s: txq setup failed(%s)\n", funcname, ret);
-
-    logmsgdf("%s: tx_q[%d] at *%x (%d pages)\n", funcname,
-             (int)hval, nic->txq.desc, nic->txq.npages);
-
-    val = (uint32_t)nic->txq.desc / VIRTIO_PAD;
+    val = (uint32_t)nic->rxq.desc / PAGE_SIZE;
     outl(nic->virtio.iobase + VIO_Q_ADDR, val);
 
     /* negotiate features */
-    val = VIRTIO_NET_F_MAC;
+    val = VIRTIO_F_NOTIFY_ON_EMPTY;
+    val |= VIRTIO_NET_F_MAC;
     val |= VIRTIO_NET_F_STATUS;
-    val |= VIRTIO_NET_F_GUEST_CSUM;
+    val |= VIRTIO_NET_F_CSUM;
     outl(nic->virtio.iobase + VIO_DRV_FEATURE, val);
     logmsgdf("%s: negotiating 0x%x\n", funcname, val);
 
@@ -287,22 +355,21 @@ static int net_virtio_setup(struct virtio_net_device *nic) {
     logmsgdf("%s: negotiated  0x%x\n", funcname, val);
     nic->virtio.features = val;
 
-    /* setup IRQ */
-    irq_set_handler(nic->virtio.intr, net_virtio_irq);
-    logmsgdf("%s: irq_set_handler(%d, net_virtio_irq)\n",  funcname,
-             nic->virtio.intr);
-    irq_mask(nic->virtio.intr, true);
-
     /* enable this virtio driver */
     hval = STA_DRV_OK | STA_DRV | STA_ACK;
     outw(nic->virtio.iobase + VIO_DEV_STA, hval);
-
 
     /* get network status */
     if (nic->virtio.features & VIRTIO_NET_F_STATUS) {
         inw(nic->virtio.iobase + VIO_NET_STA, hval);
         logmsgf("%s: virtio network status = 0x%x\n", funcname, hval);
     }
+
+    /* setup IRQ */
+    irq_set_handler(nic->virtio.intr, net_virtio_irq);
+    irq_enable(nic->virtio.intr);
+    logmsgdf("%s: irq_set_handler(%d, net_virtio_irq)\n",  funcname,
+             nic->virtio.intr);
 
     return 0;
 }
@@ -314,7 +381,7 @@ int net_virtio_init(pci_config_t *pciconf) {
     macaddr_t mac;
 
     return_msg_if(pciconf->pci_rev_id > 0, -ENOSYS,
-                  "%s: pci->rev_id=%d, aborting configuration\n",
+                  "%s: pci.rev_id=%d, aborting configuration\n",
                   __FUNCTION__, pciconf->pci_rev_id);
     assert(pciconf->pci_sybsyst_id == 1, -EINVAL,
            "%s: pci->subsystem_id is not VIRTIO_NET\n", __FUNCTION__);
@@ -332,9 +399,9 @@ int net_virtio_init(pci_config_t *pciconf) {
     return_err_if(portbase == 0, -1, "%s: portbase not found\n", __FUNCTION__);
 
     inl(portbase + VIO_DEV_FEATURE, features);
-
-    return_err_if(!(features & VIRTIO_NET_F_MAC), -EINVAL, 
+    return_err_if(!(features & VIRTIO_NET_F_MAC), -EINVAL,
                   "%s: no MAC address, aborting configuration", funcname);
+
     uint16_t mac0, mac1, mac2;
     uint16_t macp = portbase + VIO_NET_MAC;
     inw(macp + 0, mac0);
@@ -357,6 +424,8 @@ int net_virtio_init(pci_config_t *pciconf) {
         inw(portbase + VIO_NET_STA, sta);
         logmsgf("sta=%x ", sta);
     }
+    if (features & VIRTIO_F_NOTIFY_ON_EMPTY) logmsgf("onempty ");
+    if (features & VIRTIO_F_RING_INDIR_DESC) logmsgf("indir ");
     if (features & VIRTIO_NET_F_CSUM) logmsgf("csumd ");
     if (features & VIRTIO_NET_F_GUEST_CSUM) logmsgf("csumg ");
     if (features & VIRTIO_NET_F_GUEST_TSOV4) logmsgf("tsov4g ");
@@ -364,7 +433,7 @@ int net_virtio_init(pci_config_t *pciconf) {
     if (features & VIRTIO_NET_F_GUEST_ECN) logmsgf("tso/ecng ");
     if (features & VIRTIO_NET_F_GUEST_UFO) logmsgf("ufog ");
     if (features & VIRTIO_NET_F_HOST_TSO4) logmsgf("tsov4d ");
-    if (features & VIRTIO_NET_F_MRG_RXBUF) logmsgf("rbufmrg ");
+    if (features & VIRTIO_NET_F_MRG_RXBUF) logmsgf("rxbufmrg ");
     if (features & VIRTIO_NET_F_CTRL_VQ) logmsgf("ctlvq ");
     if (features & VIRTIO_NET_F_CTRL_RX) logmsgf("ctlrx ");
     if (features & VIRTIO_NET_F_CTRL_VLAN) logmsgf("vlan ");

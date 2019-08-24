@@ -73,15 +73,12 @@ uint pci_config_read_dword(uint bus, uint slot, uint func, uint offset) {
 void pci_read_config(uint bus, uint slot, pci_config_t *conf) {
     assertv(sizeof(pci_config_t)/sizeof(uint32_t) == 0x10,
             "pci_config_t size is invalid");
-    int i;
-    union {
-        pci_config_t conf;
-        uint32_t val[ 0x10 ];
-    } *u = (void *)conf;
+    uint32_t *val = (uint32_t *)conf;
 
+    int i;
     for (i = 0; i < 0x10; ++i) {
-        uint32_t val = pci_config_read_dword(bus, slot, 0, i * sizeof(uint32_t));
-        u->val[i] = val;
+        uint32_t v = pci_config_read_dword(bus, slot, 0, i * sizeof(uint32_t));
+        val[i] = v;
     }
 }
 
@@ -145,8 +142,7 @@ static const pci_driver_t * lookup_pci_driver(uint32_t id) {
     return NULL;
 }
 
-void pci_setup(void) {
-    int bus = 0;
+static pci_bus_setup(int bus) {
     int slot;
     pci_config_t conf;
 
@@ -160,22 +156,35 @@ void pci_setup(void) {
         else if (loop_id == conf.pci_id)
             break;
 
-        const pci_driver_t *drv = lookup_pci_driver(conf.pci_id);
         const char *desc = "unknown device type";
-        if (drv) {
-            desc = drv->pci_name;
-        } else if (conf.pci_class < sizeof(pci_class_descriptions)/sizeof(char*)) {
-            desc = pci_class_descriptions[ conf.pci_class ];
+
+        const pci_driver_t *drv = lookup_pci_driver(conf.pci_id);
+        if (!drv) {
+            if (conf.pci_class < sizeof(pci_class_descriptions)/sizeof(char*))
+                desc = pci_class_descriptions[ conf.pci_class ];
+
+            k_printf("pci:%d:%d\t%x:%x (intr %d:%d) - %s\n", bus, slot,
+                   conf.pci.vendor, conf.pci.device,
+                   conf.pci_interrupt_pin, conf.pci_interrupt_line,
+                   desc);
+            continue;
         }
 
-        k_printf("pci:%d:%d\t%x:%x - %s\n", bus, slot,
-               conf.pci.vendor, conf.pci.device, desc);
+        k_printf("pci:%d:%d\t%x:%x (intr %d:%d) - %s\n", bus, slot,
+               conf.pci.vendor, conf.pci.device,
+               conf.pci_interrupt_pin, conf.pci_interrupt_line,
+               drv->pci_name);
 
-        if (drv) {
-            int ret = drv->pci_init(&conf);
-            if (ret)
-                k_printf("[%x:%x] init error: %s\n",
-                         conf.pci.vendor, conf.pci.device, strerror(-ret));
+        int ret = drv->pci_init(&conf);
+        if (ret) {
+            k_printf("[%x:%x] init error: %s\n",
+                     conf.pci.vendor, conf.pci.device, strerror(-ret));
         }
     }
+}
+
+void pci_setup(void) {
+    pci_bus_setup(0);
+    pci_bus_setup(1);
+    pci_bus_setup(2);
 }

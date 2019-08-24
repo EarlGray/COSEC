@@ -420,3 +420,29 @@ void test_userspace(void) {
         task3.tss.esp, task3.tss.ss);
 }
 
+void test_virtio_net(void) {
+    const size_t iplen = 46;
+    const uint8_t dst[6] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
+
+    uint32_t *buf;
+    buf = net_virtio_alloc_eth_frame(dst, 0x0008, 46); // IPv4 packet
+    if (!buf) {
+        k_printf("Failed to allocate a Eth frame\n");
+        return;
+    }
+
+    // IPv4 header
+    buf[0] = 0x45 | (46 << 24); // IPv4, size 5 words, 46 bytes;
+    buf[1] = 0;     // Identification, flags and fragement number;
+    buf[2] = 32 | (17 << 8) | (0xC0F0 << 16);    // TTL, UDP, checksum 0xF0C0
+    buf[3] = 0x0100FEA9 ; // source IP:      169.254.0.1
+    buf[4] = 0xFFFFFFFF ; // destination IP: 255.255.255.255
+
+    // UDP header
+    buf[5] = (0x0700) | (0x401F << 16); // srcport=7, dstport=8000
+    buf[6] = 26 << 8;
+
+    strcpy((char *)(buf + 7), "Hello, world!\n");
+
+    net_virtio_transmit();
+}
