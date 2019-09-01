@@ -1,6 +1,8 @@
 #ifndef __COSEC_TERMIOS_H__
 #define __COSEC_TERMIOS_H__
 
+#include <stdint.h>
+
 /*
  *  Descriptions taken from BSD's termios(4)
  */
@@ -111,6 +113,13 @@ struct winsize {
 enum tty_kbdmode {
     TTYKBD_RAW = 0,
     TTYKBD_ANSI = 1,
+
+    TTYKBD_LAST,
+};
+
+enum tty_ioctl {
+    KDGKBMODE,
+    KDSKBMODE,
 };
 
 #endif //__COSEC_TERMIOS_H__

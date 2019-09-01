@@ -80,7 +80,7 @@ static inline void small_memcpy(char *dst, const char *src, size_t len) {
     }
 }
 
-static size_t tty_inpq_size(tty_inpqueue *inpq) {
+static size_t tty_inpq_size(volatile tty_inpqueue *inpq) {
     if (inpq->start < inpq->end) {
         return (MAX_INPUT - inpq->start) + inpq->end;
     }
@@ -299,22 +299,21 @@ static inline void ecma48_csi(char c, int vcsno, int *a1, int *a2) {
         if (0 == arg1) {
             /* reset attributes */
             vcsa_set_attribute(vcsno, VCSA_DEFAULT_ATTRIBUTE);
-            break;
-        }
-        if ((30 <= arg1) && (arg1 <= 37)) {
+        } else if ((30 <= arg1) && (arg1 <= 37)) {
             /* set foreground color */
             attr &= 0xf0;
             attr |= ecma48_to_vga_color[arg1 - 30];
             vcsa_set_attribute(vcsno, attr);
             break;
-        }
-        if ((40 <= arg1) && (arg1 <= 47)) {
+        } else if ((40 <= arg1) && (arg1 <= 47)) {
             /* set background color */
             attr &= 0x0f;
-            attr |= ecma48_to_vga_color[arg1 - 40];
+            attr |= (ecma48_to_vga_color[arg1 - 40] << 4);
+            vcsa_set_attribute(vcsno, attr);
             break;
+        } else {
+            logmsgf("%s: unknown graphic mode \\x%x\n", funcname, arg1);
         }
-        logmsgf("%s: unknown graphic mode \\x%x\n", funcname, arg1);
         break;
       default:
         logmsgf("%s: unknown sequence CSI \\x%x\n", funcname, (uint)c);
@@ -430,7 +429,6 @@ int tty_write(mindev_t ttyno, const char *buf, size_t buflen) {
 }
 
 
-
 static int dev_tty_read(
         device *dev, char *buf, size_t buflen, size_t *written, off_t pos)
 {
@@ -442,35 +440,48 @@ static int dev_tty_read(
 
     struct termios *tios = &tty->tty_conf;
 
-    if (tios->c_iflag & ICANON) {
-        /* canonical mode: serve a line */
-        int eol_at;
-
-        while (true) {
-            eol_at = tty_inpq_strchr(&tty->tty_inpq, '\n');
-            if (eol_at >= 0)
-                break;
-
-            /* tty_inpq may change here */
-            cpu_halt();
+    switch (tty->tty_kbmode) {
+        case TTYKBD_RAW: {
+            size_t to_pop = 0;
+            while ((to_pop = tty_inpq_size(&tty->tty_inpq)) < 1) {
+                cpu_halt();
+            }
+            if (buflen < to_pop)
+                to_pop = buflen;
+            size_t nread = tty_inpq_pop((tty_inpqueue *)&tty->tty_inpq, buf, to_pop);
+            if (written) *written = nread;
+            return 0;
         }
+        case TTYKBD_ANSI:
+            if (tios->c_iflag & ICANON) {
+                /* canonical mode: serve a line */
+                int eol_at;
 
-        //logmsgdf(".");
-        size_t to_pop = (size_t)eol_at + 1;
+                while (true) {
+                    eol_at = tty_inpq_strchr(&tty->tty_inpq, '\n');
+                    if (eol_at >= 0)
+                        break;
 
-        if (to_pop > buflen)
-            to_pop = buflen;
+                    /* tty_inpq may change here */
+                    cpu_halt();
+                }
 
-        size_t nread = tty_inpq_pop((tty_inpqueue *)&tty->tty_inpq, buf, to_pop);
+                //logmsgdf(".");
+                size_t to_pop = (size_t)eol_at + 1;
 
-        if (written) *written = nread;
-        return 0;
+                if (to_pop > buflen)
+                    to_pop = buflen;
+
+                size_t nread = tty_inpq_pop((tty_inpqueue *)&tty->tty_inpq, buf, to_pop);
+
+                if (written) *written = nread;
+            }
+            break;
+        default:
+            logmsgef("%s: unknown tty mode %d", funcname, tty->tty_kbmode);
+            return EBADF;
     }
-
-    /* noncanonical mode */
-    logmsgef("%s: ETODO: noncanonical mode", funcname);
-
-    return ETODO;
+    return 0;
 }
 
 int tty_read(mindev_t ttyno, char *buf, size_t buflen, size_t *written) {
@@ -488,9 +499,37 @@ static bool dev_tty_has_data() {
     return false;
 }
 
-static int dev_tty_ioctl() {
-    return ETODO;
+static int dev_tty_ioctl(device *dev, enum tty_ioctl op, size_t *ret) {
+    const char *funcname = __FUNCTION__;
+    struct tty_device *tty = dev->dev_data;
+    switch (op) {
+        case KDGKBMODE:
+            assert(ret, EINVAL, "%s: ret is NULL", funcname);
+            *ret = tty->tty_kbmode;
+            break;
+        case KDSKBMODE:
+            assert(ret, EINVAL, "%s: arg is NULL", funcname);
+            assert(*ret < TTYKBD_LAST, EINVAL,
+                   "%s: arg=%d is invalid", funcname, *ret);
+            tty->tty_kbmode = *ret;
+            break;
+        default:
+            logmsgef("%s: ioctl(op=%d): unknown op", funcname, op);
+            return EINVAL;
+    }
+    return 0;
 }
+
+int tty_ioctl(mindev_t ttyno, enum tty_ioctl op, size_t *arg) {
+    const char *funcname = __FUNCTION__;
+
+    device *dev = get_tty_device(ttyno);
+    return_dbg_if(!dev, ENOENT,
+            "%s: ttyno=%d\n", funcname, ttyno);
+
+    return dev_tty_ioctl(dev, op, arg);
+}
+
 
 struct device_operations  tty_ops = {
     /* not a block device */
@@ -504,7 +543,7 @@ struct device_operations  tty_ops = {
     .dev_write_buf  = dev_tty_write,
     .dev_has_data   = dev_tty_has_data,
 
-    .dev_ioctlv     = dev_tty_ioctl,
+    .dev_ioctlv     = (int (*)(device*, int, size_t*, va_list))dev_tty_ioctl,
 };
 
 #define MAX_CHARS_FROM_SCAN     4
@@ -538,7 +577,7 @@ void tty_keyboard_handler(scancode_t sc) {
         buf[0] = (char)sc;
 
         tty_inpq_push(inpq, buf, 1);
-        logmsgdf("%s: RAW mode, tty_inpq_push(0x%x)\n", funcname, (int)buf[0]);
+        logmsgdf("%s: RAW mode, tty_inpq_push(0x%x)\n", funcname, (int)sc);
 
         break;
       case TTYKBD_ANSI:
