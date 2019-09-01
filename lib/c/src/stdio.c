@@ -702,8 +702,31 @@ int fflush(FILE *stream) {
 }
 
 int setvbuf(FILE *stream, char *buf, int type, size_t size) {
-    logmsge("TODO: setvbuf");
-    return EOF;
+    const char *funcname = __FUNCTION__;
+    if (buf) {
+        logmsgef("%s: setting a custom buffer is not supported, TODO", funcname);
+        return ETODO;
+    }
+    if (0 > size || size > BUFSIZ) {
+        logmsgef("%s: buffers more than %d are not supported, TODO", funcname, BUFSIZ);
+        return ETODO;
+    }
+    switch (type) {
+        case _IONBF:
+            stream->file_bufmode = _IONBF;
+            break;
+        case _IOLBF:
+            stream->file_bufmode = _IOLBF;
+            break;
+        case _IOFBF:
+            stream->file_bufmode = _IOFBF;
+            break;
+        default:
+            logmsgef("%s: unknown buffering type %d", funcname, type);
+            return EINVAL;
+    }
+    stream->file_bufsz = size;
+    return 0;
 }
 
 int feof(FILE *stream) {
