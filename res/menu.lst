@@ -6,8 +6,8 @@ timeout 3
 
 title COSEC
     root (cd)
-    kernel --type=multiboot /kernel 
     modulenounzip /kernel.nm
+    kernel --type=multiboot /kernel
     boot
 
 title Boot from hard drive

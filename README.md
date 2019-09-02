@@ -26,7 +26,7 @@ Nothing more yet (no paging, no decent userland, no lot of things);
 Try it!
 -------
 
-You can find a fresh image at https://dmytrish.net/d/cosec.iso
+You can find a fresh image at https://dmytrish.net/dl/cosec.iso
 
 Run:
 

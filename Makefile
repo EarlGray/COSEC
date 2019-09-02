@@ -57,30 +57,12 @@ ld_flags  += -melf_i386
 
 libc      := lib/c/libc.a
 kernel    := $(build)/kernel
-initfs    := res/initfs
 
-mnt_img     := bootfd
-image       := cosec.img
 cd_img      := cosec.iso
 
 fuse    := $(shell which ext2fuse 2>/dev/null)
 
-### Use native mount/umount for a GRUB installation, fuseext2 fails at this
-ifeq ($(strip $(fuse)),)
-    do_mount    := sudo mount -o loop
-    do_umount   := sudo umount -l
-    do_install  := sudo cp
-else
-    do_mount    := $(fuse) -o rw+,uid=`id -u`,gid=`id -g`
-    do_umount   := fusermount -u
-    do_install  := cp
-endif
-
-log_name      := fail.log
 objdfile      := $(kernel).objd
-pipe_file     := pipe
-
-vbox_name   := COSEC
 
 qemu        := qemu-system-i386
 qemu_cdboot := -cdrom $(cd_img) -boot d
@@ -105,7 +87,7 @@ qemu_flags  := -m 64 -serial stdio $(qemu_debug)
 init        := usr/init
 
 .PHONY: run install mount umount clean
-.PHONY: qemu vbox bochs runq
+.PHONY: qemu runq
 
 qemu: $(cd_img)
 	$(qemu) $(qemu_cdboot) $(qemu_flags) $(qemu_net)
@@ -116,15 +98,9 @@ runq: $(kernel) $(init)
 run: install
 	@echo "\n#### Running..." && \
 	if [ $$DISPLAY ] ; then      \
-	    make krun || make qemu || make vbox || make bochs || \
+	    make krun || make qemu || \
 	        echo "@@@@ Error: VirtualBox, qemu or Bochs must be installed"; \
 	else $(qemu) $(qemu_cdboot) $(qemu_flags) -curses; fi
-
-vbox: install
-	VBoxManage startvm $(vbox_name)
-
-bochs: $(cd_img)
-	bochs -qf res/.bochsrc-template
 
 $(init):
 	make -C $(dir $(init))
@@ -132,43 +108,6 @@ $(init):
 $(cd_img): $(kernel)
 	@echo "Creating a LiveCD..."
 	@res/mkcd
-
-install:  $(kernel) $(initfs)
-	@make mount \
-	    && $(do_install) $(kernel) $(mnt_img)   \
-	    && $(do_install) $(kernel).nm $(mnt_img)   \
-	    && echo "\n## Kernel installed";        \
-	$(do_install) $(initfs) $(mnt_img)          \
-	    && echo "## Initfs installed";          \
-	make umount
-
-$(initfs):
-	@res/mkinitfs $(initfs) && echo "## initfs created"
-
-$(mnt_img):
-	@mkdir $(mnt_img)
-
-mount: $(image) $(mnt_img)
-	@$(do_mount) $(image) $(mnt_img) \
-	&& echo "## Image mounted"
-
-umount:
-	@$(do_umount) $(mnt_img) && echo "## Image unmounted" || true; \
-	rmdir $(mnt_img)
-
-$(image):
-	@echo "\n#### Checking image"
-	@if [ ! -e $(image) ]; then \
-	    echo -en "\n## Generating image...\t\t"; \
-	    cp res/fd.img.bz2 .; \
-	    bunzip2 fd.img.bz2; \
-	    mv fd.img $(image); \
-	    make mount \
-	        && mkdir -p $(mnt_img)/boot/grub/ \
-	        && $(do_install) res/menu.lst $(mnt_img)/boot/grub \
-	        && make umount; \
-	    echo -e "## ...generated\n"; \
-	fi
 
 $(kernel): $(libc) $(build) $(liblua) $(libsecd) $(objs) $(build)/$(lds)
 	@echo "\n#### Linking..."
@@ -256,9 +195,6 @@ clean_secd:
 	rm -r $(secdsrc) include/secd || true
 	make -C lib/secd clean || true
 
-$(pipe_file):
-	mkfifo $(pipe_file)
-
 clean_kern:
 	rm -r $(secdsrc) include/secd || true
 	rm -rf $(build) || true
@@ -271,13 +207,9 @@ distclean: clean clean_lua clean_secd
 
 help:
 	@echo "USAGE:"; \
-	echo "	[run] - (default action) compile sources, link, generate image if needed, install kernel, search a virtual machine, run"; \
-	echo "	qemu | vbox | bochs - make all the things needed for run and run in the specified emulator"; \
-	echo "	install - check kernel and image and install former to latter";	\
-	echo "	kernel - compile and link kernel"; \
-	echo "	mount/umount - mount/umount image (root privileges are required unless using FUSE)";	\
-	echo "  You may wish to install fuseext2 tools to work without root privileges, but it is still recommended"; \
-	echo "  to make image with native sudo. In order to do this, use"; \
-	echo "	make fuse=";	echo
+	echo "  [run] - (default action) compile sources, link, generate image if needed, install kernel, search a virtual machine, run"; \
+	echo "  qemu - make all the things needed for run and run in the specified emulator"; \
+	echo "  $(cd_img) - make a live iso;" \
+	echo "  $(kernel) - compile and link kernel"; \
 
 include $(wildcard $(addprefix /*.d, $(build)/arch $(build)/core $(build)/dev $(build)/fs $(build)/mem))
