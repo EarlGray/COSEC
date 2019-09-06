@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define VIRTUAL_ADDRESS 0xc0100000
+#include "mem/paging.h"
 
 /** allocate a page **/
 index_t pg_alloc(void);
@@ -12,11 +12,17 @@ index_t pg_alloc(void);
 /** free the page **/
 void pg_free(index_t);
 
+
 /*
- *  Allocate consequent pageframes
- *  returns index of first page
+ *  Allocate consequent pageframes,
+ *  returns physical address.
  */
 void * pmem_alloc(size_t pages_count);
+
+static inline void * kmem_alloc(size_t pages_count) {
+    void *p = pmem_alloc(pages_count);
+    return __va(p);
+}
 
 err_t pmem_reserve(void *startptr, void *endptr);
 

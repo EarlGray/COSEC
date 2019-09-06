@@ -946,7 +946,7 @@ static int ramfs_get_direntry(mountnode *sb, inode_t dirnode, void **iter, struc
  *  ramfs block management
  */
 inline static char * ramfs_new_block() {
-    return pmem_alloc(1);
+    return kmem_alloc(1);
 }
 
 static char * ramfs_block_by_index(struct inode *idata, off_t index) {

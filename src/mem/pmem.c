@@ -175,6 +175,7 @@ static void mark_used(void *p1, void *p2) {
 
 void pmem_setup(void) {
     index_t i;
+	pageframe_t *pf;
     struct memory_map *mapping = (struct memory_map *)mboot_mmap_addr();
     size_t mmap_len = mboot_mmap_length();
     ptr_t pfmap = (ptr_t)&_end;
@@ -234,9 +235,11 @@ void pmem_setup(void) {
 
     // mark the first page as reserved
     mem_logf("marking reserved page %d\n", 0);
-    pageframe_t *pf = the_pageframe_map + 0;
-    pf_list_remove(&free_pageframes, pf);
-    pf_list_insert(&reserved_pageframes, pf);
+	for (i = 0; i < 5; ++i) {
+		pf = the_pageframe_map + i;
+		pf_list_remove(&free_pageframes, pf);
+		pf_list_insert(&reserved_pageframes, pf);
+	}
 
     // mark the last free pageframe as cache
     pageframe_t * cpf = free_pageframes.head->prev;
@@ -245,17 +248,17 @@ void pmem_setup(void) {
     mem_logf("marking cache %x\n", pageframe_index(cpf));
 
     // mark kernel code&data space as used
-    pf = the_pageframe_map + (page_aligned_back((ptr_t)&_start));
+    pf = the_pageframe_map + (page_aligned_back((ptr_t)__pa(&_start)));
     pf_list_init(&used_pageframes, pf, PF_USED);
-    mark_used(pageframe_addr(++pf), &_end);
+    mark_used(__pa(pageframe_addr(++pf)), __pa(&_end));
 
     // mark the multiboot modules memory as used
     for (i = 0; i < n_mods; ++i) {
-        mark_used(__va(mods[i].mod_start), __va(mods[i].mod_end));
+        mark_used(mods[i].mod_start, mods[i].mod_end);
     }
 
     // mark the pageframe table memory as used
-    mark_used(the_pageframe_map, the_pageframe_map + pfmap_len);
+    mark_used(__pa(the_pageframe_map), __pa(the_pageframe_map + pfmap_len));
 
     mem_logf("free: %x, reserved: %x, cache: %x\n",
             free_pageframes.count, reserved_pageframes.count, cache_pageframes.count);
