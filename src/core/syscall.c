@@ -27,12 +27,11 @@ const syscall_handler syscalls[] = {
     [SYS_PRINT]     = sys_print,
 };
 
-void int_syscall() {
-    uint * stack = (uint *)intr_context_esp() + CONTEXT_SIZE/sizeof(uint);
-    uint intr_num = *(stack - 1);   /* eax : syscall number */
-    uint arg1 = *(stack - 2);       /* ecx : arg1 */
-    uint arg2 = *(stack - 3);       /* edx : arg2 */
-    uint arg3 = *(stack - 4);       /* ebx : arg3 */
+uint32_t int_syscall(uint32_t *stack) {
+    uint32_t intr_num = stack[-1];   /* eax : syscall number */
+    uint32_t arg1 = stack[-2];       /* ecx : arg1 */
+    uint32_t arg2 = stack[-3];       /* edx : arg2 */
+    uint32_t arg3 = stack[-4];       /* ebx : arg3 */
 
     logmsgdf("\n#syscall(%d, 0x%x, 0x%x, 0x%x)\n",
             intr_num, arg1, arg2, arg3);
@@ -44,7 +43,9 @@ void int_syscall() {
     assertv(callee, "#SYS: invalid handler for syscall[0x%x]\n", intr_num);
 
     logmsgdf("callee *%x will be called...\n", (uint)callee);
-    callee(arg1, arg2, arg3);
+    uint32_t result = callee(arg1, arg2, arg3);
+    logmsgdf("callee result = %d\n", result);
+    return result;
 }
 
 int sys_print(const char **fmt) {

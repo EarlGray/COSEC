@@ -45,7 +45,7 @@ typedef  uint32_t  pte_t;
 
 extern pde_t thePageDirectory[N_PDE];
 
-void pg_fault(void);
+void pg_fault(uint32_t *context, err_t err);
 
 void paging_setup(void);
 

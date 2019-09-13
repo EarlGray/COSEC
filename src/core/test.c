@@ -97,7 +97,7 @@ void test_acpi(void) {
 volatile union {
     uint32_t u32[2];
     uint64_t u64;
-} intr_ticks = { .u32 = { 0 } };
+} intr_ticks = { .u64 = 0 };
 
 volatile uint intr_count = 0;
 
@@ -360,17 +360,37 @@ void test_tasks(void) {
 }
 
 /***********************************************************/
-void run_userspace(void) {
-    char buf[100];
-    snprintf(buf, 100, "Current privilege level = %d\n", i386_current_privlevel());
-    size_t nbuf = strlen(buf);
+uint32_t test_syscall(uint32_t num, uint32_t arg1, uint32_t arg2, uint32_t arg3);
 
-    asm("int $0x80 \n" ::
-            "a"(SYS_WRITE),
-            "c"(STDOUT_FILENO),
-            "d"((uint)buf),
-            "b"(nbuf));
-    while (1);
+static uint32_t test_sys_write(int fd, const char *buf, size_t len) {
+    return test_syscall(SYS_WRITE, (uint32_t)fd, (uint32_t)buf, (uint32_t)len);
+}
+
+static uint32_t test_sys_read(int fd, char *buf, size_t buflen) {
+    return test_syscall(SYS_READ, (uint32_t)fd, (uint32_t)buf, (uint32_t)buflen);
+}
+
+void run_userspace(void) {
+    size_t nbuf;
+    char buf[100];
+
+    if (i386_current_privlevel() != 3) {
+        logmsgef("failed to enter userspace");
+        return;
+    }
+
+    nbuf = snprintf(buf, 100, "\x1b" "c\n\t\t\tWelcome to userspace!\n\n", i386_current_privlevel());
+    test_sys_write(STDOUT_FILENO, buf, nbuf);
+
+    for (;;) {
+        snprintf(buf, 100, "echo> ");
+        nbuf = strlen(buf);
+        test_sys_write(STDOUT_FILENO, buf, strlen(buf));
+
+        nbuf = test_sys_read(STDIN_FILENO, buf, 100);
+        buf[nbuf] = '\0';
+        test_sys_write(STDOUT_FILENO, buf, strlen(buf));
+    }
 }
 
 extern void start_userspace(uint eip3, uint cs3, uint eflags, uint esp3, uint ss3);
@@ -398,8 +418,6 @@ void test_userspace(void) {
     segment_selector tss_sel;
     tss_sel.as.word = make_selector(taskdescr_index, 0, taskdescr.as.strct.dpl);
 
-    kbd_set_onpress((kbd_event_f)key_press);
-
     uint efl = 0x00203202;
     test_eflags();
     logmsgf("efl = 0x%x\n", efl);
@@ -415,8 +433,8 @@ void test_userspace(void) {
     /* go userspace */
     start_userspace(
         (uint)run_userspace, task3.tss.cs,
-        //(uint)run_userspace, (uint)tss_sel.as.word,
         efl,
-        task3.tss.esp, task3.tss.ss);
+        task3.tss.esp, task3.tss.ss
+    );
 }
 

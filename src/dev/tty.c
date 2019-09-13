@@ -443,6 +443,7 @@ static int dev_tty_read(
     switch (tty->tty_kbmode) {
         case TTYKBD_RAW: {
             size_t to_pop = 0;
+            intrs_enable();  // a dirty hack
             while ((to_pop = tty_inpq_size(&tty->tty_inpq)) < 1) {
                 cpu_halt();
             }
@@ -457,6 +458,7 @@ static int dev_tty_read(
                 /* canonical mode: serve a line */
                 int eol_at;
 
+                intrs_enable();  // a dirty hack
                 while (true) {
                     eol_at = tty_inpq_strchr(&tty->tty_inpq, '\n');
                     if (eol_at >= 0)

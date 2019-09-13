@@ -1,6 +1,6 @@
 #ifndef __CSC_SYSCALLS
 #define __CSC_SYSCALLS
 
-void int_syscall();
+#include <stdint.h>
 
 #endif //__CSC_SYSCALLS

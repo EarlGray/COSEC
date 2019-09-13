@@ -34,7 +34,7 @@ objs    := $(patsubst $(src_dir)/%.c, $(build)/%.o, $(objs))
 
 lds     := vmcosec.lds
 
-cc_includes := $(addprefix -I, $(include_dir) $(STDINC_DIR))
+cc_includes := -isystem $(STDINC_DIR) $(addprefix -I, $(include_dir))
 
 cc_flags    := -ffreestanding -nostdinc -fno-stack-protector -Wall -Wextra -Wno-inline -Wno-implicit-fallthrough -Wno-unused -O2 -MD -DCOSEC=1
 as_flags    := -nostdinc -Wall -MD $(cc_includes)
@@ -82,7 +82,7 @@ qemu_net    += -device virtio-net-pci,netdev=usr0
 #qemu_debug  += -object filter-dump,id=usr0,netdev=usr0,file=tmp/qemu.pcap
 endif
 
-qemu_flags  := -m 64 -serial stdio $(qemu_debug)
+qemu_flags  := -m 64 -serial stdio $(qemu_debug) $(QEMU_OPT)
 
 init        := usr/init
 

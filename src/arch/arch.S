@@ -160,3 +160,13 @@ start_userspace:
     addl $4, %esp /* discard %eip */
     iret
 
+.global test_syscall
+test_syscall:
+    pushl %ebx
+    movl 20(%esp), %ebx
+    movl 16(%esp), %edx
+    movl 12(%esp), %ecx
+    movl 8(%esp), %eax
+    int $0x80
+    popl %ebx
+    ret

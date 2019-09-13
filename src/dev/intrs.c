@@ -11,6 +11,7 @@
 
 #include <arch/i386.h>
 
+#include <syscall.h>
 #include <dev/intrs.h>
 
 #include <mem/paging.h>
@@ -25,7 +26,7 @@
 
 #define ICW1_ICW4       0x01
 #define ICW1_SINGLE     0x02        // 0x00 - cascade
-#define ICW1_INTERVAL   0x04        // 0x00 - 
+#define ICW1_INTERVAL   0x04        // 0x00 -
 #define ICW1_LEVEL      0x08        // triggered (edged) mode
 #define ICW1_INIT       0x10        // reqired
 
@@ -42,7 +43,7 @@
 
 #define PIC_EOI         0x20            // PIC end-of-interrput command code
 
-/* 
+/*
  *      Declarations
  */
 // IRQ handlers
@@ -50,24 +51,11 @@ intr_handler_f irq[16];
 
 volatile uint32_t irq_happened[16] = { 0 };
 
-// interrupt handlers
-void int_dummy();
-void int_syscall();
-void int_odd_exception();
-void irq_stub();
-void irq_slave();
-
-void int_division_by_zero(void );
-void int_nonmaskable(void );
-void int_invalid_op(void *);
-void int_gpf(void );
-void int_page_fault(void );
-
-/* 
+/*
  *    Implementations
  */
 
-static void 
+static void
 irq_remap(uint8_t master, uint8_t slave) {
     uint8_t master_mask, slave_mask;
 
@@ -122,7 +110,7 @@ inline void irq_eoi(uint32_t irq_num) {
     outb_p(port, PIC_EOI);
 }
 
-void irq_handler(uint32_t irq_num) {
+void irq_handler(void *stack, uint32_t irq_num) {
     /*
     if (irq_num > 0)
         logmsgf("%s(%d)\n", __FUNCTION__, irq_num);
@@ -151,74 +139,71 @@ void irq_slave() {
 /**************** exceptions *****************/
 
 void int_dummy() {
-    logmsg("#DUMMY -- dummy interrupt\n");
+    logmsg("exception: #DUMMY\n");
 }
 
-extern void int_syscall();
-
 void int_odd_exception() {
-    logmsg("#ODD -- unspecified exception");
+    logmsg("exception: #ODD\n");
 }
 
 void int_double_fault() {
-    logmsg("#DF -- Double fault...\n");
     panic("DOUBLE FAULT");
 }
 
-void int_division_by_zero(void ) {
-    logmsgef("#DE\nINTR: division by zero, TODO\n");
+void int_division_by_zero() {
+    logmsgef("INTR: division by zero, TODO\n");
     cpu_hang();
 }
 
-void int_nonmaskable(void ) {
-    logmsg("#NM");
+void int_nonmaskable() {
+    logmsg("exception: #NONMASKABLE\n");
 }
 
 void int_invalid_op(void *stack) {
     char buf[80];
-    snprintf(buf, 80, "#UD at %.8x:%0.8x",    
-                (uint) *((uint32_t *)stack + 11), 
+    snprintf(buf, 80, "exception: #UD at %.8x:%0.8x",
+                (uint) *((uint32_t *)stack + 11),
                 (uint) *((uint32_t *)stack + 10) );
     panic(buf);
 }
 
 
-void int_page_fault(void ) {
-    pg_fault();
+void int_page_fault(uint32_t *stack, err_t err) {
+    pg_fault(stack, err);
 }
 
 void int_segment_not_present(void) {
     logmsg("#NP");
 }
 
-void int_overflow(void ) {
-    logmsg("#OF");
+void int_overflow() {
+    logmsg("interrupt: overflow\n");
 }
 
 void int_breakpoint(void) {
-    logmsg("#BP");
+    logmsg("interrupt: breakpoint\n");
 }
 
 
 void int_out_of_bounds(void ) {
-    logmsg("#BR");
+    logmsg("interrupt: out of bounds\n");
 }
 
 void int_stack_segment(void ) {
-    logmsg("#SS");
+    logmsg("interrupt: stack segment\n");
 }
 
 void int_invalid_tss(void ) {
-    logmsg("#TS");
-    logmsg("Invalid TSS exception\n");
+    logmsg("interrupt: invalid tss\n");
     cpu_hang();
 }
 
-void int_gpf(void) {
-    logmsgf("#GP\nGeneral protection fault, error code %x\n", intr_err_code());
+void int_gpf(uint32_t *stack, err_t err) {
+    uint32_t eip = stack[1];
+    uint32_t cs = stack[2];
 
-    uint *intr_info = (uint *)(intr_context_esp() + CONTEXT_SIZE + sizeof(err_t));
-    logmsgef("\n#GPF at %x:%x\n", intr_info[1], intr_info[0]);
+    logmsgef("\nFatal: General Protection Fault at *%x:%x, error_code 0x%x\n",
+            cs, eip, err);
     cpu_hang();
 }
 

@@ -8,20 +8,27 @@
  */
 
 /*
- *    <---- stack grows to less addresses --
  *  Stack state during an interrupt:
- *     args    fs  gs  es  ds edi esi ebp esp ebx edx ecx eax
- *  -|-------|---|---|---|---|---|---|---|---|---|---|---|---| sys-info
- *           ^
- *      context_esp
  *
- *  sys-info:
- *  1) interrupted from kernel mode:
- *      [|---]|---|---|---|---
- *       [err] eip  cs efl
- *  2) interrupted from user mode:
- *      [|---]|---|---|---|---|---|----
-         [err] eip  cs efl esp  ss
+ *  | ss3    |   (if interrupted from ring3)
+ *  | esp3   |   (if interrupted from ring3)
+ *  | eflags |
+ *  | cs     |
+ *  | eip    |
+ *  [ error  ]   (if error code is set)
+ *  | eax    | <--- syscallentry's stack starts
+ *  | ecx    |
+ *  | edx    |
+ *  | ebx    |
+ *  | esp*   |   (adjusted to point to the syscallentry stack start ^^)
+ *  | ebp    |
+ *  | esi    |
+ *  | edi    |
+ *  | ds     |   (push %ds)
+ *  | es     |   (push %es)
+ *  | fs     |   (push %fs)
+ *  | gs     |   (push %gs)
+ *
  */
 
 .data
@@ -32,6 +39,9 @@ dtreg:
 
 /* points to a stack position before context data */
 context_esp:
+.long 0
+
+switch_to_esp:
 .long 0
 
 /* last exception error code */
@@ -102,7 +112,7 @@ intr_context_esp:
 .global intr_set_context_esp
 intr_set_context_esp:
     movl 4(%esp), %eax
-    movl %eax, context_esp
+    movl %eax, switch_to_esp
     ret
 
 .global intr_err_code
@@ -132,9 +142,10 @@ intr_start_rdtsc:
 
 .macro INTR_PROFILING_END
     rdtsc
-    movl %edx, 4(%esp)
-    movl %eax, (%esp)
+    pushl %edx
+    pushl %eax
     call intr_profile
+    addl $8, %esp
 .endm
 #else
 #   define INTR_PROFILING_START
@@ -145,8 +156,7 @@ intr_start_rdtsc:
 /********** ENTRY macros *************/
 
 .macro INTR_PROLOG
-    /* eflags already saved by CPU as (uint)(context_esp[2]) */
-    cli
+    #cli
     pusha
     pushl %ds
     pushl %es
@@ -155,16 +165,19 @@ intr_start_rdtsc:
 
     SHAKE_REGS
 
-    /* save an interrupt's stack context pointer:
-        here is the point of return to a task */
+    /* save an interrupt's stack context pointer */
     movl %esp, context_esp
+    movl $0, switch_to_esp
 
-    /* for arguments */
-    subl $8, %esp
+    movl %esp, %esi
+    addl $0x30, %esi    // the size of saved registers
 .endm
 
 .macro INTR_END
-    movl context_esp, %esp
+    movl switch_to_esp, %eax
+    test %eax, %eax
+    cmovnz %eax, %esp
+
     popl %fs
     popl %gs
     popl %es
@@ -172,16 +185,25 @@ intr_start_rdtsc:
     popa
 .endm
 
-.macro ENTRY_NOERR name, handler
+.macro ENTRY_NOERR name, handler, return_eax=0
 .extern \handler
 .global \name
 \name :
     INTR_PROLOG
 
-    movl %esp, (%esp)
+    pushl %esi          // argument 1: the context
     call \handler
+.ifne \return_eax
+    movl %eax, 0x30(%esp) // write %eax as the return status
+.endif
     jmp noerr_return
 .endm
+
+noerr_return:
+    addl $4, %esp       // pop the handler argument
+    INTR_END
+    iret
+
 
 .macro ENTRY_ERR name, handler
 .extern \handler
@@ -189,13 +211,23 @@ intr_start_rdtsc:
 \name :
     INTR_PROLOG
 
-    movl 0x38(%esp), %ebx
-    movl %ebx, intr_error
+    movl (%esi), %edi
+    movl %edi, intr_error
 
-    movl %esp, (%esp)
+    pushl %edi          // argument 2: the error code
+    pushl %esi          // argument 1: the context
     call \handler
     jmp err_return
 .endm
+
+err_return:
+    addl $8, %esp       // pop the handler arguments
+    INTR_END
+    addl $4, %esp       // pop the error code
+    iret
+
+
+.extern irq_handler
 
 .macro ENTRY_IRQ name, num
 .global \name
@@ -204,39 +236,23 @@ intr_start_rdtsc:
     INTR_PROFILING_START
 
     /* call the handler */
-    movl \num, (%esp)
+    pushl \num          // argument 2: IRQ number
     jmp irq_return
 .endm
 
-noerr_return:
-    INTR_END
-    iret
-
-err_return:
-    INTR_END
-    addl $4, %esp
-    iret
-
 irq_return:
+    pushl %edi          // argument 1: context
     call irq_handler
+    addl $8, %esp       // pop the handler arguments
 
     INTR_PROFILING_END
     INTR_END
     iret
 
-/************ Handlers ***************/
-.extern int_handlers_table
-
-.extern int_syscall
-.extern int_dummy
-.extern int_odd_exception
-.extern irq_stub
-
 /******** multiple entries ***********/
-
-ENTRY_NOERR dummyentry,     int_dummy           /* unrecognized interrupt */
-ENTRY_NOERR syscallentry,   int_syscall         /* sys int            */
-ENTRY_NOERR isr14to1F,      int_odd_exception   /* unused exceptions  */
+ENTRY_NOERR dummyentry,     int_dummy
+ENTRY_NOERR syscallentry,   int_syscall, 1     // return %eax
+ENTRY_NOERR isr14to1F,      int_odd_exception
 
 /************* exceptions ************/
 ENTRY_NOERR isr00, int_division_by_zero
@@ -261,7 +277,6 @@ ENTRY_NOERR isr12, int_odd_exception
 ENTRY_NOERR isr13, int_odd_exception
 
 /************ IRQS  **************/
-.extern irq_handler
 ENTRY_IRQ   irq00, $0x0
 ENTRY_IRQ   irq01, $0x1
 ENTRY_IRQ   irq02, $0x2
