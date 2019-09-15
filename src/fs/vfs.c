@@ -642,7 +642,6 @@ static void build_boot_dir() {
     count_t n_mods = 0;
     module_t *mods;
     mboot_modules_info(&n_mods, &mods);
-    k_printf(" Modules loaded = %d\n", n_mods);
 
     const char *modname;
     size_t i;
@@ -659,7 +658,7 @@ static void build_boot_dir() {
 
         const char *modstart = (const char *)mods[i].mod_start;
         size_t size = mods[i].mod_end - mods[i].mod_start;
-        k_printf("creating %s at *%x, len=0x%x\n", name, mods[i].mod_start, size);
+        k_printf(" module *%x (len=0x%x) :\t%s\n", mods[i].mod_start, size, name);
 
         build_file_from_string(name, modstart, size);
     }

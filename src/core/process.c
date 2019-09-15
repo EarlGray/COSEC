@@ -17,11 +17,8 @@
 /*
  *  Global state
  */
-pid_t theCurrPID;
-pid_t theAllocPID = 1;
-
-process theInitProc;
-process * theProcTable[NPROC_MAX] = { 0 };
+pid_t theCurrentPID;
+process_t * theProcessTable[NPROC_MAX] = { 0 };
 
 
 /*
@@ -31,32 +28,25 @@ process * theProcTable[NPROC_MAX] = { 0 };
 static pid_t
 alloc_pid(void) {
     pid_t i;
-    for (i = theAllocPID; i < NPROC_MAX; ++i)
-        if (NULL == theProcTable[i]) {
-            theAllocPID = i;
+    for (i = 1; i < NPROC_MAX; ++i) {
+        if (NULL == theProcessTable[i]) {
             return i;
         }
-
-    for (i = 1; i < theAllocPID; ++i)
-        if (NULL == theProcTable[i]) {
-            theAllocPID = i;
-            return i;
-        }
-
+    }
     return 0;
 }
 
-process * proc_by_pid(pid_t pid) {
+process_t * proc_by_pid(pid_t pid) {
     if (pid > NPROC_MAX) return 0;
-    return theProcTable[pid];
+    return theProcessTable[pid];
 }
 
 pid_t current_pid(void) {
-    return theCurrPID;
+    return theCurrentPID;
 }
 
-process * current_proc(void) {
-    return theProcTable[theCurrPID];
+process_t * current_proc(void) {
+    return theProcessTable[theCurrentPID];
 }
 
 int alloc_fd_for_pid(pid_t pid) {
@@ -85,7 +75,7 @@ filedescr * get_filedescr_for_pid(pid_t pid, int fd) {
 
 
 int sys_getpid() {
-    return theCurrPID;
+    return theCurrentPID;
 }
 
 /*
@@ -145,6 +135,9 @@ static bool elf_is_runnable(Elf32_Ehdr *elfhdr) {
 
 void run_init(void) {
     const char *funcname = __FUNCTION__;
+#if 1
+    logmsgef("%s: TODO\n", funcname);
+#else
     const module_t *initmod = NULL;
     size_t i;
 
@@ -197,36 +190,33 @@ void run_init(void) {
     logmsgif("%s: ready to rock!", funcname);
 
     /* TODO: start tasks */
+#endif
 }
 
 /*
- *      Global processes setup
+ *      Kernel thread: cosecd
  */
+process_t theCosecThread;
+
 extern char kern_stack;
 
-void proc_setup(void) {
+void cosecd_setup(int pid) {
     const char *funcname = __FUNCTION__;
-    /* invalid */
-    theProcTable[0] = NULL;
 
-    /* there is the init process at start up */
-    theCurrPID = 1;
-    theProcTable[theCurrPID] = &theInitProc;
+    theCosecThread.ps_pid = pid;
+    theCosecThread.ps_kernstack = &kern_stack;
+    theCosecThread.ps_tty = CONSOLE_TTY;
+    theCosecThread.ps_pagedir = thePageDirectory;
 
-    theInitProc.ps_pid = theCurrPID;
-    theInitProc.ps_ppid = 0;
-    theInitProc.ps_tty = CONSOLE_TTY;
-    theInitProc.ps_kernstack = &kern_stack;
-
-    /* temporary hack */
-    /* init process should initialize its descriptors from userspace */
+    /* initialize input/output from /dev/tty0 */
     int ret = 0;
     mountnode *sb = NULL;
     inode_t ino = 0;
 
-    filedescr *infd = theInitProc.ps_fds + STDIN_FILENO;
-    filedescr *outfd = theInitProc.ps_fds + STDOUT_FILENO;
-    filedescr *errfd = theInitProc.ps_fds + STDERR_FILENO;
+    filedescr_t * fds = theCosecThread.ps_fds;
+    filedescr *infd =   fds + STDIN_FILENO;
+    filedescr *outfd =  fds + STDOUT_FILENO;
+    filedescr *errfd =  fds + STDERR_FILENO;
     logmsgdf("infd = *%x\n", (uint)infd);
 
     ret = vfs_lookup("/dev/tty0", &sb, &ino);
@@ -236,5 +226,22 @@ void proc_setup(void) {
     infd->fd_sb  = outfd->fd_sb  = errfd->fd_sb  = sb;
     infd->fd_ino = outfd->fd_ino = errfd->fd_ino = ino;
     infd->fd_pos = outfd->fd_pos = errfd->fd_pos = -1;
+
+    /* make it official */
+    theProcessTable[pid] = &theCosecThread;
+}
+
+
+/*
+ *      Global processes setup
+ */
+
+void proc_setup(void) {
+    /* PID 0 is invalid */
+    theProcessTable[0] = NULL;
+
+    /* the kernel thread `cosecd` with pid=2, keep pid=1 for init */
+    cosecd_setup(2);
+    theCurrentPID = 2;
 }
 

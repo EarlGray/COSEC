@@ -1,6 +1,7 @@
 #ifndef __COSEC_PROCESS_H__
 #define __COSEC_PROCESS_H__
 
+#include <mem/paging.h>
 #include <fs/vfs.h>
 #include <tasks.h>
 
@@ -14,26 +15,28 @@ typedef uint32_t        pid_t;
 typedef struct process  process;
 typedef struct filedesc filedescr;
 
-struct filedesc {
+typedef struct filedesc {
     mountnode  *fd_sb;
     inode_t     fd_ino;
 
     uint        fd_flags;
     off_t       fd_pos;
-};
+} filedescr_t;
 
-struct process {
+typedef struct process {
     pid_t   ps_pid;
     pid_t   ps_ppid;
 
     void *      ps_kernstack;
     task_struct ps_task;        /* context-switching info */
+    pde_t *     ps_pagedir;     /* page directory: kernel address */
+
     mindev_t    ps_tty;         /* controlling tty */
     mode_t      ps_umask;       /* umask */
     char *      ps_cwd;         /* current directory */
 
     filedescr   ps_fds[N_PROCESS_FDS];
-};
+} process_t;
 
 pid_t current_pid(void);
 process * current_proc(void);

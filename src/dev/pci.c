@@ -89,7 +89,7 @@ void pci_info(uint bus, int slot) {
     if (0xFFFF == (uint16_t)id)
         return;
 
-    printf("[%d:%d] %x:%x", bus, slot,
+    printf("[%d:%d] %04x:%04x", bus, slot,
                 (uint)(id & 0xFFFF), (uint)(id >> 16));
     uint dev_clss = pci_config_read_dword(bus, slot, 0, PCI_CONF_CLASS_OFF);
     uint8_t clss = dev_clss >> 24;
@@ -102,7 +102,7 @@ void pci_info(uint bus, int slot) {
     int off = 0;
     for (; off < 0x40; off += 4) {
         char buf[80];
-        sprintf(buf, "0x%0.2x: %0.8x\n", off,
+        sprintf(buf, "0x%02x: %08x\n", off,
                 pci_config_read_dword(bus, slot, 0, off));
         printf("%s", buf);
     }
@@ -122,13 +122,13 @@ void pci_list(uint bus) {
         if (start_dev_id == 0) start_dev_id = id;
         else if (start_dev_id == id) break;
 
-        printf("[pci:%d] %x:%x", slot,
+        printf("[pci:%d] %04x:%04x", slot,
                 (uint)(id & 0xFFFF), (uint)(id >> 16));
 
         uint dev_class = pci_config_read_dword(bus, slot, 0, PCI_CONF_CLASS_OFF);
         uint8_t clss = dev_class >> 24;
         printf(", class %x:%x (%s)\n",
-                (uint)clss, (uint)((dev_class & 0x00FF0000) >> 16),
+                (uint32_t)clss, (uint32_t)((dev_class >> 16) & 0x00FF),
                 (clss < sizeof(pci_class_descriptions)/sizeof(char*) ? pci_class_descriptions[clss] : "?" ));
     }
 }

@@ -197,7 +197,7 @@ struct eflags {
     uint8_t id:1;
 };
 
-uint x86_eflags(void);
+uint32_t x86_eflags(void);
 
 /* GDT indeces */
 #define GDT_DUMMY       0

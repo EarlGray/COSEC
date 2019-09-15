@@ -35,13 +35,45 @@
 #ifndef NOT_CC
 
 #include <stdlib.h>
+#include <stdbool.h>
 #include <stdint.h>
 
 #define __pa(vaddr) (void *)(((char *)vaddr) - KERN_OFF)
 #define __va(paddr) (void *)(((char *)paddr) + KERN_OFF)
 
-typedef  uint32_t  pde_t;
-typedef  uint32_t  pte_t;
+typedef union {
+    uint32_t word;
+    struct {
+        bool present:1;
+        bool writable:1;
+        bool user:1;
+        bool writethrough:1;
+        bool dontcache:1;
+        bool accessed:1;
+        bool reserved:1;
+        bool hugepage:1;
+        bool ignored:1;
+        uint8_t avail:3;
+        uint32_t index:20;
+    } bit;
+} pde_t;
+
+typedef union {
+    uint32_t word;
+    struct {
+        bool present:1;
+        bool writable:1;
+        bool user:1;
+        bool writethrough:1;
+        bool dontcache:1;
+        bool accessed:1;
+        bool dirty:1;
+        bool reserved:1;
+        bool global:1;
+        uint8_t avail:3;
+        uint32_t index:20;
+    } bit;
+} pte_t;
 
 extern pde_t thePageDirectory[N_PDE];
 

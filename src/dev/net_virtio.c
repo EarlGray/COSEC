@@ -465,7 +465,7 @@ int net_virtio_init(pci_config_t *pciconf) {
     mac.word[0] = mac0;
     mac.word[1] = mac1;
     mac.word[2] = mac2;
-    logmsgif("%s: mac=%x:%x:%x:%x:%x:%x", __func__,
+    logmsgif("%s: mac=%02x:%02x:%02x:%02x:%02x:%02x", __func__,
              mac.oct[0], mac.oct[1],
              mac.oct[2], mac.oct[3],
              mac.oct[4], mac.oct[5]);
