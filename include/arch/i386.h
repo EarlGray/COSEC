@@ -254,9 +254,9 @@ extern void i386_switch_pagedir(void *new_pagedir);
 
 #define CONTEXT_SIZE        0x30
 
-extern uint  intr_err_code(void);
-extern ptr_t intr_context_esp(void);
-extern void  intr_set_context_esp(ptr_t esp);
+extern uint32_t  intr_err_code(void);
+extern uintptr_t intr_context_esp(void);
+extern void  intr_set_context_esp(uintptr_t esp);
 
 /***
   *     Task-related definitions
@@ -293,7 +293,7 @@ typedef  struct task_state_seg  tss_t;
   *     Common-architecture interface
  ***/
 
-ptr_t cpu_stack(void);
+uintptr_t cpu_stack(void);
 
 #define intrs_enable()         i386_intrs_enable()
 #define intrs_disable()        i386_intrs_disable()

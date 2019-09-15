@@ -109,7 +109,7 @@ void print_mem(const char *p, size_t count) {
             printnum = 0;
 
             /* start next line */
-            s = snprintf(buf, 100, "%0.8x:", (uint32_t)(p + i));
+            s = snprintf(buf, 100, "%08x:", (uint32_t)(p + i));
         }
 
         if (0 == (uint)(p + i) % 0x4) {
@@ -117,7 +117,7 @@ void print_mem(const char *p, size_t count) {
         }
 
         int t = (uint8_t) p[i];
-        s += snprintf(buf + s, 100 - s, "%0.2x ", t);
+        s += snprintf(buf + s, 100 - s, "%02x ", t);
 
         if ((0x20 <= t) && (t < 0x80)) printable[printnum] = t;
         else if (0x80 <= t) printable[printnum] = '`';
@@ -453,7 +453,7 @@ void kshell_heap(const struct kshell_command *this, const char *arg) {
         k_printf("kmalloc(%x) = *%x\n", (uint)size, (uint)p);
     } else
     if (!strncmp(arg, "free", 4)) {
-        ptr_t p = 0;
+        uintptr_t p = 0;
         arg += 4;
         const char *end = get_int_opt(arg, (int *)&p, 16);
         if (end == arg) return ;

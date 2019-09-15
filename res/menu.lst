@@ -8,6 +8,7 @@ title COSEC
     root (cd)
     kernel --type=multiboot /kernel
     modulenounzip /kernel.nm
+    modulenounzip /init
     boot
 
 title Boot from hard drive

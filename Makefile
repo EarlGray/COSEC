@@ -105,7 +105,7 @@ run: install
 $(init):
 	make -C $(dir $(init))
 
-$(cd_img): $(kernel)
+$(cd_img): $(kernel) $(init)
 	@echo "Creating a LiveCD..."
 	@res/mkcd
 

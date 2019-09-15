@@ -224,14 +224,14 @@ void proc_setup(void) {
     mountnode *sb = NULL;
     inode_t ino = 0;
 
-    ret = vfs_lookup("/dev/tty0", &sb, &ino);
-    returnv_err_if(ret, "%s: vfs_lookup('/dev/tty0'): %s", funcname, strerror(ret));
-    logmsgdf("/dev/tty0 ino=%d\n", ino);
-
     filedescr *infd = theInitProc.ps_fds + STDIN_FILENO;
     filedescr *outfd = theInitProc.ps_fds + STDOUT_FILENO;
     filedescr *errfd = theInitProc.ps_fds + STDERR_FILENO;
     logmsgdf("infd = *%x\n", (uint)infd);
+
+    ret = vfs_lookup("/dev/tty0", &sb, &ino);
+    returnv_err_if(ret, "%s: vfs_lookup('/dev/tty0'): %s", funcname, strerror(ret));
+    logmsgdf("/dev/tty0 ino=%d\n", ino);
 
     infd->fd_sb  = outfd->fd_sb  = errfd->fd_sb  = sb;
     infd->fd_ino = outfd->fd_ino = errfd->fd_ino = ino;

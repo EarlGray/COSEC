@@ -219,7 +219,7 @@ int i8254x_rx_init(i8254x_nic *nic) {
     const char *funcname = __FUNCTION__;
     size_t i;
 
-    void *rxda = pmem_alloc(NUM_DESCR_PAGES); /* must be 16 bytes aligned */
+    void *rxda = kmem_alloc(NUM_DESCR_PAGES); /* must be 16 bytes aligned */
     assert(rxda, ENOMEM, "%s: pmem_alloc(rxdescrs) failed\n", funcname);
     nic->rxda = (volatile i825xx_rx_desc_t *)rxda;
 
@@ -230,7 +230,7 @@ int i8254x_rx_init(i8254x_nic *nic) {
     logmsgf("[%x]: rxbuf = *%x (%d pages)\n", nic->hwid, (uint)rxbufs, n_rxbuf_pages);
 
     for (i = 0; i < NUM_RX_DESCRIPTORS; ++i) {
-        nic->rxda[i].address = (uint64_t)(uint32_t)(rxbufs + i * ETH_BUFSZ);
+        nic->rxda[i].address = (uint64_t)(uint32_t)__pa(rxbufs + i * ETH_BUFSZ);
         nic->rxda[i].sta.byte = 0;
     }
 

@@ -75,7 +75,7 @@ struct {
 } theAcpi;
 
 static int acpi_lookup_rsdp(void) {
-    ptr_t p;
+    uintptr_t p;
     for (p = 0xe0000; p <= 0xffff0; p += 0x10) {
         uint32_t *pi = (uint32_t *)p;
         if (pi[0] == 0x20445352 && pi[1] == 0x20525450) {
@@ -122,7 +122,7 @@ int acpi_init(void) {
 
     /* Enumerate tables */
     uint32_t table_name[2] = { 0 };
-    ptr_t *acpi_tables = (ptr_t *)((char *)rsdt + sizeof(rsdt_hdr_t));
+    uintptr_t *acpi_tables = (uintptr_t *)((char *)rsdt + sizeof(rsdt_hdr_t));
     for (i = 0; (char *)(acpi_tables + i) < (char *)rsdt + rsdt->len; ++i) {
         uint32_t *table = (uint32_t *)acpi_tables[i];
         table_name[0] = table[0];

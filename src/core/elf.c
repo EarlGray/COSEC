@@ -97,13 +97,13 @@ void print_section_headers(Elf32_Shdr *shdr, size_t snum) {
     }
 
     assertv(shstrtab, "shstrtab not found");
-    k_printf("shstrtab found at *%x\n", (ptr_t) shstrtab);
+    k_printf("shstrtab found at *%x\n", (uintptr_t) shstrtab);
 
     for (i = 0; i < snum; ++i) {
         section = shdr + i;
         // type
         uint shtype = section->sh_type;
-        if (shtype < sizeof(str_shdr_type)/sizeof(ptr_t))
+        if (shtype < sizeof(str_shdr_type)/sizeof(uintptr_t))
             k_printf("%s\t", str_shdr_type[shtype]);
         else k_printf("?%d\t", shtype);
 

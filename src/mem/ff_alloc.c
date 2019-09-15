@@ -206,7 +206,7 @@ void * firstfit_malloc(struct firstfit_allocator *this, uint size) {
 
         chunk = next(chunk);
         if (! check_sum(chunk)) {
-            logmsgef("Heap corruption at *0x%x ", (ptr_t)chunk);
+            logmsgef("Heap corruption at *0x%x ", (uintptr_t)chunk);
             try_to_repair(this, chunk);
             return null;
         }

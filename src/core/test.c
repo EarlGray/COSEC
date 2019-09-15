@@ -220,6 +220,7 @@ void poll_serial() {
 }
 
 void test_serial(const char *arg) {
+    UNUSED(arg);
     logmsgf("IRQs state = 0x%x\n", (uint)irq_get_mask());
 
     uint8_t saved_color = vcsa_get_attribute(VIDEOMEM_VCSA);
@@ -333,8 +334,8 @@ void test_tasks(void) {
     uint espU0 = ((uint)task0_usr_stack + R3_STACK_SIZE - 0x18);
     uint espK0 = ((uint)task0_stack + TASK_KERNSTACK_SIZE - CONTEXT_SIZE - 0x14);
 
-    uint espU1 = ((ptr_t)task1_usr_stack + R3_STACK_SIZE);
-    uint espK1 = ((ptr_t)task1_stack + TASK_KERNSTACK_SIZE - CONTEXT_SIZE - 0x14);
+    uint espU1 = ((uintptr_t)task1_usr_stack + R3_STACK_SIZE);
+    uint espK1 = ((uintptr_t)task1_stack + TASK_KERNSTACK_SIZE - CONTEXT_SIZE - 0x14);
 
     task_init((task_struct *)&task0, (void *)do_task0,
             (void *)espK0, (void *)espU0, ucs, uds);

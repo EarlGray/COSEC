@@ -107,9 +107,9 @@ void task_init(task_struct *task, void *entry,
     memset(tss, 0, sizeof(tss_t));
 
     /* initial state */
-    tss->esp0 = (ptr_t)esp0;
+    tss->esp0 = (uintptr_t)esp0;
     tss->ss0 = SEL_KERN_DS;
-    tss->esp = (ptr_t)esp3;
+    tss->esp = (uintptr_t)esp3;
     tss->ss = ds.as.word;
 
     tss->cs = cs.as.word;

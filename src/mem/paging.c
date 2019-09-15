@@ -10,7 +10,7 @@
 pde_t thePageDirectory[N_PDE] __attribute__((aligned (PAGE_SIZE)));
 
 void pg_fault(uint32_t *context, err_t err) {
-    ptr_t fault_addr;
+    uintptr_t fault_addr;
     asm volatile ("movl %%cr2, %0   \n" : "=r"(fault_addr) );
 
     err_t fault_error = context[0];
@@ -28,6 +28,6 @@ void paging_setup(void) {
     // prepare thePageDirectory
     memcpy(thePageDirectory, (void *)INITIAL_PGDIR, N_PDE * sizeof(pde_t));
     // switch
-    k_printf("switching page directory to *0x%x\n", phy_pagedir);
+    k_printf("switching page directory to *%x\n", phy_pagedir);
     i386_switch_pagedir(phy_pagedir);
 }

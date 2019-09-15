@@ -85,7 +85,7 @@ FILE *stderr = &f_stderr;
     ( ((digit) < 10) ? ('0' + (digit)) : ('A' + (digit) - 10))
 
 
-char * snprint_uint(char *str, char *const end, uint x, uint8_t base, uint flags, int precision) {
+char * snprint_uint(char *str, char *const end, uint x, uint8_t base, uint flags, int precision, int minwidth) {
 #define maxDigits 32	// 4 * 8 max for binary
     char a[maxDigits] = { 0 };
     uint8_t n = maxDigits;
@@ -101,10 +101,10 @@ char * snprint_uint(char *str, char *const end, uint x, uint8_t base, uint flags
 
     if (~(flags & LEFT_PADDED)) {
         int indent = maxDigits - n;
-        while (precision > indent) {
+        while (minwidth > indent) {
             --n;
             a[n] = (flags & ZERO_PADDED ? '0' : ' ');
-            --precision;
+            --minwidth;
         }
     }
 
@@ -113,17 +113,19 @@ char * snprint_uint(char *str, char *const end, uint x, uint8_t base, uint flags
         *(str++) = a[n++];
     }
 
+    /*
     if (flags & LEFT_PADDED) {
         while (precision > (maxDigits - n)) {
             *(str++) = ' ';
             --precision;
         }
     }
+    */
 
     return str;
 }
 
-char * snprint_int(char *str, char *const end, int x, uint8_t base, uint flags, int precision) {
+char * snprint_int(char *str, char *const end, int x, uint8_t base, uint flags, int precision, int minwidth) {
     if (end && (end <= str)) return end;
 
    	if (x < 0) {
@@ -134,7 +136,7 @@ char * snprint_int(char *str, char *const end, int x, uint8_t base, uint flags, 
     else if (flags & SPACE_PLUS)
         *(str++) = ' ';
 
-    return snprint_uint(str, end, x, base, flags, precision);
+    return snprint_uint(str, end, x, base, flags, precision, minwidth);
 }
 
 const char * sscan_uint(const char *str, uint *res, const uint8_t base) {
@@ -229,79 +231,83 @@ int vsnprintf(char *str, size_t size, const char *format, va_list ap) {
             return end - str;
         }
 
-        switch (*fmt_c) {
-        case '%': {
-            int precision = 0;
-            uint flags = 0;
-            ++fmt_c;
+        if (fmt_c[0] != '%') {
+            *out_c++ = *fmt_c++;
+            continue;
+        }
 
-            bool changed;
-            do {
-                changed = true;
-                switch (*fmt_c) {
-                case '0':   flags |= ZERO_PADDED; ++fmt_c; break;
-                case '+':   flags |= PRINT_PLUS; ++fmt_c; break;
-                case ' ':   flags |= SPACE_PLUS; ++fmt_c; break;
-                case '.':
-                    fmt_c = sscan_int(++fmt_c, &precision, 10);
-                    break;
-                default:
-                    changed = false;
-                }
-            } while (changed);
+        ++fmt_c;  // '%'
 
-            /* TODO : handle l modifier */
-            if (*fmt_c == 'l') ++fmt_c;
+        int precision = 0;
+        int minwidth = 0;
+        uint flags = 0;
 
+        bool changed;
+        do {
+            changed = true;
             switch (*fmt_c) {
-            case 'x': {
-                int arg = va_arg(ap, int);
-                out_c = snprint_uint(out_c, end, arg, 16, flags, precision);
-                } break;
-            case 'd': case 'i': {
-                int arg = va_arg(ap, int);
-                out_c = snprint_int(out_c, end, arg, 10, flags, precision);
-                } break;
-            case 'u': {
-                uint arg = va_arg(ap, uint);
-                out_c = snprint_uint(out_c, end, arg, 10, flags, precision);
-                } break;
-            case 's': {
-                char *c = va_arg(ap, char *);
-                while (*c) {
-                    if (end && (out_c >= end)) break;
-                    *(out_c++) = *(c++);
-                }
-                } break;
-            case 'g': {
-                double arg = va_arg(ap, double);
-                uint intpart = (uint)arg;
-                uint fracpart = (uint)(1000000.0 * (arg - intpart));
-                out_c = snprint_uint(out_c, end, intpart, 10, flags, 0);
-                if (fracpart > 0) {
-                    *out_c++ = '.';
-                    out_c = snprint_uint(out_c, end, fracpart, 10,
-                                     ZERO_PADDED | LEFT_PADDED, 6);
-                }
-                } break;
-            case 'p': {
-                void *arg = va_arg(ap, void *);
-                *out_c++ = '0'; *out_c++ = 'x';
-                out_c = snprint_uint(out_c, end, (uint)arg, 16,
-                                     ZERO_PADDED | flags, 8);
-                } break;
-            case '%':
-                *out_c = *fmt_c;
-                ++out_c;
-                break;
+            case '0':   flags |= ZERO_PADDED; ++fmt_c; break;
+            case '+':   flags |= PRINT_PLUS; ++fmt_c; break;
+            case ' ':   flags |= SPACE_PLUS; ++fmt_c; break;
             default:
-                logmsgef("vsnprintf: unknown format specifier 0x%x at '%s'",
-                         (uint)*fmt_c, fmt_c);
-                *out_c = *fmt_c;
-                ++out_c;
+                changed = false;
+            }
+        } while (changed);
+
+        if (isdigit(*fmt_c)) {
+            fmt_c = sscan_uint(fmt_c, &minwidth, 10);
+        }
+        if (*fmt_c == '.') {
+            fmt_c = sscan_int(++fmt_c, &precision, 10);
+        }
+        if (*fmt_c == 'l') {
+            ++fmt_c;  /* TODO: handle 'l' */
+        }
+
+        switch (*fmt_c) {
+        case 'x': {
+            int arg = va_arg(ap, int);
+            out_c = snprint_uint(out_c, end, arg, 16, flags, precision, minwidth);
+            } break;
+        case 'd': case 'i': {
+            int arg = va_arg(ap, int);
+            out_c = snprint_int(out_c, end, arg, 10, flags, precision, minwidth);
+            } break;
+        case 'u': {
+            uint arg = va_arg(ap, uint);
+            out_c = snprint_uint(out_c, end, arg, 10, flags, precision, minwidth);
+            } break;
+        case 's': {
+            char *c = va_arg(ap, char *);
+            while (*c) {
+                if (end && (out_c >= end)) break;
+                *(out_c++) = *(c++);
             }
             } break;
+        case 'g': {
+            double arg = va_arg(ap, double);
+            uint intpart = (uint)arg;
+            uint fracpart = (uint)(1000000.0 * (arg - intpart));
+            out_c = snprint_uint(out_c, end, intpart, 10, flags, 0, 0);
+            if (fracpart > 0) {
+                *out_c++ = '.';
+                out_c = snprint_uint(out_c, end, fracpart, 10,
+                                 ZERO_PADDED | LEFT_PADDED, 6, minwidth);
+            }
+            } break;
+        case 'p': {
+            void *arg = va_arg(ap, void *);
+            *out_c++ = '0'; *out_c++ = 'x';
+            out_c = snprint_uint(out_c, end, (uint)arg, 16,
+                                 ZERO_PADDED | flags, 8, minwidth);
+            } break;
+        case '%':
+            *out_c = *fmt_c;
+            ++out_c;
+            break;
         default:
+            logmsgef("vsnprintf: unknown format specifier 0x%x at '%s'",
+                     (uint)*fmt_c, fmt_c);
             *out_c = *fmt_c;
             ++out_c;
         }

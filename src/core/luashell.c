@@ -130,7 +130,7 @@ int syslua_ccall(lua_State *L) {
       default: LUA_ERROR(L, "more than 3 arguments are not supported");
     }
 
-    void *callee = (void *)(ptr_t)lua_tonumber(L, 1);
+    void *callee = (void *)(uintptr_t)lua_tonumber(L, 1);
     int ret;
     switch (argc) {
       case 1: ret = ((int (*)(void))callee)(); break;
@@ -151,7 +151,7 @@ int syslua_memb(lua_State *L) {
     if (!lua_isnumber(L, 1))
         LUA_ERROR(L, "address is not a number");
 
-    uint8_t *addr = (uint8_t *)(ptr_t)lua_tonumber(L, 1);
+    uint8_t *addr = (uint8_t *)(uintptr_t)lua_tonumber(L, 1);
     if (argc == 2) {
         /* set */
         addr[0] = (uint8_t)lua_tonumber(L, 2);
@@ -169,7 +169,7 @@ int syslua_meml(lua_State *L) {
     if (!lua_isnumber(L, 1))
         LUA_ERROR(L, "address is not a number");
 
-    uint32_t *addr = (uint32_t *)(ptr_t)lua_tonumber(L, 1);
+    uint32_t *addr = (uint32_t *)(uintptr_t)lua_tonumber(L, 1);
     if (argc == 2) {
         /* set */
         *addr = (uint32_t)lua_tonumber(L, 2);
@@ -261,6 +261,13 @@ void kshell_lua_test(void) {
 
     luaL_openlibs(lua);
 
+    const char *custom = "dir = function(t) for k, v in pairs(t) do print(k, v) end end";
+    int err = luaL_loadbuffer(lua, custom, strlen(custom), "<cosec>");
+    if (err) {
+        logmsgef("### Error: %s\n", lua_tostring(lua, -1));
+        lua_pop(lua, 1);
+    }
+
     for (;;) {
         vcsa_set_attribute(CONSOLE_VCSA, BRIGHT(VCSA_ATTR_GREY));
         kshell_readline(cmd_buf, CMD_SIZE, prompt);
@@ -268,7 +275,7 @@ void kshell_lua_test(void) {
         if (!strcasecmp(cmd_buf, "q"))
             break;
 
-        int err = luaL_loadbuffer(lua, cmd_buf, strlen(cmd_buf), "line")
+        int err = luaL_loadbuffer(lua, cmd_buf, strlen(cmd_buf), "<line>")
                || lua_pcall(lua, 0, 0, 0);
         if (err) {
             fprintf(stderr, "### Error: %s\n", lua_tostring(lua, -1));

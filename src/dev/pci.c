@@ -45,9 +45,11 @@ extern int net_i8254x_init(pci_config_t *);
 extern int net_virtio_init(pci_config_t *);
 
 const pci_driver_t pci_driver[] = {
+    /*
     { .pci_id = 0x100e8086,
       .pci_init = net_i8254x_init,
       .pci_name = "Intel 82540EM Gigabit Ethernet" },
+    */
 
     { .pci_id = 0x10001af4,
       .pci_init = net_virtio_init,

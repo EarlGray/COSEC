@@ -22,13 +22,14 @@ cp res/stage2_eltorito $GRUB_DIR/
 cp $BLDDIR/kernel $CD_DIR \
     || die "$BLDDIR/kernel not found"
 
-cp $BLDDIR/kernel.nm $CD_DIR \
-    || die "$BLDDIR/kernel not found"
+for MODULE in $BLDDIR/kernel.nm tmp/raw.lua usr/init ; do
+    cp $MODULE $CD_DIR || die "$MODULE not found"
+done
 
 mkdir -p $SRC_DIR/res $SRC_DIR/lib
 cp -R include/ src/ usr/ $SRC_DIR/
 cp -R lib/c lib/lua-5.2.2/ $SRC_DIR/lib/
-cp res/fd.img.bz2 res/menu.lst res/mkcd res/mkinitfs $SRC_DIR/res
+cp res/menu.lst res/mkcd res/mkinitfs $SRC_DIR/res
 cp README.md INSTALL.md TODO Makefile $SRC_DIR
 
 echo "Files to delete from iso:"

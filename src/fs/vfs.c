@@ -16,6 +16,9 @@
 
 #include <cosec/log.h>
 
+#include <arch/mboot.h>
+#include <arch/multiboot.h>
+
 static const char *
 vfs_match_mountpath(mountnode *parent_mnt, mountnode **match_mnt, const char *path);
 
@@ -474,7 +477,7 @@ int vfs_inode_stat(mountnode *sb, inode_t ino, struct stat *stat) {
     stat->st_ino = ino;
     stat->st_mode = idata.i_mode;
     stat->st_nlink = idata.i_nlinks;
-    stat->st_rdev = (S_ISCHR(idata.i_mode) || S_ISBLK(idata.i_mode) ? 
+    stat->st_rdev = (S_ISCHR(idata.i_mode) || S_ISBLK(idata.i_mode) ?
                         inode_devno(&idata) : 0);
     stat->st_size = idata.i_size;
     return 0;
@@ -630,6 +633,40 @@ static void build_file_from_string(const char *path, const char *s, size_t size)
 
 const char *build_date = "COSEC\n(c) Dmytro Sirenko\n"__DATE__", "__TIME__"\n";
 
+static void build_boot_dir() {
+    char name[128];
+    strncpy(name, "/boot/", 128);
+
+    vfs_mkdir("/boot", 0777);
+
+    count_t n_mods = 0;
+    module_t *mods;
+    mboot_modules_info(&n_mods, &mods);
+    k_printf(" Modules loaded = %d\n", n_mods);
+
+    const char *modname;
+    size_t i;
+    for (i = 0; i < n_mods; ++i) {
+        if (mods[i].string) {
+            modname = (const char *)mods[i].string;
+            if (modname[0] == '/') ++modname;
+            strncpy(name + 6, modname, 128);
+        } else {
+            strncpy(name + 6, "mod", 128);
+            name[9] = '0' + (char)i;
+            name[10] = '\0';
+        }
+
+        const char *modstart = (const char *)mods[i].mod_start;
+        size_t size = mods[i].mod_end - mods[i].mod_start;
+        k_printf("creating %s at *%x, len=0x%x\n", name, mods[i].mod_start, size);
+
+        build_file_from_string(name, modstart, size);
+    }
+
+    /* TODO : check for tarballs, make their files available too */
+}
+
 void vfs_setup(void) {
     int ret;
 
@@ -642,11 +679,9 @@ void vfs_setup(void) {
     ret = vfs_mount(fsdev, "/", &mntopts);
     returnv_err_if(ret, "root mount on sysfs failed (%d)", ret);
 
-    k_printf("%s on / mounted successfully\n", theRootMnt->sb_fs->name);
+    k_printf("mounted %s on /\n", theRootMnt->sb_fs->name);
 
-    ret = vfs_mkdir("/dev", 0755);
-    returnv_err_if(ret, "mkdir /dev: %s", strerror(ret));
-
+    /* misc */
     ret = vfs_mkdir("/tmp", 0777);
     returnv_err_if(ret, "mkdir /tmp: %s", strerror(ret));
 
@@ -656,6 +691,11 @@ void vfs_setup(void) {
     build_file_from_string("/repl.secd",
         lib_secd_repl_secd, lib_secd_repl_secd_len);
 #endif
+    build_boot_dir();
+
+    /* create devices */
+    ret = vfs_mkdir("/dev", 0755);
+    returnv_err_if(ret, "mkdir /dev: %s", strerror(ret));
 
     char ttyname[] = "/dev/tty0";
     int i;

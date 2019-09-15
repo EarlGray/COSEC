@@ -25,14 +25,14 @@ extern void gdt_get(struct gdt_ptr *idt);
 /*****************************************************************************
         routines
 ******************************************************************************/
-ptr_t cpu_stack(void) {
-    ptr_t esp;
+uintptr_t cpu_stack(void) {
+    uintptr_t esp;
     i386_esp(esp);
     return esp + 8;   // this function ret addr (4) + C push %ebp (4)
 }
 
-inline uint x86_eflags(void) {
-    uint efl;
+inline uint32_t x86_eflags(void) {
+    uint32_t efl;
     i386_eflags(efl);
     return efl;
 }

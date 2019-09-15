@@ -6,6 +6,7 @@
 #include <arch/i386.h>
 
 #include <dev/kbd.h>
+#include <cosec/log.h>
 
 #define KEY_COUNT       128
 
@@ -151,8 +152,8 @@ char kbd_getchar(void) {
 
 volatile bool theKeyboard[KEY_COUNT];
 
-volatile kbd_event_f on_press = null;
-volatile kbd_event_f on_release = null;
+volatile kbd_event_f on_press = NULL;
+volatile kbd_event_f on_release = NULL;
 
 inline bool kbd_state_shift(void) {
     return theKeyboard[0x2A] | theKeyboard[0x36];
@@ -180,6 +181,8 @@ void keyboard_irq(/*void *stack*/) {
     uint8_t scan_code = 0;
     inb(0x60, scan_code);
     kbd_push_scancode(scan_code);
+
+    logmsgdf("keyboard_irq(0x%x)\n", scan_code);
 
     if (!(scan_code & 0x80)) {
         /* on press event */
