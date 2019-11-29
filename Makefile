@@ -81,12 +81,23 @@ objdfile      := $(kernel).objd
 pipe_file     := pipe
 
 vbox_name   := COSEC
+
 qemu        := qemu-system-i386
 qemu_cdboot := -cdrom $(cd_img) -boot d
 qemu_mltboot:= -kernel ../$(kernel) -initrd init
-qemu_debug  := -d unimp,guest_errors,trace:pci_cfg_read,trace:pci_cfg_write,trace:virtio_notify,trace:virtio_queue_notify,trace:jvirtio_set_status -D qemu.log -net dump,file=qemu.pcap
+qemu_debug  := -D qemu.log -d unimp,guest_errors,trace:virtio_notify,trace:virtio_queue_notify,trace:virtio_set_status
+
+ifneq ($(QEMU_TAP),)
+qemu_net    := -netdev tap,ifname=$(QEMU_TAP),id=tap0,script=no,downscript=no
+qemu_net    += -device virtio-net-pci,netdev=tap0
+qemu_debug  += -object filter-dump,id=tap0,netdev=tap0,file=qemu.pcap
+else
+qemu_net    := -netdev user,id=usr0
+qemu_net    += -device virtio-net-pci,netdev=usr0
+endif
+
 qemu_flags  := -m 64 -serial stdio $(qemu_debug)
-qemu_net    := -net nic,model=virtio -net tap,ifname=tap0
+
 init        := usr/init
 
 .PHONY: run install mount umount clean

@@ -2,6 +2,7 @@
 #include <sys/errno.h>
 
 #include <attrs.h>
+#include <network.h>
 #include <mem/kheap.h>
 #include <mem/pmem.h>
 #include <dev/intrs.h>
@@ -191,12 +192,6 @@ struct __packed virtio_net_hdr {
     // uint16_t num_buffers; /* if VIRTIO_NET_F_MRG_RXBUF */
 };
 
-#define ETH_ALEN    6
-
-typedef union {
-    uint8_t oct[ETH_ALEN];
-    uint16_t word[ETH_ALEN/2];
-} macaddr_t;
 
 struct virtio_net_device {
     struct virtio_device virtio;
@@ -219,15 +214,13 @@ void net_virtio_irq() {
     logmsge("%s: isr=0x%x\n", funcname, val);
 }
 
-uint8_t * net_virtio_alloc_eth_frame(uint8_t *mac_dst, uint16_t ethertype, size_t payload_len) {
+
+uint8_t * net_virtio_frame_alloc(void) {
     uint8_t *buf = pmem_alloc(1);
     if (!buf) return NULL;
 
-    /* virtio net header */
-    struct virtio_net_hdr *vhdr = (struct virtio_net_hdr *)buf;
-    vhdr->flags = VIRTIO_NET_HDR_F_NEEDS_CSUM;
-
-    /* set the ethernet header */
+    /*
+    // set the ethernet header
     __packed struct eth_hdr_t {
         uint8_t dst[6];
         uint8_t src[6];
@@ -239,32 +232,40 @@ uint8_t * net_virtio_alloc_eth_frame(uint8_t *mac_dst, uint16_t ethertype, size_
     memcpy(eth_hdr->dst, mac_dst, 6);
     memcpy(eth_hdr->src, theVirtNIC->mac.oct, 6);
     eth_hdr->ethertype = ethertype;
+    */
+
+    return buf + sizeof(struct virtio_net_hdr);
+}
+
+
+void net_virtio_tx_enqueue(uint8_t *buf, size_t eth_payload_len) {
+    /* virtio net header */
+    struct virtio_net_hdr *vhdr = (struct virtio_net_hdr *)buf;
+    //vhdr->flags = VIRTIO_NET_HDR_F_NEEDS_CSUM; // TODO
 
     /* remember it in txq */
     struct vring_desc *desc = theVirtNIC->txq.desc + 0;
     desc->addr = (uint64_t)(uint32_t)buf;
-    desc->len = sizeof(struct virtio_net_hdr) + sizeof(struct eth_hdr_t) + 4 + payload_len;
+    desc->len = sizeof(struct eth_hdr_t) + 4 + eth_payload_len;
     desc->flags = 0;
-
-    return buf + sizeof(struct virtio_net_hdr) + sizeof(struct eth_hdr_t);
 }
 
 int net_virtio_transmit(void) {
-	const size_t buf_idx = 0;
+    const size_t buf_idx = 0;
     struct virtioq *txq = &theVirtNIC->txq;
 
-	/* ethernet crc32 */
-	struct vring_desc *desc = theVirtNIC->txq.desc + buf_idx;
-	uint8_t *buf = (uint8_t *)(size_t)desc->addr;
+    /* ethernet crc32 */
+    struct vring_desc *desc = theVirtNIC->txq.desc + buf_idx;
+    uint8_t *buf = (uint8_t *)(size_t)desc->addr;
 
-	uint8_t *p = buf+sizeof(struct virtio_net_hdr);
-	size_t len = desc->len - sizeof(struct virtio_net_hdr) - 4;
-	uint32_t crc = ethernet_crc32(p, len);
-	*(uint32_t*)(p + len) = crc;
+    uint8_t *p = buf;
+    size_t len = desc->len - 4;
+    uint32_t crc = ethernet_crc32(p, len);
+    *(uint32_t*)(p + len) = crc;
 
     txq->avail->ring[txq->avail->idx % txq->size] = buf_idx;
     txq->avail->idx += 1;
-	txq->avail->idx %= txq->size;
+        txq->avail->idx %= txq->size;
 
     /* notify the NIC */
     uint16_t val = VIRTIO_NET_TXQ;
@@ -450,4 +451,29 @@ int net_virtio_init(pci_config_t *pciconf) {
     theVirtNIC->mac = mac;
 
     return net_virtio_setup(theVirtNIC);
+}
+
+
+void test_virtio_net(void) {
+    const char *echomsg = "Hello world!\n";
+    size_t datalen = strlen(echomsg) + 1;
+
+    uint8_t *frame = net_virtio_frame_alloc();
+
+    struct eth_hdr_t *eth = (struct eth_hdr_t *)frame;
+    memcpy(eth->src, theVirtNIC->mac.oct, ETH_ALEN);
+    memcpy(eth->dst, &ETH_BROADCAST_MAC, ETH_ALEN);
+    eth->ethertype = ETHERTYPE_IPV4;
+
+    uint8_t *data = net_buf_udp4_init(frame, datalen);
+    strcpy((char *)data, echomsg);
+
+    const union ipv4_addr_t srcaddr = { .oct={169,254,0,1} };
+    const union ipv4_addr_t dstaddr = { .oct={255,255,255,255} };
+    net_buf_udp4_setsrc(data, &srcaddr, 8000);
+    net_buf_udp4_setdst(data, &dstaddr, 7);
+    net_buf_udp4_checksum(data);
+
+    net_virtio_tx_enqueue(frame, net_buf_udp4_iplen(data));
+    net_virtio_transmit();
 }
