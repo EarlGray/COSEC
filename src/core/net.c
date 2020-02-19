@@ -113,3 +113,57 @@ void net_buf_udp4_checksum(uint8_t *data) {
 }
 
 
+/*
+ *  DHCP
+ */
+
+#define DHCP_ZERO_PADDING   192
+#define DHCP_MAGIC_COOKIE   0x63825363
+
+#define DHCP_SERVER_PORT    67
+#define DHCP_CLIENT_PORT    68
+
+__packed struct dhcp4 {
+    uint8_t op, htype, hlen, hops;
+    uint32_t xid;
+    uint16_t secs, flags;
+    uint32_t ciaddr, yiaddr, siaddr, giaddr;
+    uint16_t chaddr[8];
+};
+
+const uint8_t dhcp_discovery_options[] = {
+    0x35, 1, 1,                         // discovery op
+    0x37, 4, 0x01, 0x03, 0x0f, 0x06,    // ask for subnet, router, domain, DNS server
+    // 0x32, 4, 192, 168, 1, 101,
+    0xff
+};
+
+size_t net_buf_dhcpdiscover(uint8_t *frame, const macaddr_t *mac) {
+    const size_t options_offset = sizeof(struct dhcp4) + DHCP_ZERO_PADDING + sizeof(uint32_t);
+    const size_t datalen = options_offset + sizeof(dhcp_discovery_options);
+
+    struct eth_hdr_t *eth = (struct eth_hdr_t *)frame;
+    memcpy(eth->src, mac->oct, ETH_ALEN);
+    memcpy(eth->dst, &ETH_BROADCAST_MAC, ETH_ALEN);
+    eth->ethertype = htons(ETHERTYPE_IPV4);
+
+    uint8_t *data = net_buf_udp4_init(frame, datalen);
+    memset(data, 0, datalen);
+    struct dhcp4 *dhcp_hdr = (struct dhcp4 *)data;
+    dhcp_hdr->op = 1;
+    dhcp_hdr->htype = 1;
+    dhcp_hdr->hlen = ETH_ALEN;
+    dhcp_hdr->xid = htonl(0x3903f326);
+    dhcp_hdr->chaddr[0] = mac->word[0]; dhcp_hdr->chaddr[1] = mac->word[1]; dhcp_hdr->chaddr[2] = mac->word[2];
+
+    *(uint32_t*)(data + options_offset - sizeof(uint32_t)) = htonl(DHCP_MAGIC_COOKIE);
+    memcpy(data + options_offset, dhcp_discovery_options, sizeof(dhcp_discovery_options));
+
+    const union ipv4_addr_t srcaddr = { .oct={0,0,0,0} };
+    const union ipv4_addr_t dstaddr = { .oct={255,255,255,255} };
+    net_buf_udp4_setsrc(data, &srcaddr, DHCP_CLIENT_PORT);
+    net_buf_udp4_setdst(data, &dstaddr, DHCP_SERVER_PORT);
+    net_buf_udp4_checksum(data);
+
+    return sizeof(struct ipv4_hdr_t) + sizeof(struct udp_hdr_t) + datalen;
+}

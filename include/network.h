@@ -8,8 +8,6 @@
  *    Network byte order
  */
 
-//static inline uint32_t htonl(uint32_t hostlong) { }
-
 static inline uint16_t htons(uint16_t hostshort) {
     return (hostshort >> 8) | (hostshort << 8);
 }
@@ -17,6 +15,11 @@ static inline uint16_t htons(uint16_t hostshort) {
 static inline uint16_t ntohs(uint16_t hostshort) {
     return (hostshort >> 8) | (hostshort << 8);
 }
+
+static inline uint32_t htonl(uint32_t hostlong) {
+    return ((uint32_t)htons(hostlong & 0xffff) << 16) | (uint32_t)(htons(hostlong >> 16));
+}
+
 
 /*
  *    Ethernet
@@ -33,7 +36,9 @@ typedef union {
 extern const macaddr_t ETH_BROADCAST_MAC;
 
 enum ethertype {
-    ETHERTYPE_IPV4 = 0x0008
+    ETHERTYPE_IPV4 = 0x0800,
+    ETHERTYPE_ARP = 0x0806,
+    ETHERTYPE_IPV6 = 0x86DD,
 };
 
 __packed struct eth_hdr_t {
@@ -66,7 +71,8 @@ __packed struct ipv4_hdr_t {
 };
 
 enum ipv4_subproto {
-    IPV4TYPE_UDP = 17
+    IPV4TYPE_ICMP = 1,
+    IPV4TYPE_UDP = 17,
 };
 
 /*
@@ -85,5 +91,8 @@ void net_buf_udp4_setsrc(uint8_t *packet, const union ipv4_addr_t *addr, uint16_
 void net_buf_udp4_setdst(uint8_t *packet, const union ipv4_addr_t *addr, uint16_t port);
 void net_buf_udp4_checksum(uint8_t *packet);
 size_t net_buf_udp4_iplen(uint8_t *packet);
+
+
+size_t net_buf_dhcpdiscover(uint8_t *frame, const macaddr_t *mac);
 
 #endif  // __COSEC_NETWORK_H__

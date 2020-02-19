@@ -13,6 +13,8 @@
 #include <cosec/log.h>
 #include <algo.h>
 
+#define VIRTIO_HW_CHECKSUM    0
+
 /* virtio registers offsets from `portbase` */
 #define VIO_DEV_FEATURE       0   /* 32, R  */
 #define VIO_DRV_FEATURE       4   /* 32, RW */
@@ -219,34 +221,29 @@ uint8_t * net_virtio_frame_alloc(void) {
     uint8_t *buf = pmem_alloc(1);
     if (!buf) return NULL;
 
-    /*
-    // set the ethernet header
-    __packed struct eth_hdr_t {
-        uint8_t dst[6];
-        uint8_t src[6];
-        uint16_t ethertype;
-    };
-    struct eth_hdr_t *eth_hdr = (struct eth_hdr_t *)
-            (buf + sizeof(struct virtio_net_hdr));
-
-    memcpy(eth_hdr->dst, mac_dst, 6);
-    memcpy(eth_hdr->src, theVirtNIC->mac.oct, 6);
-    eth_hdr->ethertype = ethertype;
-    */
+    logmsgdf("%s: buf at *%x\n", __func__, buf);
 
     return buf + sizeof(struct virtio_net_hdr);
 }
 
 
 void net_virtio_tx_enqueue(uint8_t *buf, size_t eth_payload_len) {
+    logmsgdf("%s(buf=*%x, len=%d)\n", __func__, buf, eth_payload_len);
     /* virtio net header */
-    struct virtio_net_hdr *vhdr = (struct virtio_net_hdr *)buf;
-    //vhdr->flags = VIRTIO_NET_HDR_F_NEEDS_CSUM; // TODO
+    struct virtio_net_hdr *vhdr = (struct virtio_net_hdr *)buf - 1;
+
+#if (VIRTIO_HW_CHECKSUM)
+    // TODO
+    vhdr->flags = VIRTIO_NET_HDR_F_NEEDS_CSUM; // TODO
+    vhdr->csum_start = 0;
+    vhdr->csum_offset = sizeof(struct eth_hdr_t) + eth_payload_len;
+#endif
 
     /* remember it in txq */
-    struct vring_desc *desc = theVirtNIC->txq.desc + 0;
-    desc->addr = (uint64_t)(uint32_t)buf;
-    desc->len = sizeof(struct eth_hdr_t) + 4 + eth_payload_len;
+    const size_t desc_offset = 0;
+    struct vring_desc *desc = theVirtNIC->txq.desc + desc_offset;
+    desc->addr = (uint64_t)(uint32_t)vhdr;
+    desc->len = sizeof(struct virtio_net_hdr) + sizeof(struct eth_hdr_t) + eth_payload_len + 4;
     desc->flags = 0;
 }
 
@@ -254,14 +251,16 @@ int net_virtio_transmit(void) {
     const size_t buf_idx = 0;
     struct virtioq *txq = &theVirtNIC->txq;
 
+#if (!VIRTIO_HW_CHECKSUM)
     /* ethernet crc32 */
     struct vring_desc *desc = theVirtNIC->txq.desc + buf_idx;
-    uint8_t *buf = (uint8_t *)(size_t)desc->addr;
+    uint8_t *buf = (uint8_t *)((size_t)desc->addr + sizeof(struct virtio_net_hdr));
 
     uint8_t *p = buf;
-    size_t len = desc->len - 4;
+    size_t len = desc->len - sizeof(struct virtio_net_hdr) - 4;
     uint32_t crc = ethernet_crc32(p, len);
     *(uint32_t*)(p + len) = crc;
+#endif
 
     txq->avail->ring[txq->avail->idx % txq->size] = buf_idx;
     txq->avail->idx += 1;
@@ -330,7 +329,7 @@ static int net_virtio_setup(struct virtio_net_device *nic) {
     struct vring_avail *rxavail = nic->rxq.avail;
     rxavail->flags = 0;  // we do need an interrupt after each packet
     rxavail->idx = 0;    // ?
-    for (i = 0; i < nic->rxq.size; ++i) {
+    for (i = 0; i < nic->rxq.size - 1; ++i) {
         struct vring_desc *vrd = nic->rxq.desc + i;
         vrd->addr = (uint64_t)(uint32_t)(netbuf + packetsz * i);
         vrd->len = packetsz;
@@ -453,6 +452,9 @@ int net_virtio_init(pci_config_t *pciconf) {
     return net_virtio_setup(theVirtNIC);
 }
 
+void net_virtio_macaddr(uint8_t addr[static ETH_ALEN]) {
+    memcpy(addr, theVirtNIC->mac.oct, ETH_ALEN);
+}
 
 void test_virtio_net(void) {
     const char *echomsg = "Hello world!\n";
@@ -462,18 +464,29 @@ void test_virtio_net(void) {
 
     struct eth_hdr_t *eth = (struct eth_hdr_t *)frame;
     memcpy(eth->src, theVirtNIC->mac.oct, ETH_ALEN);
-    memcpy(eth->dst, &ETH_BROADCAST_MAC, ETH_ALEN);
-    eth->ethertype = ETHERTYPE_IPV4;
+    //memcpy(eth->dst, &ETH_BROADCAST_MAC, ETH_ALEN);
+    const uint8_t mainland[] = {0x52,0x54,0x00,0x79,0x55,0x73};
+    memcpy(eth->dst, mainland, ETH_ALEN);
+    eth->ethertype = htons(ETHERTYPE_IPV4);
 
     uint8_t *data = net_buf_udp4_init(frame, datalen);
     strcpy((char *)data, echomsg);
 
     const union ipv4_addr_t srcaddr = { .oct={169,254,0,1} };
-    const union ipv4_addr_t dstaddr = { .oct={255,255,255,255} };
+    const union ipv4_addr_t dstaddr = { .oct={192,168,122,1} };
     net_buf_udp4_setsrc(data, &srcaddr, 8000);
-    net_buf_udp4_setdst(data, &dstaddr, 7);
+    net_buf_udp4_setdst(data, &dstaddr, 7777);
     net_buf_udp4_checksum(data);
 
     net_virtio_tx_enqueue(frame, net_buf_udp4_iplen(data));
+    net_virtio_transmit();
+}
+
+void test_virtio_dhcp(void) {
+    uint8_t *frame = net_virtio_frame_alloc();
+
+    size_t ethlen = net_buf_dhcpdiscover(frame, &theVirtNIC->mac);
+
+    net_virtio_tx_enqueue(frame, ethlen);
     net_virtio_transmit();
 }

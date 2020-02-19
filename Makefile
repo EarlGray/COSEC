@@ -82,18 +82,19 @@ pipe_file     := pipe
 
 vbox_name   := COSEC
 
-qemu        := qemu-system-i386
+qemu        := ~/code/src/sys/qemu-4.1.1/build/i386-softmmu/qemu-system-i386
 qemu_cdboot := -cdrom $(cd_img) -boot d
 qemu_mltboot:= -kernel ../$(kernel) -initrd init
-qemu_debug  := -D qemu.log -d unimp,guest_errors,trace:virtio_notify,trace:virtio_queue_notify,trace:virtio_set_status
+qemu_debug  := -D tmp/qemu.log -d unimp,guest_errors,trace:virtio_notify,trace:virtio_queue_notify,trace:virtio_set_status
 
 ifneq ($(QEMU_TAP),)
 qemu_net    := -netdev tap,ifname=$(QEMU_TAP),id=tap0,script=no,downscript=no
 qemu_net    += -device virtio-net-pci,netdev=tap0
-qemu_debug  += -object filter-dump,id=tap0,netdev=tap0,file=qemu.pcap
+#qemu_debug  += -object filter-dump,id=tap0,netdev=tap0,file=qemu.pcap
 else
 qemu_net    := -netdev user,id=usr0
 qemu_net    += -device virtio-net-pci,netdev=usr0
+qemu_debug  += -object filter-dump,id=usr0,netdev=usr0,file=tmp/qemu.pcap
 endif
 
 qemu_flags  := -m 64 -serial stdio $(qemu_debug)

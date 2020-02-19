@@ -335,6 +335,7 @@ const struct kshell_command main_commands[] = {
 
 void test_strs(void);
 void test_virtio_net(void);
+void test_virtio_dhcp(void);
 const struct kshell_subcmd  test_cmds[] = {
     { .name = "sprintf", .handler = test_sprintf    },
     { .name = "timer",   .handler = test_timer,     },
@@ -346,6 +347,7 @@ const struct kshell_subcmd  test_cmds[] = {
     { .name = "acpi",    .handler = test_acpi,      },
     { .name = "str",     .handler = test_strs,      },
     { .name = "net",     .handler = test_virtio_net },
+    { .name = "dhcp",    .handler = test_virtio_dhcp },
     { .name = 0, .handler = 0    },
 };
 
