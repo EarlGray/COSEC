@@ -3,7 +3,6 @@
 #include <stdio.h>
 #include <time.h>
 
-#define __DEBUG
 #include <cosec/log.h>
 
 #include <arch/i386.h>
@@ -335,7 +334,7 @@ const struct kshell_command main_commands[] = {
 
 void test_strs(void);
 void test_virtio_net(void);
-void test_virtio_dhcp(void);
+void test_net_dhcp(void);
 const struct kshell_subcmd  test_cmds[] = {
     { .name = "sprintf", .handler = test_sprintf    },
     { .name = "timer",   .handler = test_timer,     },
@@ -347,7 +346,7 @@ const struct kshell_subcmd  test_cmds[] = {
     { .name = "acpi",    .handler = test_acpi,      },
     { .name = "str",     .handler = test_strs,      },
     { .name = "net",     .handler = test_virtio_net },
-    { .name = "dhcp",    .handler = test_virtio_dhcp },
+    { .name = "dhcp",    .handler = test_net_dhcp   },
     { .name = 0, .handler = 0    },
 };
 
@@ -877,7 +876,7 @@ void kshell_run(void) {
         if (cmd_buf[nread - 1] == '\n') cmd_buf[nread - 1] = 0;
         else logmsgf("kshell: cmd_buf[last] != \\n\n");
 
-        logmsgf("kshell: nread=%d, cmd='%s'\n", nread, cmd_buf);
+        //logmsgf("kshell: nread=%d, cmd='%s'\n", nread, cmd_buf);
 
         kshell_do(cmd_buf);
     }

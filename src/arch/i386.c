@@ -118,8 +118,8 @@ void idt_setup(void) {
     idt_set_gates(0x20, 0x100, GATE_CALL, dummyentry);
 
     /* 0x20 - 0x2F : IRQs entries */
-    for (i = I8259A_BASE; i < I8259A_BASE + 16; ++i)
-        idt_set_gate(i, GATE_INTR, interrupts[i - I8259A_BASE]);
+    for (i = 0; i < 16; ++i)
+        idt_set_gate(i + I8259A_BASE, GATE_INTR, interrupts[i]);
 
     /* 0xSYS_INT : system call entry */
     idt_set_gate(SYS_INT, GATE_CALL, syscallentry);

@@ -48,7 +48,7 @@
 // IRQ handlers
 intr_handler_f irq[16];
 
-volatile bool irq_happened[16] = { 0 };
+volatile uint32_t irq_happened[16] = { 0 };
 
 // interrupt handlers
 void int_dummy();
@@ -82,8 +82,8 @@ irq_remap(uint8_t master, uint8_t slave) {
     outb_p(PIC1_DATA_PORT, master);
     outb_p(PIC2_DATA_PORT, slave);
 
-    outb_p(PIC1_DATA_PORT, 4);
-    outb_p(PIC2_DATA_PORT, 2);
+    outb_p(PIC1_DATA_PORT, 4); // ICW3: Master to expect Slave at pin 2
+    outb_p(PIC2_DATA_PORT, 2); // ICW3: Slave to be aware it's IRQ2 at Master
 
     outb_p(PIC1_DATA_PORT, ICW4_I8086);
     outb_p(PIC2_DATA_PORT, ICW4_I8086);
@@ -117,8 +117,9 @@ uint16_t irq_get_mask(void) {
     return res;
 }
 
-inline void irq_eoi(void) {
-    outb_p(0x20, 0x20);
+inline void irq_eoi(uint32_t irq_num) {
+    uint32_t port = (irq_num < 8 ? PIC1_CMD_PORT : PIC2_DATA_PORT);
+    outb_p(port, PIC_EOI);
 }
 
 void irq_handler(uint32_t irq_num) {
@@ -126,10 +127,10 @@ void irq_handler(uint32_t irq_num) {
     if (irq_num > 0)
         logmsgf("%s(%d)\n", __FUNCTION__, irq_num);
         */
-    irq_happened[irq_num] = true;
+    irq_happened[irq_num] += 1;
     intr_handler_f callee = irq[irq_num];
     callee((void *)cpu_stack());
-    irq_eoi();
+    irq_eoi(irq_num);
 }
 
 inline void irq_set_handler(irqnum_t irq_num, intr_handler_f handler) {
@@ -144,7 +145,7 @@ void irq_stub() {
 
 void irq_slave() {
     logmsgf("irq_stubB(), shouldn't happen\n");
-    irq_eoi();
+    irq_eoi(0);
 }
 
 /**************** exceptions *****************/
@@ -241,8 +242,9 @@ void intrs_setup(void) {
 int irq_wait(irqnum_t irqnum) {
     return_err_if(irqnum >= 16, -EINVAL, "Wrong IRQ number");
 
-    irq_happened[irqnum] = false;
-    do cpu_halt();
-    while (irq_happened[irqnum]);
+    uint32_t n = irq_happened[irqnum];
+    while (n >= irq_happened[irqnum]) {
+        cpu_halt();
+    }
     return 0;
 }
