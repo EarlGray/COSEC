@@ -97,8 +97,6 @@ static uint8_t tty_inpq_at(tty_inpqueue *inpq, size_t index) {
 }
 
 static int tty_inpq_strchr(volatile tty_inpqueue *inpq, char c) {
-    const char *funcname = __FUNCTION__;
-
     if (inpq->start == inpq->end)
         return -1; /* queue is empty */
 
@@ -207,8 +205,7 @@ static size_t tty_inpq_pop(tty_inpqueue *inpq, char *buf, size_t len) {
 
 
 static device * get_tty_device(mindev_t devno) {
-    const char *funcname = __FUNCTION__;
-    return_dbg_if(!(devno < N_VCSA_DEVICES), NULL, "%s: ENOENT", funcname);
+    return_dbg_if(!(devno < N_VCSA_DEVICES), NULL, "%s: ENOENT", __func__);
 
     return &(theTTYlist[devno]->tty_dev);
 }
@@ -234,7 +231,6 @@ const uint8_t ecma48_to_vga_color[] = {
 };
 
 static inline void ecma48_csi(char c, int vcsno, int *a1, int *a2) {
-    const char *funcname = __FUNCTION__;
     uint8_t attr;
 
     int arg1 = (a1 ? *a1 : 1);
@@ -274,7 +270,7 @@ static inline void ecma48_csi(char c, int vcsno, int *a1, int *a2) {
             vcsa_erase_screen(vcsno, VCSA_ERASE_WHOLE);
             break;
           default:
-            logmsgdf("%s: warn: ESC [ %d J\n", funcname, arg1);
+            logmsgdf("%s: warn: ESC [ %d J\n", __func__, arg1);
         }
         break;
       case 'K': /* EL -- erase line */
@@ -289,7 +285,7 @@ static inline void ecma48_csi(char c, int vcsno, int *a1, int *a2) {
             vcsa_erase_line(vcsno, VCSA_ERASE_WHOLE);
             break;
           default:
-            logmsgdf("%s: warn: ESC [ %d K\n", funcname, arg1);
+            logmsgdf("%s: warn: ESC [ %d K\n", __func__, arg1);
         }
         break;
 
@@ -312,11 +308,11 @@ static inline void ecma48_csi(char c, int vcsno, int *a1, int *a2) {
             vcsa_set_attribute(vcsno, attr);
             break;
         } else {
-            logmsgf("%s: unknown graphic mode \\x%x\n", funcname, arg1);
+            logmsgf("%s: unknown graphic mode \\x%x\n", __func__, arg1);
         }
         break;
       default:
-        logmsgf("%s: unknown sequence CSI \\x%x\n", funcname, (uint)c);
+        logmsgf("%s: unknown sequence CSI \\x%x\n", __func__, (uint)c);
     }
 }
 
@@ -324,16 +320,15 @@ static int dev_tty_write(
     device  *dev, const char *buf, size_t buflen, size_t *written, off_t pos
 ) {
     UNUSED(pos);
-    const char *funcname = __FUNCTION__;
     int arg1, arg2;
     bool hasarg1, hasarg2;
 
     struct tty_device *ttydev = dev->dev_data;
-    return_log_if(!ttydev, EKERN, "%s: no ttydev", funcname);
+    return_log_if(!ttydev, EKERN, "%s: no ttydev", __func__);
 
     mindev_t           ttyvcs = ttydev->tty_vcs;
     return_log_if(ttyvcs >= N_VCSA_DEVICES, ETODO,
-            "%s: dev_vcs=%d\n", funcname, ttydev->tty_vcs);
+            "%s: dev_vcs=%d\n", __func__, ttydev->tty_vcs);
 
     const char *s = buf;
     while ((size_t)(s - buf) < buflen) {
@@ -367,7 +362,7 @@ static int dev_tty_write(
                   case 'D': /* IND */ vcsa_move_cursor_by(ttyvcs, 0, 1); break;
                   case 'E': /* NEL */ vcsa_newline(ttyvcs); break;
                   case 'H': /* HTS */
-                    logmsgef("%s: TODO: set tabstop at current column", funcname);
+                    logmsgef("%s: TODO: set tabstop at current column", __func__);
                     break;
                   case 'M': /* RI -- reverse linefeed */
                     vcsa_move_cursor_by(ttyvcs, 0, -1);
@@ -402,7 +397,7 @@ static int dev_tty_write(
                                (hasarg2 ? &arg2 : NULL));
                     break;
                   default:
-                    logmsgf("%s: unknown sequence ESC \\x%x\n", funcname, (uint)*s);
+                    logmsgf("%s: unknown sequence ESC \\x%x\n", __func__, (uint)*s);
                 }
                 break;
               default:
@@ -419,11 +414,9 @@ static int dev_tty_write(
 }
 
 int tty_write(mindev_t ttyno, const char *buf, size_t buflen) {
-    const char *funcname = __FUNCTION__;
-
     device *dev = get_tty_device(ttyno);
     return_dbg_if(!dev, ENOENT,
-            "%s: ttyno=%d\n", funcname, ttyno);
+            "%s: ttyno=%d\n", __func__, ttyno);
 
     return dev_tty_write(dev, buf, buflen, NULL, 0);
 }
@@ -433,10 +426,9 @@ static int dev_tty_read(
         device *dev, char *buf, size_t buflen, size_t *written, off_t pos)
 {
     UNUSED(pos);
-    const char *funcname = __FUNCTION__;
 
     struct tty_device *tty = dev->dev_data;
-    return_err_if(!tty, EKERN, "%s: no dev->dev_data\n", funcname);
+    return_err_if(!tty, EKERN, "%s: no dev->dev_data\n", __func__);
 
     struct termios *tios = &tty->tty_conf;
 
@@ -480,18 +472,16 @@ static int dev_tty_read(
             }
             break;
         default:
-            logmsgef("%s: unknown tty mode %d", funcname, tty->tty_kbmode);
+            logmsgef("%s: unknown tty mode %d", __func__, tty->tty_kbmode);
             return EBADF;
     }
     return 0;
 }
 
 int tty_read(mindev_t ttyno, char *buf, size_t buflen, size_t *written) {
-    const char *funcname = __FUNCTION__;
-
     device *dev = get_tty_device(ttyno);
     return_dbg_if(!dev, ENOENT,
-            "%s: ttyno=%d\n", funcname, ttyno);
+            "%s: ttyno=%d\n", __func__, ttyno);
 
     return dev_tty_read(dev, buf, buflen, written, 0);
 }
@@ -502,32 +492,29 @@ static bool dev_tty_has_data() {
 }
 
 static int dev_tty_ioctl(device *dev, enum tty_ioctl op, size_t *ret) {
-    const char *funcname = __FUNCTION__;
     struct tty_device *tty = dev->dev_data;
     switch (op) {
         case KDGKBMODE:
-            assert(ret, EINVAL, "%s: ret is NULL", funcname);
+            assert(ret, EINVAL, "%s: ret is NULL", __func__);
             *ret = tty->tty_kbmode;
             break;
         case KDSKBMODE:
-            assert(ret, EINVAL, "%s: arg is NULL", funcname);
+            assert(ret, EINVAL, "%s: arg is NULL", __func__);
             assert(*ret < TTYKBD_LAST, EINVAL,
-                   "%s: arg=%d is invalid", funcname, *ret);
+                   "%s: arg=%d is invalid", __func__, *ret);
             tty->tty_kbmode = *ret;
             break;
         default:
-            logmsgef("%s: ioctl(op=%d): unknown op", funcname, op);
+            logmsgef("%s: ioctl(op=%d): unknown op", __func__, op);
             return EINVAL;
     }
     return 0;
 }
 
 int tty_ioctl(mindev_t ttyno, enum tty_ioctl op, size_t *arg) {
-    const char *funcname = __FUNCTION__;
-
     device *dev = get_tty_device(ttyno);
     return_dbg_if(!dev, ENOENT,
-            "%s: ttyno=%d\n", funcname, ttyno);
+            "%s: ttyno=%d\n", __func__, ttyno);
 
     return dev_tty_ioctl(dev, op, arg);
 }
@@ -557,13 +544,12 @@ static int ecma48_code_from_scancode(uint8_t sc, char buf[]) {
 }
 
 void tty_keyboard_handler(scancode_t sc) {
-    const char *funcname = __FUNCTION__;
     int ret;
     tty_inpqueue *inpq;
-    //logmsgdf("%s(scancode=%d)\n", funcname, (int)sc);
+    //logmsgdf("%s(scancode=%d)\n", __func__, (int)sc);
 
     tty_device *tty = theTTYlist[ theActiveTTY ];
-    returnv_err_if(!tty, "%s: no active tty", funcname);
+    returnv_err_if(!tty, "%s: no active tty", __func__);
 
     if ((0x3b <= sc) && (sc <= 0x42)) {
         theActiveTTY = (sc - 0x3b);
@@ -579,7 +565,7 @@ void tty_keyboard_handler(scancode_t sc) {
         buf[0] = (char)sc;
 
         tty_inpq_push(inpq, buf, 1);
-        logmsgdf("%s: RAW mode, tty_inpq_push(0x%x)\n", funcname, (int)sc);
+        logmsgdf("%s: RAW mode, tty_inpq_push(0x%x)\n", __func__, (int)sc);
 
         break;
       case TTYKBD_ANSI:
@@ -608,14 +594,13 @@ void tty_keyboard_handler(scancode_t sc) {
         }
         break;
       default:
-        logmsgef("%s: unknown keyboard mode %d\n", funcname, tty->tty_kbmode);
+        logmsgef("%s: unknown keyboard mode %d\n", __func__, tty->tty_kbmode);
         return;
     }
 }
 
 static void init_tty_family(void) {
-    const char *funcname = "init_tty_family";
-    logmsgf("%s()\n", funcname);
+    logmsgf("%s()\n", __func__);
     int i;
 
     theActiveTTY = 0;
