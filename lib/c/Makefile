@@ -16,7 +16,7 @@ objs := $(patsubst ./src/%.c, ./build/%.o, $(srcs))
 libc.a: build $(objs)
 	@echo "srcs: $(srcs)"
 	@echo "objs: $^"
-	$(AR) crT $@ $(objs)
+	$(AR) cr $@ $(objs)
 
 cosec.o: ./cosec/cosec.c
 	$(CC) $(CFLAGS) -c $< -o $@

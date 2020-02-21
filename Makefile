@@ -1,9 +1,9 @@
-export top_dir      := .
+export top_dir      := $(shell pwd)
 export include_dir  := $(top_dir)/include
 export src_dir      := $(top_dir)/src
 export build        := $(top_dir)/build
 
-STDINC_DIR   := lib/c/include
+STDINC_DIR   := $(top_dir)/lib/c/include
 CACHE_DIR    ?= $(top_dir)/.cache
 
 LUA          := 1
@@ -55,7 +55,7 @@ cc_flags  += -m32
 as_flags  += -m32
 ld_flags  += -melf_i386
 
-libc      := lib/c/libc.a
+libc      := lib/libc.a
 kernel    := $(build)/kernel
 
 cd_img      := cosec.iso
@@ -87,7 +87,11 @@ qemu_flags  := -m 64 -serial stdio $(qemu_debug) $(QEMU_OPT)
 init        := usr/init
 
 .PHONY: run install mount umount clean
-.PHONY: qemu runq
+.PHONY: qemu runq default
+
+default: qemu
+
+include $(wildcard lib/*.mk)
 
 qemu: $(cd_img)
 	$(qemu) $(qemu_cdboot) $(qemu_flags) $(qemu_net)
@@ -109,7 +113,7 @@ $(cd_img): $(kernel) $(init)
 	@echo "Creating a LiveCD..."
 	@res/mkcd
 
-$(kernel): $(libc) $(build) $(liblua) $(libsecd) $(objs) $(build)/$(lds)
+$(kernel): $(libc) $(liblua) $(libsecd) $(build) $(objs) $(build)/$(lds)
 	@echo "\n#### Linking..."
 	$(ld) -o $(kernel) $(objs) $(libsecd) $(liblua) $(libc) $(ld_flags)
 	@echo "## ...linked"
@@ -118,7 +122,8 @@ $(kernel): $(libc) $(build) $(liblua) $(libsecd) $(objs) $(build)/$(lds)
 	@[ `which ctags 2>/dev/null ` ] && ctags -R * || true
 
 $(libc):
-	@make CROSSCOMP=$(crosscompile) -C lib/c
+	@make CROSSCOMP=$(crosscompile) -C lib/c libc.a
+	@rm lib/libc.a 2>/dev/null; ln lib/c/libc.a lib/libc.a
 
 $(build):
 	@echo "\n#### Compiling"
@@ -135,65 +140,6 @@ $(build)/%.o : $(src_dir)/%.c
 
 $(build)/%.o : $(src_dir)/%.S
 	$(as) -c $< -o $@ $(as_flags) -MT $(subst .d,.c,$@)
-
-ifneq ($(LUA),)
-
-LUA_VER  ?= 5.2.2
-LUA_DIR  := lib/lua-$(LUA_VER)
-
-# include/lua/lua.h: $(LUA_DIR)
-
-$(CACHE_DIR)/lua-$(LUA_VER).tar.gz:
-	mkdir -p $(CACHE_DIR) ; cd $(CACHE_DIR); \
-    curl -LR -O http://www.lua.org/ftp/$(notdir $@)
-
-$(LUA_DIR): $(CACHE_DIR)/lua-$(LUA_VER).tar.gz
-	tar xf $< -C lib/
-	cd include ; test -L lua || ln -s ../$(LUA_DIR)/src lua
-
-$(liblua): $(LUA_DIR)
-	TOP_DIR=`pwd` && cd $(LUA_DIR)/src \
-	&& make CC=$(cc) RANLIB=$(ranlib) AR='$(ar) rcu --target elf32-i386' \
-	        SYSCFLAGS="-m32 -nostdinc -fno-stack-protector -I$$TOP_DIR/$(STDINC_DIR)" liblua.a
-	mv $(LUA_DIR)/src/liblua.a $(top_dir)/$@
-
-endif
-clean_lua:
-	rm -rf include/lua lib/liblua.a $(LUA_DIR) || true
-
-ifneq ($(SECD),)
-SECD_VER 	:= 0.1.2
-SECD_TARGZ	:= $(CACHE_DIR)/secd-$(SECD_VER).tar.gz
-
-$(libsecd): $(secdsrc)
-	$(cc) -c $< -o $@ $(cc_includes) $(cc_flags)
-
-$(secdsrc): lib/secd/libsecd.c include/secd
-	cp lib/secd/libsecd.c $@
-
-include/secd: lib/secd lib/secd/repl.secd
-	mkdir -p $@
-	cp -r lib/secd/include/secd/* $@/
-	xxd -i lib/secd/repl.secd > $@/repl.inc
-
-lib/secd/libsecd.c: lib/secd
-	make -C $^ libsecd.c
-
-lib/secd/repl.secd:
-	make -C lib/secd repl.secd
-
-lib/secd: $(SECD_TARGZ)
-	tar -C lib/ -xf $(SECD_TARGZ)
-	mv lib/SECD-$(SECD_VER) lib/secd
-
-$(SECD_TARGZ):
-	mkdir -p $(CACHE_DIR)
-	curl -R -L -o $@ https://github.com/EarlGray/SECD/archive/$(SECD_VER).tar.gz
-
-endif
-clean_secd:
-	rm -r $(secdsrc) include/secd || true
-	make -C lib/secd clean || true
 
 clean_kern:
 	rm -r $(secdsrc) include/secd || true
