@@ -220,15 +220,37 @@ struct kshell_command {
     void (*handler)(const struct kshell_command *this, const char *arg);
     const char * description;
     const char * options;
-    struct kshell_subcmd *subcmds;
+    const struct kshell_subcmd *subcmds;
 };
+
+void kshell_call_subcommand(const struct kshell_command *this, const char *cmdline) {
+    const struct kshell_subcmd *subcmd;
+    for (subcmd = this->subcmds; subcmd->name; ++subcmd) {
+        size_t subcmdlen = strlen(subcmd->name);
+        if (!strncmp(cmdline, subcmd->name, subcmdlen)) {
+            cmdline = cmdline + subcmdlen;
+            while (isspace(*cmdline)) ++cmdline;
+            (subcmd->handler)(cmdline);
+            return;
+        }
+    }
+
+    k_printf("Options: ");
+    if (this->options) {
+        k_printf("%s", this->options);
+    } else {
+        for (subcmd = this->subcmds; subcmd->name; ++subcmd) {
+            k_printf("%s ", subcmd->name);
+        }
+    }
+    k_printf("\n\n");
+}
 
 
 void kshell_help();
 void kshell_info(const struct kshell_command *, const char *);
 void kshell_cpuid(const struct kshell_command *, const char *);
 void kshell_mboot(const struct kshell_command *, const char *);
-void kshell_test(const struct kshell_command *, const char *);
 void kshell_heap(const struct kshell_command *, const char *);
 void kshell_set(const struct kshell_command *, const char *);
 void kshell_elf(const struct kshell_command *, const char *);
@@ -250,107 +272,6 @@ void kshell_init() {
     run_init();
 }
 
-const struct kshell_command main_commands[] = {
-    { .name = "init",
-        .handler = kshell_init,
-        .description = "userspace init()",
-        .options = "just init!" },
-    { .name = "test",
-        .handler = kshell_test,
-        .description = "test utility",
-        .options = "sprintf kbd timer serial tasks acpi ring3 usleep net" },
-    { .name = "info",
-        .handler = kshell_info,
-        .description = "various info",
-        .options = "stack gdt pmem colors cpu pci irq mods mboot" },
-    { .name = "cpuid",
-        .handler = kshell_cpuid,
-        .description = "x86 cpuid info; usage: cpuid [function, default 0]",
-        .options = "cpuid [<funct>=0]", },
-    { .name = "mem",
-        .handler = kshell_mem,
-        .description = "mem <start_addr> <size = 0x100>" },
-    { .name = "io",
-        .handler = kshell_io,
-        .description = "io[bwd][rw] <port> [<value>]",
-        .options = "\n\tbr/wr/ir <port> -- read port;"
-                   "\n\tbw/ww/iw <port> <value> - write value to port" },
-    { .name = "heap",
-        .handler = kshell_heap,
-        .description = "heap utility",
-        .options = "info alloc free check" },
-    { .name = "fs",
-        .handler = kshell_vfs,
-        .description = "vfs utility",
-        .options =
-            "\n  mounted                 -- list mountpoints;"
-            "\n  ls /absolute/dir/path   -- print directory entries list;"
-            "\n  stat /abs/path/to/flie  -- print `struct stat *` info;"
-            "\n  mkdir /abs/path/to/dir  -- create a directory;"
-            "\n  mknod /abs/path/to/file -- create a regular file;"
-            "\n  mkdev [c|d] <maj>:<min> /abs/path/to/dev -- create a device file"
-            "\n  ln /existing/path /new  -- create a new hard link"
-            "\n  mv /abs/path /new/path  -- rename file"
-            "\n  rm /abs/path            -- unlink path (possibly its inode)"
-            "\n  cat [>] /abs/path       -- read/write file"
-        },
-    { .name = "set",
-        .handler = kshell_set,
-        .description = "manage global variables",
-        .options = "color prompt" },
-    { .name = "elf",
-        .handler = kshell_elf,
-        .description = "inspect ELF formats",
-        .options = "sections syms" },
-    { .name = "panic",
-        .handler = kshell_panic,
-        .description = "test The Red Screen of Death"     },
-    { .name = "help",
-        .handler = kshell_help,
-        .description = "show this help"   },
-    { .name = "time",
-        .handler = kshell_time,
-        .description = "system time",
-        .options = ""  },
-    { .name = "off",
-        .handler = kshell_off,
-        .description = "ACPI poweroff",
-        .options = "" },
-#if COSEC_LUA
-    { .name = "lua",
-        .handler = kshell_lua,
-        .description = "Lua REPL",
-        .options = "" },
-#endif
-#if COSEC_SECD
-    { .name = "secd",
-        .handler = kshell_secd,
-        .description = "Scheme REPL",
-        .options = "<file.secd>" },
-#endif
-    { .name = NULL,
-        .handler = 0    }
-};
-
-void test_strs(void);
-void test_virtio_net(void);
-void test_net_dhcp(void);
-const struct kshell_subcmd  test_cmds[] = {
-    { .name = "sprintf", .handler = test_sprintf    },
-    { .name = "timer",   .handler = test_timer,     },
-    { .name = "serial",  .handler = test_serial,    },
-    { .name = "kbd",     .handler = test_kbd,       },
-    { .name = "tasks",   .handler = test_tasks,     },
-    { .name = "ring3",   .handler = test_userspace, },
-    { .name = "usleep",  .handler = test_usleep,    },
-    { .name = "acpi",    .handler = test_acpi,      },
-    { .name = "str",     .handler = test_strs,      },
-    { .name = "net",     .handler = test_virtio_net },
-    { .name = "dhcp",    .handler = test_net_dhcp   },
-    { .name = 0, .handler = 0    },
-};
-
-
 
 /* return number of first different symbol or endchar */
 static inline size_t strcmpsz(const char *s1, const char *s2, char endchar) {
@@ -362,35 +283,6 @@ static inline size_t strcmpsz(const char *s1, const char *s2, char endchar) {
 #define skip_gaps(pchar) \
     do while (' ' == *(pchar)) ++(pchar); while (0)
 
-bool kshell_autocomplete(char *buf) {
-    size_t i;
-    const struct kshell_command *cmd;
-
-    // search for commands
-    for (cmd = main_commands; cmd->name; ++cmd) {
-        i = strcmpsz(cmd->name, buf, 0);
-        if (i == strlen(cmd->name)) {
-            // full main command
-            char *rest = buf + i;
-            skip_gaps(rest);
-            if (0 == *rest) {
-                k_printf("\n%s\n%s%s", cmd->options, prompt, buf);
-                return false;
-            }
-            // else we need to track options of cmd
-            const char *opt = cmd->options;
-            i = strcmpsz(opt, rest, ' ');
-            return false;
-        }
-        if (i == strlen(buf)) {
-            // complete main command
-            strcpy(buf + i, cmd->name + i);
-            k_printf("%s ", cmd->name + i);
-            return true;
-        }
-    }
-    return false;
-}
 
 void kshell_elf(const struct kshell_command *this, const char *arg) {
     elf_section_header_table_t *mboot_syms = mboot_kernel_shdr();
@@ -596,20 +488,20 @@ void kshell_mem(const struct kshell_command *this, const char *arg) {
     k_printf("\n");
 }
 
-void kshell_test(const struct kshell_command *this, const char *cmdline) {
-    const struct kshell_subcmd *subcmd;
-    for (subcmd = test_cmds; subcmd->name; ++subcmd) {
-        size_t subcmdlen = strlen(subcmd->name);
-        if (!strncmp(cmdline, subcmd->name, subcmdlen)) {
-            cmdline = cmdline + subcmdlen;
-            while (isspace(*cmdline)) ++cmdline;
-            (subcmd->handler)(cmdline);
-            return;
-        }
-    }
 
-    k_printf("Options: %s\n\n", this->options);
-}
+void test_strs(void);
+const struct kshell_subcmd  test_cmds[] = {
+    { .name = "sprintf", .handler = test_sprintf    },
+    { .name = "timer",   .handler = test_timer,     },
+    { .name = "serial",  .handler = test_serial,    },
+    { .name = "kbd",     .handler = test_kbd,       },
+    { .name = "tasks",   .handler = test_tasks,     },
+    { .name = "ring3",   .handler = test_userspace, },
+    { .name = "usleep",  .handler = test_usleep,    },
+    { .name = "acpi",    .handler = test_acpi,      },
+    { .name = "str",     .handler = test_strs,      },
+    { .name = 0,         .handler = 0    },
+};
 
 void kshell_time() {
     ymd_hms t;
@@ -781,6 +673,15 @@ void kshell_vfs(const struct kshell_command __unused *this, const char *arg) {
     }
 }
 
+
+void test_net_dhcp(void);
+
+const struct kshell_subcmd  net_cmds[] = {
+    { .name = "dhcp",       .handler = test_net_dhcp  },
+    { .name = 0,            .handler = 0 }
+};
+
+
 void kshell_off() {
     acpi_poweroff();
 }
@@ -794,6 +695,130 @@ void kshell_panic() {
     //asm (".word 0xB9F0 \n");
 }
 
+
+
+const struct kshell_command main_commands[] = {
+    { .name = "cpuid",
+        .handler = kshell_cpuid,
+        .description = "x86 cpuid info; usage: cpuid [function, default 0]",
+        .options = "cpuid [<funct>=0]", },
+    { .name = "elf",
+        .handler = kshell_elf,
+        .description = "inspect ELF formats",
+        .options = "sections syms" },
+    { .name = "fs",
+        .handler = kshell_vfs,
+        .description = "vfs utility",
+        .options =
+            "\n  mounted                 -- list mountpoints"
+            "\n  ls /absolute/dir/path   -- print directory entries list"
+            "\n  stat /abs/path/to/flie  -- print `struct stat *` info"
+            "\n  mkdir /abs/path/to/dir  -- create a directory"
+            "\n  mknod /abs/path/to/file -- create a regular file"
+            "\n  mkdev [c|d] <maj>:<min> /abs/path/to/dev -- create a device file"
+            "\n  ln /existing/path /new  -- create a new hard link"
+            "\n  mv /abs/path /new/path  -- rename file"
+            "\n  rm /abs/path            -- unlink path (possibly its inode)"
+            "\n  cat [>] /abs/path       -- read/write file"
+        },
+    { .name = "halt",
+        .handler = kshell_off,
+        .description = "ACPI poweroff",
+        .options = "" },
+    { .name = "heap",
+        .handler = kshell_heap,
+        .description = "heap utility",
+        .options = "info alloc free check" },
+    { .name = "help",
+        .handler = kshell_help,
+        .description = "show this help or do `help <command>`"   },
+    { .name = "info",
+        .handler = kshell_info,
+        .description = "various info",
+        .options = "stack gdt pmem colors cpu pci irq mods mboot" },
+    { .name = "init",
+        .handler = kshell_init,
+        .description = "do userspace init()",
+        .options = "just init!" },
+    { .name = "io",
+        .handler = kshell_io,
+        .description = "io[bwd][rw] <port> [<value>]",
+        .options =
+            "\n  br/wr/ir <port>          -- read port"
+            "\n  bw/ww/iw <port> <value>  -- write value to port"
+    },
+#if COSEC_LUA
+    { .name = "lua",
+        .handler = kshell_lua,
+        .description = "Lua REPL",
+        .options = "" },
+#endif
+    { .name = "mem",
+        .handler = kshell_mem,
+        .description = "mem <start_addr> <size = 0x100>" },
+    { .name = "net",
+        .handler = kshell_call_subcommand,
+        .description = "net utility",
+        .subcmds = net_cmds,
+        .options =
+            "\n  dhcp                   -- run DHCP client"
+        },
+    { .name = "panic",
+        .handler = kshell_panic,
+        .description = "test The Red Screen of Death"     },
+#if COSEC_SECD
+    { .name = "secd",
+        .handler = kshell_secd,
+        .description = "Scheme REPL",
+        .options = "<file.secd>" },
+#endif
+    { .name = "set",
+        .handler = kshell_set,
+        .description = "manage global variables",
+        .options = "color prompt" },
+    { .name = "test",
+        .handler = kshell_call_subcommand,
+        .subcmds = test_cmds,
+        .description = "test utility",
+        },
+    { .name = "time",
+        .handler = kshell_time,
+        .description = "system time",
+        .options = ""  },
+    { .name = NULL,
+        .handler = 0    }
+};
+
+
+bool kshell_autocomplete(char *buf) {
+    size_t i;
+    const struct kshell_command *cmd;
+
+    // search for commands
+    for (cmd = main_commands; cmd->name; ++cmd) {
+        i = strcmpsz(cmd->name, buf, 0);
+        if (i == strlen(cmd->name)) {
+            // full main command
+            char *rest = buf + i;
+            skip_gaps(rest);
+            if (0 == *rest) {
+                k_printf("\n%s\n%s%s", cmd->options, prompt, buf);
+                return false;
+            }
+            // else we need to track options of cmd
+            const char *opt = cmd->options;
+            i = strcmpsz(opt, rest, ' ');
+            return false;
+        }
+        if (i == strlen(buf)) {
+            // complete main command
+            strcpy(buf + i, cmd->name + i);
+            k_printf("%s ", cmd->name + i);
+            return true;
+        }
+    }
+    return false;
+}
 void kshell_help(const struct kshell_command __unused *this, const char *cmdline) {
     const struct kshell_command *cmd;
     if (*cmdline) {
