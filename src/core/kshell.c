@@ -760,8 +760,6 @@ const struct kshell_command main_commands[] = {
         .handler = kshell_call_subcommand,
         .description = "net utility",
         .subcmds = net_cmds,
-        .options =
-            "\n  dhcp                   -- run DHCP client"
         },
     { .name = "panic",
         .handler = kshell_panic,

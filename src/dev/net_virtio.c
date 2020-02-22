@@ -217,11 +217,35 @@ struct virtio_net_device {
 
 struct virtio_net_device *theVirtNIC = NULL;
 
+static void net_virtio_print_features(uint32_t features, uint16_t portbase) {
+    logmsgf("[");
+    if (features & VIRTIO_NET_F_STATUS) {
+        uint16_t sta;
+        inw(portbase + VIO_NET_STA, sta);
+        logmsgf("sta=%x ", sta);
+    }
+    if (features & VIRTIO_F_NOTIFY_ON_EMPTY) logmsgf("onempty ");
+    if (features & VIRTIO_F_RING_INDIR_DESC) logmsgf("indir ");
+    if (features & VIRTIO_NET_F_CSUM) logmsgf("csumd ");
+    if (features & VIRTIO_NET_F_GUEST_CSUM) logmsgf("csumg ");
+    if (features & VIRTIO_NET_F_GUEST_TSOV4) logmsgf("tsov4g ");
+    if (features & VIRTIO_NET_F_GUEST_TSOV6) logmsgf("tsov6g ");
+    if (features & VIRTIO_NET_F_GUEST_ECN) logmsgf("tso/ecng ");
+    if (features & VIRTIO_NET_F_GUEST_UFO) logmsgf("ufog ");
+    if (features & VIRTIO_NET_F_HOST_TSO4) logmsgf("tsov4d ");
+    if (features & VIRTIO_NET_F_MRG_RXBUF) logmsgf("rxbufmrg ");
+    if (features & VIRTIO_NET_F_CTRL_VQ) logmsgf("ctlvq ");
+    if (features & VIRTIO_NET_F_CTRL_RX) logmsgf("ctlrx ");
+    if (features & VIRTIO_NET_F_CTRL_VLAN) logmsgf("vlan ");
+    if (features & VIRTIO_NET_F_GUEST_ANNOUNCE) logmsgf("announceg ");
+    logmsgf("]\n");
+}
+
 static macaddr_t net_virtio_get_macaddr() {
     return theVirtNIC->mac;
 }
 
-static void net_virtio_buf_cleanup(struct netbuf *nbuf) {
+static void net_virtio_rxbuf_cleanup(struct netbuf *nbuf) {
     logmsgef("%s: TODO", __func__);
 }
 
@@ -229,6 +253,20 @@ void net_virtio_irq() {
     uint8_t val;
     inb(theVirtNIC->virtio.iobase + VIO_ISR_STA, val);
     logmsge("%s: isr=0x%x\n", __func__, val);
+}
+
+
+bool net_virtio_is_up(struct netiface *iface) {
+    struct virtio_net_device *nic = iface->device;
+
+    /* get network status */
+    if (nic->virtio.features & VIRTIO_NET_F_STATUS) {
+        uint16_t hval;
+        inw(nic->virtio.iobase + VIO_NET_STA, hval);
+        return (bool)hval;
+    }
+
+    return false;
 }
 
 // a temporary hack until interrupts work!
@@ -255,20 +293,20 @@ static void net_virtio_poll(uint32_t t) {
 
         // TODO: receive the data!
         struct vring_used_elem rx = rxq->used->ring[rxq->last_used];
-        uint8_t *buf = (uint8_t *)(ptr_t)rxq->desc[rx.id].addr;
-        logmsgdf("%s: received *0x%x[%d]\n", __func__, buf, rx.len);
+        uint8_t *buf = (uint8_t *)(uintptr_t)rxq->desc[rx.id].addr;
 
         struct netbuf *nbuf = (struct netbuf *)(buf + MAX_VIRTIO_FRAME_SIZE);
         nbuf->buf = buf + sizeof(struct virtio_net_hdr);
         nbuf->len = rx.len;
-        nbuf->recycle = net_virtio_buf_cleanup;
-        logmsgdf("%s:  netbuf at *%x\n", __func__, nbuf);
+        nbuf->recycle = net_virtio_rxbuf_cleanup;
+        logmsgdf("%s: received *%x[%d], netbuf at *%x\n", __func__, buf, rx.len, nbuf);
 
         net_receive_driver_frame(nbuf);
 
         rxq->last_used = (rxq->last_used + 1) % rxq->size;
     }
 }
+
 
 uint8_t * net_virtio_frame_alloc(void) {
     uint8_t *buf = pmem_alloc(1);
@@ -280,7 +318,7 @@ uint8_t * net_virtio_frame_alloc(void) {
 }
 
 
-void net_virtio_tx_enqueue(uint8_t *buf, size_t eth_payload_len) {
+int net_virtio_tx_enqueue(uint8_t *buf, size_t eth_payload_len) {
     logmsgdf("%s(buf=*%x, len=%d)\n", __func__, buf, eth_payload_len);
     /* virtio net header */
     struct virtio_net_hdr *vhdr = (struct virtio_net_hdr *)buf - 1;
@@ -298,6 +336,7 @@ void net_virtio_tx_enqueue(uint8_t *buf, size_t eth_payload_len) {
     desc->addr = (uint64_t)(uint32_t)vhdr;
     desc->len = sizeof(struct virtio_net_hdr) + sizeof(struct eth_hdr_t) + eth_payload_len + 4;
     desc->flags = 0;
+    return 0;
 }
 
 int net_virtio_transmit(void) {
@@ -394,41 +433,25 @@ static int net_virtio_setup(struct virtio_net_device *nic) {
     val = (uint32_t)nic->rxq.desc / PAGE_SIZE;
     outl(nic->virtio.iobase + VIO_Q_ADDR, val);
 
-
     /* negotiate features */
     val = VIRTIO_F_NOTIFY_ON_EMPTY;
     val |= VIRTIO_NET_F_MAC;
     val |= VIRTIO_NET_F_STATUS;
     val |= VIRTIO_NET_F_CSUM;
     outl(nic->virtio.iobase + VIO_DRV_FEATURE, val);
-    logmsgdf("%s: negotiating 0x%x\n", __func__, val);
+    logmsgdf("%s: negotiating ", __func__); net_virtio_print_features(val, nic->virtio.iobase);
 
     inl(nic->virtio.iobase + VIO_DRV_FEATURE, val);
-    logmsgdf("%s: negotiated  0x%x\n", __func__, val);
+    logmsgdf("%s: negotiated  ", __func__); net_virtio_print_features(val, nic->virtio.iobase);
     nic->virtio.features = val;
-
-    /* setup IRQ */
-    irq_set_handler(nic->virtio.intr, net_virtio_irq);
-    irq_enable(nic->virtio.intr);
-    logmsgdf("%s: irq_set_handler(%d, net_virtio_irq)\n",  __func__,
-             nic->virtio.intr);
-
-    /* temporary hack: set up polling */
-    logmsgdf("%s: timer frequency = %d\n", __func__, timer_frequency());
-    timer_push_ontimer(net_virtio_poll);
 
     /* enable this virtio driver */
     hval = STA_DRV_OK | STA_DRV | STA_ACK;
     outw_p(nic->virtio.iobase + VIO_DEV_STA, hval);
 
-    /* get network status */
-    if (nic->virtio.features & VIRTIO_NET_F_STATUS) {
-        inw(nic->virtio.iobase + VIO_NET_STA, hval);
-        logmsgf("%s: virtio network is %s\n", __func__, hval ? "up" : "down");
-    }
-
     return 0;
 }
+
 
 int net_virtio_init(pci_config_t *pciconf) {
     uint32_t features = 0;
@@ -454,6 +477,7 @@ int net_virtio_init(pci_config_t *pciconf) {
     return_err_if(portbase == 0, -1, "%s: portbase not found\n", __func__);
 
     inl(portbase + VIO_DEV_FEATURE, features);
+    net_virtio_print_features(features, portbase);
     return_err_if(!(features & VIRTIO_NET_F_MAC), -EINVAL,
                   "%s: no MAC address, aborting configuration", __func__);
 
@@ -473,75 +497,61 @@ int net_virtio_init(pci_config_t *pciconf) {
     logmsgf("%s: portbase = 0x%x, intr = #%d\n", __func__,
              (uint)portbase, pciconf->pci_interrupt_line);
 
-    logmsgf("%s: [", __func__);
-    if (features & VIRTIO_NET_F_STATUS) {
-        uint16_t sta;
-        inw(portbase + VIO_NET_STA, sta);
-        logmsgf("sta=%x ", sta);
-    }
-    if (features & VIRTIO_F_NOTIFY_ON_EMPTY) logmsgf("onempty ");
-    if (features & VIRTIO_F_RING_INDIR_DESC) logmsgf("indir ");
-    if (features & VIRTIO_NET_F_CSUM) logmsgf("csumd ");
-    if (features & VIRTIO_NET_F_GUEST_CSUM) logmsgf("csumg ");
-    if (features & VIRTIO_NET_F_GUEST_TSOV4) logmsgf("tsov4g ");
-    if (features & VIRTIO_NET_F_GUEST_TSOV6) logmsgf("tsov6g ");
-    if (features & VIRTIO_NET_F_GUEST_ECN) logmsgf("tso/ecng ");
-    if (features & VIRTIO_NET_F_GUEST_UFO) logmsgf("ufog ");
-    if (features & VIRTIO_NET_F_HOST_TSO4) logmsgf("tsov4d ");
-    if (features & VIRTIO_NET_F_MRG_RXBUF) logmsgf("rxbufmrg ");
-    if (features & VIRTIO_NET_F_CTRL_VQ) logmsgf("ctlvq ");
-    if (features & VIRTIO_NET_F_CTRL_RX) logmsgf("ctlrx ");
-    if (features & VIRTIO_NET_F_CTRL_VLAN) logmsgf("vlan ");
-    if (features & VIRTIO_NET_F_GUEST_ANNOUNCE) logmsgf("announceg ");
-    logmsgf("]\n");
 
     return_err_if(theVirtNIC, -ETODO,
                   "%s: only one network device at the moment\n", __func__);
 
-    theVirtNIC = kmalloc(sizeof(struct virtio_net_device));
-    theVirtNIC->virtio.iobase = portbase;
-    theVirtNIC->virtio.intr = pciconf->pci_interrupt_line;
-    theVirtNIC->virtio.features = features;
-    theVirtNIC->mac = mac;
+    struct virtio_net_device *nic;
+    nic = kmalloc(sizeof(struct virtio_net_device));
+    memset(nic, 0, sizeof(struct virtio_net_device));
+    nic->virtio.iobase = portbase;
+    nic->virtio.intr = pciconf->pci_interrupt_line;
+    nic->virtio.features = features;
+    nic->mac = mac;
 
-    int ret = net_virtio_setup(theVirtNIC);
+    int ret = net_virtio_setup(nic);
+    if (ret) {
+        logmsgef("%s: net_virtio_setup failed (%d)", __func__, ret);
+        kfree(nic);
+        return ret;
+    }
 
-    theVirtNIC->iface.do_transmit = net_virtio_transmit;
-    theVirtNIC->iface.transmit_frame_alloc = net_virtio_frame_alloc;
-    theVirtNIC->iface.transmit_frame_enqueue = net_virtio_tx_enqueue;
-    theVirtNIC->iface.get_mac = net_virtio_get_macaddr;
+    // this must happen before IRQ and timers:
+    theVirtNIC = nic;
 
-    net_interface_register(&theVirtNIC->iface);
+    /* setup IRQ */
+    irq_set_handler(nic->virtio.intr, net_virtio_irq);
+    irq_enable(nic->virtio.intr);
+    logmsgdf("%s: irq_set_handler(%d, net_virtio_irq)\n",  __func__,
+             nic->virtio.intr);
 
-    return ret;
+    /* temporary hack: set up polling */
+    logmsgdf("%s: timer frequency = %d\n", __func__, timer_frequency());
+    timer_push_ontimer(net_virtio_poll);
+
+    /* get network status */
+    uint16_t hval;
+    inw(nic->virtio.iobase + VIO_NET_STA, hval);
+    logmsgf("%s: virtio network is %s\n", __func__, hval ? "up" : "down");
+
+    /* intialize and register the network interface */
+    nic->iface.device = nic;
+    nic->iface.do_transmit = net_virtio_transmit;
+    nic->iface.transmit_frame_alloc = net_virtio_frame_alloc;
+    nic->iface.transmit_frame_enqueue = net_virtio_tx_enqueue;
+    nic->iface.get_mac = net_virtio_get_macaddr;
+    nic->iface.is_device_up = net_virtio_is_up;
+
+    ret = net_interface_register(&nic->iface);
+    if (ret) {
+        logmsgef("%s: net_interface_register failed (%d)", __func__, ret);
+        kfree(nic);
+        return ret;
+    }
+
+    return 0;
 }
 
 void net_virtio_macaddr(uint8_t addr[static ETH_ALEN]) {
     memcpy(addr, theVirtNIC->mac.oct, ETH_ALEN);
-}
-
-void test_virtio_net(void) {
-    const char *echomsg = "Hello world!\n";
-    size_t datalen = strlen(echomsg) + 1;
-
-    uint8_t *frame = net_virtio_frame_alloc();
-
-    struct eth_hdr_t *eth = (struct eth_hdr_t *)frame;
-    memcpy(eth->src, theVirtNIC->mac.oct, ETH_ALEN);
-    //memcpy(eth->dst, &ETH_BROADCAST_MAC, ETH_ALEN);
-    const uint8_t mainland[] = {0x52,0x54,0x00,0x79,0x55,0x73};
-    memcpy(eth->dst, mainland, ETH_ALEN);
-    eth->ethertype = htons(ETHERTYPE_IPV4);
-
-    uint8_t *data = net_buf_udp4_init(frame);
-    strcpy((char *)data, echomsg);
-
-    const union ipv4_addr_t srcaddr = { .oct={169,254,0,1} };
-    const union ipv4_addr_t dstaddr = { .oct={192,168,122,1} };
-    net_buf_udp4_setsrc(data, &srcaddr, 8000);
-    net_buf_udp4_setdst(data, &dstaddr, 7777);
-    net_buf_udp4_checksum(data, datalen);
-
-    net_virtio_tx_enqueue(frame, net_buf_udp4_iplen(data));
-    net_virtio_transmit();
 }

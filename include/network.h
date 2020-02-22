@@ -3,6 +3,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <stdbool.h>
 
 /*
  *    Network byte order
@@ -57,7 +58,9 @@ typedef union {
     uint16_t word[ETH_ALEN/2];
 } macaddr_t;
 
-extern const macaddr_t ETH_BROADCAST_MAC;
+static const macaddr_t ETH_BROADCAST_MAC = { .oct = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff } };
+static const macaddr_t ETH_INVALID_MAC = { .oct = {0, 0, 0, 0, 0, 0 } };
+
 
 enum ethertype {
     ETHERTYPE_IPV4 = 0x0800,
@@ -71,6 +74,9 @@ __packed struct eth_hdr_t {
     uint16_t ethertype;
 };
 
+static inline bool mac_equal(macaddr_t m1, macaddr_t m2) {
+    return (m1.word[0] == m2.word[0]) && (m1.word[1] == m2.word[1]) && (m1.word[2] == m2.word[2]);
+}
 
 #define IPV4_DEFAULT_TTL    32
 
@@ -98,6 +104,9 @@ enum ipv4_subproto {
     IPV4TYPE_ICMP = 1,
     IPV4TYPE_UDP = 17,
 };
+
+#define IP4(a, b, c, d) { .oct = {(a), (b), (c), (d)} }
+
 
 /*
  *  UDP
@@ -163,7 +172,9 @@ uint8_t * net_buf_udp4_alloc(const union ipv4_addr_t *srcaddr, uint16_t srcport,
                              const union ipv4_addr_t *dstaddr, uint16_t dstport);
 
 // Takes an ethernet frame and returns the pointer to UDP data
-uint8_t * net_buf_udp4_init(uint8_t *frame);
+uint8_t * net_buf_udp4_init(uint8_t *frame,
+                            const union ipv4_addr_t srcaddr, uint16_t srcport,
+                            const union ipv4_addr_t dstaddr, uint16_t dstport);
 
 void net_buf_udp4_setsrc(uint8_t *packet, const union ipv4_addr_t *addr, uint16_t port);
 void net_buf_udp4_setdst(uint8_t *packet, const union ipv4_addr_t *addr, uint16_t port);
@@ -175,6 +186,19 @@ size_t net_buf_udp4_checksum(uint8_t *data, size_t datalen);
 
 
 /*
+ *  neighbors table and resolvers
+ */
+
+// Maximum number of neighbor mappings per interface.
+#define MAX_NEIGHBORS   8
+
+struct neighbor_mapping {
+    union ipv4_addr_t ip;
+    macaddr_t eth;
+};
+
+
+/*
  *  network driver interface
  */
 
@@ -183,19 +207,30 @@ size_t net_buf_udp4_checksum(uint8_t *data, size_t datalen);
 #define MAX_NETWORK_INTERFACES  1
 
 struct netiface {
-    struct netiface *next;
+    // backreferences
+    size_t index;
+    void *device;
 
-    uint32_t index;
-
+    // functions:
+    bool (*is_device_up)(struct netiface *);
     macaddr_t (*get_mac)(void);
 
     uint8_t* (*transmit_frame_alloc)(void);
-    void (*transmit_frame_enqueue)(uint8_t *, size_t);
+    int (*transmit_frame_enqueue)(uint8_t *, size_t);
     int (*do_transmit)(void);
+
+    // neighbors table is a simple ring buffer:
+    struct neighbor_mapping  neighbors[MAX_NEIGHBORS];
+    size_t neighbors_head;
 };
 
 int net_interface_register(struct netiface *);
 struct netiface * net_interface_for_destination(const union ipv4_addr_t *);
 
+// Search neighbors cache of the interface;
+// If nothing is found, returns ETH_INVALID_MAC.
+macaddr_t net_neighbor_resolve(struct netiface *, union ipv4_addr_t);
+
+void net_neighbor_remember(struct netiface *, union ipv4_addr_t, macaddr_t);
 
 #endif  // __COSEC_NETWORK_H__
