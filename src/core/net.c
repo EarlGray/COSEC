@@ -9,6 +9,7 @@
 #include <attrs.h>
 #include "network.h"
 #include "mem/pmem.h"
+#include "time.h"
 
 #include "arch/i386.h" // for cpu_halt
 
@@ -140,8 +141,9 @@ int net_transmit_frame(struct netiface *iface, uint8_t *frame, uint16_t len) {
     return iface->do_transmit();
 }
 
-void net_wait_udp4(struct netbuf **nbuf, uint16_t port, uint32_t timeout_ms) {
-    do {
+void net_wait_udp4(struct netbuf **nbuf, uint16_t port, uint32_t timeout_s) {
+    time_t endtime = time(NULL) + timeout_s;
+    for (;;) {
         *nbuf = NULL;
 
         // walk the rxq looking for matching packet:
@@ -184,9 +186,11 @@ void net_wait_udp4(struct netbuf **nbuf, uint16_t port, uint32_t timeout_ms) {
             } while ((cur = cur->next) != theNetwork.rxq);
         }
 
+        if (time(NULL) > endtime)
+            break;
         // TODO: timing out
         cpu_halt();
-    } while (0);
+    }
 }
 
 
@@ -321,7 +325,7 @@ void test_net_dhcp(void) {
     const uint32_t xid = 0x3903f326;
 
     struct netbuf *reply;
-    const uint32_t timeout_s = 300;
+    const uint32_t timeout_s = 10;
 
     struct netiface * iface = net_interface_for_destination(0);
     returnv_err_if(!iface, "No interface for DHCP");
@@ -360,7 +364,7 @@ void test_net_dhcp(void) {
 
     // DHCP OFFER
     reply = NULL;
-    net_wait_udp4(&reply, DHCP_CLIENT_PORT, timeout_s * 1000);
+    net_wait_udp4(&reply, DHCP_CLIENT_PORT, timeout_s);
     if (!reply) {
         logmsgif("Timed out expecting the reply, %d sec", timeout_s);
         return;
@@ -413,7 +417,7 @@ void test_net_dhcp(void) {
 
     // DHCP ACK
     reply = NULL;
-    net_wait_udp4(&reply, DHCP_CLIENT_PORT, timeout_s * 1000);
+    net_wait_udp4(&reply, DHCP_CLIENT_PORT, timeout_s);
     if (!reply) {
         logmsgif("Timed out expecting the reply, %d sec", timeout_s);
         return;

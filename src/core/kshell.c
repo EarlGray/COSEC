@@ -506,10 +506,12 @@ const struct kshell_subcmd  test_cmds[] = {
 void kshell_time() {
     ymd_hms t;
     time_ymd_from_rtc(&t);
+    time_t epoch = time(NULL);
 
-    printf("Date: %d/%d/%d, %d:%d:%d\n",
+    printf("Date: %d/%02d/%02d, %02d:%02d:%02d\n",
             (uint)t.tm_mday, (uint)t.tm_mon, (uint)t.tm_year,
             (uint)t.tm_hour, (uint)t.tm_min, (uint)t.tm_sec);
+    printf("Epoch: %d\n", epoch);
 }
 
 

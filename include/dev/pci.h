@@ -47,8 +47,8 @@ typedef struct __packed pci_config {
     pci_bar_t pci_bar5;
 
     uint32_t  pci_cardbus_ptr;
-    uint16_t  pci_sybsyst_vendor;
-    uint16_t  pci_sybsyst_id;
+    uint16_t  pci_subsystem_vendor;
+    uint16_t  pci_subsystem_id;
 
     uint32_t  pci_exprom_baseaddr;
     uint8_t   pci_capabilities;

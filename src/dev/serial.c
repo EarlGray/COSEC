@@ -88,7 +88,7 @@ inline bool serial_is_transmit_empty(uint16_t port) {
 }
 
 inline void serial_write(uint16_t port, uint8_t b) {
-    outb(port, b);
+    outb_p(port, b);
 }
 
 void serial_puts(uint16_t port, const char *s) {

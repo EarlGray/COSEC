@@ -93,7 +93,7 @@ void pci_info(uint bus, int slot) {
                 (uint)(id & 0xFFFF), (uint)(id >> 16));
     uint dev_clss = pci_config_read_dword(bus, slot, 0, PCI_CONF_CLASS_OFF);
     uint8_t clss = dev_clss >> 24;
-    printf(", class %x:%x (%s)\n",
+    printf(", class %04x:%04x (%s)\n",
                 (uint)clss, (uint)((dev_clss & 0x00FF0000) >> 16),
                 (clss < sizeof(pci_class_descriptions)/sizeof(char*) ? pci_class_descriptions[clss] : "?" ));
     uint hdr = pci_config_read_dword(bus, slot, 0, PCI_CONF_BIST_HDR);
@@ -127,7 +127,7 @@ void pci_list(uint bus) {
 
         uint dev_class = pci_config_read_dword(bus, slot, 0, PCI_CONF_CLASS_OFF);
         uint8_t clss = dev_class >> 24;
-        printf(", class %x:%x (%s)\n",
+        printf(", class %04x:%04x (%s)\n",
                 (uint32_t)clss, (uint32_t)((dev_class >> 16) & 0x00FF),
                 (clss < sizeof(pci_class_descriptions)/sizeof(char*) ? pci_class_descriptions[clss] : "?" ));
     }
@@ -144,7 +144,7 @@ static const pci_driver_t * lookup_pci_driver(uint32_t id) {
     return NULL;
 }
 
-static pci_bus_setup(int bus) {
+static void pci_bus_setup(int bus) {
     int slot;
     pci_config_t conf;
 
@@ -165,21 +165,21 @@ static pci_bus_setup(int bus) {
             if (conf.pci_class < sizeof(pci_class_descriptions)/sizeof(char*))
                 desc = pci_class_descriptions[ conf.pci_class ];
 
-            k_printf("pci:%d:%d\t%x:%x (intr %d:%d) - %s\n", bus, slot,
+            logmsgf("pci:%d:%d\t%04x:%04x (intr %d:%02d) - %s\n", bus, slot,
                    conf.pci.vendor, conf.pci.device,
                    conf.pci_interrupt_pin, conf.pci_interrupt_line,
                    desc);
             continue;
         }
 
-        k_printf("pci:%d:%d\t%x:%x (intr %d:%d) - %s\n", bus, slot,
+        logmsgf("pci:%d:%d\t%04x:%04x (intr %d:%02d) - %s\n", bus, slot,
                conf.pci.vendor, conf.pci.device,
                conf.pci_interrupt_pin, conf.pci_interrupt_line,
                drv->pci_name);
 
         int ret = drv->pci_init(&conf);
         if (ret) {
-            k_printf("[%x:%x] init error: %s\n",
+            k_printf("[%04x:%04x] init error: %s\n",
                      conf.pci.vendor, conf.pci.device, strerror(-ret));
         }
     }

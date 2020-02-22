@@ -461,8 +461,12 @@ int net_virtio_init(pci_config_t *pciconf) {
     return_msg_if(pciconf->pci_rev_id > 0, -ENOSYS,
                   "%s: pci.rev_id=%d, aborting configuration\n",
                   __func__, pciconf->pci_rev_id);
-    assert(pciconf->pci_sybsyst_id == 1, -EINVAL,
+    assert(pciconf->pci_subsystem_id == 1, -EINVAL,
            "%s: pci->subsystem_id is not VIRTIO_NET\n", __func__);
+
+    logmsgif("%s: pci %04x:%04x intr=%d:%02d", __func__,
+             pciconf->pci.vendor, pciconf->pci.device,
+             pciconf->pci_interrupt_pin, pciconf->pci_interrupt_line);
 
     if (pciconf->pci_bar0.val & 1)
         portbase = pciconf->pci_bar0.val & 0xfffc;
@@ -489,10 +493,6 @@ int net_virtio_init(pci_config_t *pciconf) {
     mac.word[0] = mac0;
     mac.word[1] = mac1;
     mac.word[2] = mac2;
-    logmsgif("%s: mac=%02x:%02x:%02x:%02x:%02x:%02x", __func__,
-             mac.oct[0], mac.oct[1],
-             mac.oct[2], mac.oct[3],
-             mac.oct[4], mac.oct[5]);
 
     logmsgf("%s: portbase = 0x%x, intr = #%d\n", __func__,
              (uint)portbase, pciconf->pci_interrupt_line);
@@ -533,6 +533,12 @@ int net_virtio_init(pci_config_t *pciconf) {
     uint16_t hval;
     inw(nic->virtio.iobase + VIO_NET_STA, hval);
     logmsgf("%s: virtio network is %s\n", __func__, hval ? "up" : "down");
+
+    logmsgif("%s: %s, mac=%02x:%02x:%02x:%02x:%02x:%02x", __func__,
+             (hval ? "up" : "down"),
+             mac.oct[0], mac.oct[1],
+             mac.oct[2], mac.oct[3],
+             mac.oct[4], mac.oct[5]);
 
     /* intialize and register the network interface */
     nic->iface.device = nic;
