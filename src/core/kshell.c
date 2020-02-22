@@ -2,31 +2,32 @@
 #include <string.h>
 #include <stdio.h>
 #include <time.h>
+#include <ctype.h>
 
 #include <cosec/log.h>
 
-#include <arch/i386.h>
-#include <arch/mboot.h>
-#include <arch/multiboot.h>
+#include "arch/i386.h"
+#include "arch/mboot.h"
+#include "arch/multiboot.h"
 
-#include <dev/intrs.h>
-#include <dev/screen.h>
-#include <dev/kbd.h>
-#include <dev/tty.h>
-#include <dev/pci.h>
-#include <dev/acpi.h>
+#include "dev/intrs.h"
+#include "dev/screen.h"
+#include "dev/kbd.h"
+#include "dev/tty.h"
+#include "dev/pci.h"
+#include "dev/acpi.h"
 
-#include <mem/pmem.h>
-#include <mem/kheap.h>
-#include <misc/test.h>
-#include <misc/elf.h>
+#include "mem/pmem.h"
+#include "mem/kheap.h"
+#include "misc/test.h"
+#include "misc/elf.h"
+#include "network.h"
 
-#include <fs/vfs.h>
-#include <fs/devices.h>
-#include <process.h>
+#include "fs/vfs.h"
+#include "fs/devices.h"
+#include "process.h"
 
-#include <kshell.h>
-#include <ctype.h>
+#include "kshell.h"
 
 
 #define CMD_SIZE    256
@@ -38,6 +39,9 @@
 bool kshell_autocomplete(char *buf);
 static char * get_args(char *command);
 static const char * get_int_opt(const char *arg, int *res, uint8_t base);
+static const char * get_ipv4_opt(const char *arg, union ipv4_addr_t *ip);
+static const char * get_macaddr_opt(const char *arg, macaddr_t *mac);
+
 
 /***
   *     Panic and other print routines
@@ -421,6 +425,104 @@ void kshell_info(const struct kshell_command *this, const char *arg) {
     }
 }
 
+void kshell_net_link(const char *cmdline) {
+    for (int ifidx = 0; ifidx < MAX_NETWORK_INTERFACES; ++ifidx) {
+        struct netiface * iface = net_interface_by_index(ifidx);
+        if (!iface) continue;
+
+        printf("%d: net%d: <", ifidx, ifidx);
+        if (iface->can_broadcast) printf("BROADCAST,");
+        printf(iface->is_up ? "UP," : "DOWN");
+        if (iface->is_up) printf(iface->is_device_up(iface) ? "LOWER_UP" : "NO-CARRIER");
+        printf(">\n");
+
+        macaddr_t mac = iface->get_mac();
+        printf("    link/ether %02x:%02x:%02x:%02x:%02x:%02x\n",
+                mac.oct[0],mac.oct[1],mac.oct[2],mac.oct[3],mac.oct[4],mac.oct[5]);
+
+        if (iface->ip_addr.num) {
+            union ipv4_addr_t ip = iface->ip_addr;
+            union ipv4_addr_t mask = iface->ip_subnet;
+            union ipv4_addr_t gw = iface->ip_gw;
+            printf("    inet=%d.%d.%d.%d mask=%d.%d.%d.%d",
+                   ip.oct[0], ip.oct[1], ip.oct[2], ip.oct[3],
+                   mask.oct[0], mask.oct[1], mask.oct[2], mask.oct[3]);
+            if (iface->ip_gw.num)
+                printf(" gw=%d.%d.%d.%d", gw.oct[0], gw.oct[1], gw.oct[2], gw.oct[3]);
+            printf("\n");
+        }
+    }
+}
+
+void kshell_net_neigh(const char *cmdline) {
+    struct netiface *iface = NULL;
+
+    int ifidx = -1;
+    const char *next = sscan_int(cmdline, &ifidx, 10);
+    if (next != cmdline) {
+        cmdline = next;
+        skip_gaps(cmdline);
+
+        iface = net_interface_by_index(ifidx);
+        returnv_err_if(!iface, "No interface for index=%d", ifidx);
+    }
+
+    if (!strcmp(cmdline, "all") || !strcmp(cmdline, "ls") || !strcmp(cmdline, "list")) {
+        if (ifidx >= 0) {
+            return net_neighbors_print(iface);
+        }
+
+        for (ifidx = 0; ifidx < MAX_NETWORK_INTERFACES; ++ifidx) {
+            struct netiface * iface = net_interface_by_index(ifidx);
+            if (!iface) continue;
+
+            net_neighbors_print(iface);
+        }
+    } else if (!strncmp(cmdline, "get", 3) && isspace(cmdline[3])) {
+        cmdline += 4;
+        union ipv4_addr_t ip;
+        cmdline = get_ipv4_opt(cmdline, &ip);
+        if (!cmdline) return;
+
+        macaddr_t mac = net_neighbor_resolve(NULL, ip);
+        if (mac_equal(mac, ETH_INVALID_MAC)) {
+            // TODO: try ARP
+            return;
+        }
+        printf("%02x:%02x:%02x:%02x:%02x:%02x\n",
+                mac.oct[0], mac.oct[1], mac.oct[2], mac.oct[3], mac.oct[4], mac.oct[5]);
+    } else if (!strncmp(cmdline, "set", 3) && isspace(cmdline[3])) {
+        cmdline += 4;
+        returnv_err_if(!iface, "'neigh set' requires the interface index");
+
+        skip_gaps(cmdline);
+        union ipv4_addr_t ip;
+        cmdline = get_ipv4_opt(cmdline, &ip);
+        returnv_err_if(!cmdline, "Failed to parse IP");
+
+        skip_gaps(cmdline);
+        macaddr_t mac;
+        cmdline = get_macaddr_opt(cmdline, &mac);
+        returnv_err_if(!cmdline, "Failed to parse MAC");
+
+        net_neighbor_remember(iface, ip, mac);
+    } else if (!strncmp(cmdline, "arp", 3) && isspace(cmdline[3])) {
+        skip_gaps(cmdline);
+
+        union ipv4_addr_t ip;
+        cmdline = get_ipv4_opt(cmdline, &ip);
+
+        int ret = net_arp_send_whohas(iface, ip);
+        returnv_err_if(ret, "net_arp_send_whohas failed: %d\n", ret);
+    } else {
+        printf("Usage: \n"
+            "  net neigh [<ifidx>] all\n"
+            "  net neigh [<ifidx>] get <ip>\n"
+            "  net neigh <ifidx> set <ip> <mac>\n"
+            "  net neigh <ifidx> arp <ip>\n");
+    }
+}
+
 void kshell_io(const struct kshell_command *this, const char *arg) {
     int port = 0;
     int val = 0;
@@ -679,7 +781,9 @@ void kshell_vfs(const struct kshell_command __unused *this, const char *arg) {
 void test_net_dhcp(void);
 
 const struct kshell_subcmd  net_cmds[] = {
+    { .name = "link",       .handler = kshell_net_link },
     { .name = "dhcp",       .handler = test_net_dhcp  },
+    { .name = "neigh",      .handler = kshell_net_neigh },
     { .name = 0,            .handler = 0 }
 };
 
@@ -854,6 +958,54 @@ static char * get_args(char *command) {
     return arg;
 }
 
+static const char * get_ipv4_opt(const char *arg, union ipv4_addr_t *ip) {
+    skip_gaps(arg);
+    int a, b, c, d;
+
+#define GET_DEC(var) \
+    arg = get_int_opt(arg, &var, 10); \
+    if (((var) < 0) || (256 <= (var))) goto parse_error;
+
+    GET_DEC(a); if (*arg != '.') goto parse_error;
+    GET_DEC(b); if (*arg != '.') goto parse_error;
+    GET_DEC(c); if (*arg != '.') goto parse_error;
+    GET_DEC(d);
+
+    ip->oct[0] = a;
+    ip->oct[1] = b;
+    ip->oct[2] = c;
+    ip->oct[3] = d;
+    return arg;
+
+parse_error:
+    logmsgef("Failed to parse ip: %s", arg);
+    return NULL;
+}
+
+static const char * get_macaddr_opt(const char *arg, macaddr_t *mac) {
+    skip_gaps(arg);
+    int a, b, c, d, e, f;
+
+#define GET_HEX(var) \
+    arg = get_int_opt(arg, &var, 16); \
+    if (((var) < 0) || (256 <= (var))) goto parse_error;
+
+    GET_HEX(a); if (*arg != ':') goto parse_error;
+    GET_HEX(b); if (*arg != ':') goto parse_error;
+    GET_HEX(c); if (*arg != ':') goto parse_error;
+    GET_HEX(d); if (*arg != ':') goto parse_error;
+    GET_HEX(e); if (*arg != ':') goto parse_error;
+    GET_HEX(f);
+
+    mac->oct[0] = a; mac->oct[1] = b; mac->oct[2] = c;
+    mac->oct[3] = d; mac->oct[4] = e; mac->oct[5] = f;
+    return arg;
+
+parse_error:
+    logmsgef("Failed to parse MAC: %s", arg);
+    return NULL;
+}
+
 static const char * get_int_opt(const char *arg, int *res, uint8_t base) {
     const char *end = arg;
     do {
@@ -877,7 +1029,7 @@ void kshell_do(char *command) {
             return;
         }
 
-    kshell_unknown_cmd(command);
+    kshell_unknown_cmd();
 }
 
 void kshell_run(void) {

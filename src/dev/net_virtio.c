@@ -246,7 +246,7 @@ static macaddr_t net_virtio_get_macaddr() {
 }
 
 static void net_virtio_rxbuf_cleanup(struct netbuf *nbuf) {
-    logmsgef("%s: TODO", __func__);
+    logmsgf("%s: TODO\n", __func__);
 }
 
 void net_virtio_irq() {
@@ -437,7 +437,7 @@ static int net_virtio_setup(struct virtio_net_device *nic) {
     val = VIRTIO_F_NOTIFY_ON_EMPTY;
     val |= VIRTIO_NET_F_MAC;
     val |= VIRTIO_NET_F_STATUS;
-    val |= VIRTIO_NET_F_CSUM;
+    // If you try to negotiate VIRTIO_NET_F_CSUM, QEMU's FCSless packets will not be delivered.
     outl(nic->virtio.iobase + VIO_DRV_FEATURE, val);
     logmsgdf("%s: negotiating ", __func__); net_virtio_print_features(val, nic->virtio.iobase);
 
@@ -541,12 +541,15 @@ int net_virtio_init(pci_config_t *pciconf) {
              mac.oct[4], mac.oct[5]);
 
     /* intialize and register the network interface */
+    nic->iface.is_up = true;
+    nic->iface.can_broadcast = true;
     nic->iface.device = nic;
     nic->iface.do_transmit = net_virtio_transmit;
     nic->iface.transmit_frame_alloc = net_virtio_frame_alloc;
     nic->iface.transmit_frame_enqueue = net_virtio_tx_enqueue;
     nic->iface.get_mac = net_virtio_get_macaddr;
     nic->iface.is_device_up = net_virtio_is_up;
+    nic->iface.ip_addr.num = 0;
 
     ret = net_interface_register(&nic->iface);
     if (ret) {

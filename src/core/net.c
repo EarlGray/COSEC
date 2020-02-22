@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <stdio.h>
 #include <stdint.h>
 #include <string.h>
 #include <sys/errno.h>
@@ -13,6 +14,10 @@
 
 #include "arch/i386.h" // for cpu_halt
 
+/*
+ *  The COSEC network stack
+ */
+
 struct network_stack {
     struct netbuf *rxq;     // global receive queue: a circular double-linked list
 
@@ -21,6 +26,10 @@ struct network_stack {
 
 struct network_stack theNetwork;
 
+/*
+ *  Declarations
+ */
+static void net_arp_receive(struct netiface *iface, struct arp_hdr *arp);
 
 /*
  *  Utils
@@ -59,17 +68,35 @@ int net_interface_register(struct netiface * iface) {
 }
 
 struct netiface * net_interface_for_destination(const union ipv4_addr_t *addr) {
+    UNUSED(addr);
     // TODO: routing
     return theNetwork.iface[0];
 }
 
-macaddr_t net_neighbor_resolve(struct netiface *iface, union ipv4_addr_t addr) {
-    if (addr.num == 0xffffffff) {
-        logmsgdf("%s: 255.255.255.255 is ff:ff:ff:ff:ff:ff\n", __func__);
-        return ETH_BROADCAST_MAC;
-    }
+struct netiface * net_interface_by_index(size_t idx) {
+    if (idx >= MAX_NETWORK_INTERFACES)
+        return NULL;
+    return theNetwork.iface[idx];
+}
 
-    // try cache:
+struct netiface * net_interface_by_ip_or_mac(union ipv4_addr_t ip, macaddr_t mac) {
+    bool use_mac = !mac_equal(mac, ETH_INVALID_MAC);
+    bool use_ip = (ip.num != 0);
+    for (int i = 0; i < MAX_NETWORK_INTERFACES; ++i) {
+        struct netiface *iface = theNetwork.iface[i];
+        if (!iface) continue;
+
+        if (use_mac && mac_equal(iface->get_mac(), mac))
+            return iface;
+        if (use_ip && (ip.num == iface->ip_addr.num))
+            return iface;
+    }
+    return NULL;
+}
+
+static macaddr_t net_neighbor_lookup_on(struct netiface *iface, union ipv4_addr_t addr) {
+    if (!iface) return ETH_INVALID_MAC;
+
     for (size_t i = 0; i < MAX_NEIGHBORS; ++i) {
         if (iface->neighbors[i].ip.num == addr.num) {
             union ipv4_addr_t addr = iface->neighbors[i].ip;
@@ -79,6 +106,24 @@ macaddr_t net_neighbor_resolve(struct netiface *iface, union ipv4_addr_t addr) {
                      mac.oct[0], mac.oct[1], mac.oct[2], mac.oct[3], mac.oct[4], mac.oct[5]);
             return mac;
         }
+    }
+    return ETH_INVALID_MAC;
+}
+
+macaddr_t net_neighbor_resolve(struct netiface *iface, union ipv4_addr_t addr) {
+    if (addr.num == 0xffffffff) {
+        logmsgdf("%s: 255.255.255.255 is ff:ff:ff:ff:ff:ff\n", __func__);
+        return ETH_BROADCAST_MAC;
+    }
+
+    if (iface) {
+        return net_neighbor_lookup_on(iface, addr);
+    }
+
+    for (int i = 0; i < MAX_NETWORK_INTERFACES; ++i) {
+        macaddr_t mac = net_neighbor_lookup_on(theNetwork.iface[i], addr);
+        if (!mac_equal(mac, ETH_INVALID_MAC))
+            return mac;
     }
 
     // nothing helps, oh well.
@@ -90,6 +135,17 @@ void net_neighbor_remember(struct netiface *iface, const union ipv4_addr_t addr,
              addr.oct[0], addr.oct[1], addr.oct[2], addr.oct[3],
              mac.oct[0], mac.oct[1], mac.oct[2], mac.oct[3], mac.oct[4], mac.oct[5]);
 
+    if (addr.num == 0) return;
+    if (addr.num == 0xffffffff) return;
+
+    // is this IP already in the table?
+    for (int i = 0; i < MAX_NEIGHBORS; ++i) {
+        if (iface->neighbors[i].ip.num == addr.num) {
+            memcpy(iface->neighbors[i].eth.oct, mac.oct, ETH_ALEN);
+            return;
+        }
+    }
+
     // TODO: mutex?
     size_t i = iface->neighbors_head;
 
@@ -97,6 +153,19 @@ void net_neighbor_remember(struct netiface *iface, const union ipv4_addr_t addr,
     memcpy(iface->neighbors[i].eth.oct, mac.oct, ETH_ALEN);
 
     iface->neighbors_head = (i+1) % MAX_NEIGHBORS;
+}
+
+void net_neighbors_print(struct netiface *iface) {
+    for (int j = 0; j < MAX_NEIGHBORS; ++j) {
+        if (iface->neighbors[j].ip.num == 0)
+            continue;
+
+        union ipv4_addr_t addr = iface->neighbors[j].ip;
+        macaddr_t mac = iface->neighbors[j].eth;
+        printf("net=%d\tip=%d.%d.%d.%d\tmac=%02x:%02x:%02x:%02x:%02x:%02x\n", iface->index,
+               addr.oct[0], addr.oct[1], addr.oct[2], addr.oct[3],
+               mac.oct[0], mac.oct[1], mac.oct[2], mac.oct[3], mac.oct[4], mac.oct[5]);
+    }
 }
 
 
@@ -108,6 +177,56 @@ void net_neighbor_remember(struct netiface *iface, const union ipv4_addr_t addr,
 // The driver is responsible for allocating the netbuf;
 //   it also recycles it when `netbuf->recycle_frame()` is called by the network stack.
 void net_receive_driver_frame(struct netbuf *qelem) {
+    // Take a quick look and log the packet:
+    uint8_t *frame = qelem->buf;
+    struct eth_hdr_t *eth = (struct eth_hdr_t*)frame;
+
+    uint16_t ethtype = ntohs(eth->ethertype);
+    logmsgdf("RX: %02x:%02x:%02x:%02x:%02x:%02x -> %02x:%02x:%02x:%02x:%02x:%02x",
+             eth->src[0], eth->src[1], eth->src[2], eth->src[3], eth->src[4], eth->src[5],
+             eth->dst[0], eth->dst[1], eth->dst[2], eth->dst[3], eth->dst[4], eth->dst[5]);
+
+    switch (ethtype) {
+    case ETHERTYPE_ARP: {
+        struct arp_hdr *arp = (struct arp_hdr*)(frame + sizeof(struct eth_hdr_t));
+        logmsgdf(", ARP %s from %d.%d.%d.%d (%02x:%02x:%02x:%02x:%02x:%02x) to %d.%d.%d.%d (%02x:%02x:%02x:%02x:%02x:%02x)\n",
+                 ntohs(arp->op) == 1 ? "REQ" : "REPLY",
+                 arp->src_ip[0], arp->src_ip[1], arp->src_ip[2], arp->src_ip[3],
+                 arp->src_mac[0], arp->src_mac[1], arp->src_mac[2], arp->src_mac[3], arp->src_mac[4], arp->src_mac[5],
+                 arp->dst_ip[0], arp->dst_ip[1], arp->dst_ip[2], arp->dst_ip[3],
+                 arp->dst_mac[0], arp->dst_mac[1], arp->dst_mac[2], arp->dst_mac[3], arp->dst_mac[4], arp->dst_mac[5]);
+
+        net_arp_receive(NULL, arp);
+        }
+        goto recycle_netbuf;
+    case ETHERTYPE_IPV4: {
+        struct ipv4_hdr_t *ip = (struct ipv4_hdr_t*)(frame + sizeof(struct eth_hdr_t));
+        logmsgdf(", IPv4 %d.%d.%d.%d -> %d.%d.%d.%d",
+                 ip->src.oct[0], ip->src.oct[1], ip->src.oct[2], ip->src.oct[3],
+                 ip->dst.oct[0], ip->dst.oct[1], ip->dst.oct[2], ip->dst.oct[3]);
+        switch (ip->proto) {
+        case IPV4TYPE_ICMP: {
+            logmsgdf(", ICMP\n");
+            } break;
+        case IPV4TYPE_UDP: {
+            struct udp_hdr_t *udp = (struct udp_hdr_t *)((uint8_t*)ip + 4*ip->nwords);
+            logmsgdf(", UDP %d->%d \n", ntohs(udp->src_port), ntohs(udp->dst_port));
+            } break;
+        default:
+            logmsgdf(", unknown proto %d\n", ip->proto);
+        }
+        } goto enqueue_netbuf;
+    case ETHERTYPE_IPV6:
+        logmsgdf(", IPv6\n");
+        goto recycle_netbuf;
+    default:
+        if (ethtype > 1500) logmsgdf(", unknown ethertype %04x\n", ethtype);
+        else logmsgdf(", IEEE802.2 LLC frame: %04x\n", ethtype);
+        goto recycle_netbuf;
+    }
+
+enqueue_netbuf:
+    // Add to the ingress queue:
     if (theNetwork.rxq) {
         struct netbuf *prev = theNetwork.rxq->prev;
         theNetwork.rxq->prev = qelem;
@@ -118,23 +237,32 @@ void net_receive_driver_frame(struct netbuf *qelem) {
         theNetwork.rxq = qelem;
         qelem->prev = qelem->next = qelem;
     }
+    return;
+
+recycle_netbuf:
+    qelem->recycle(qelem);
+    return;
 }
 
 int net_transmit_frame(struct netiface *iface, uint8_t *frame, uint16_t len) {
     // resolve dstmac:
     struct eth_hdr_t *eth = (struct eth_hdr_t *)frame;
     switch (ntohs(eth->ethertype)) {
-    case ETHERTYPE_IPV4:
-        {
+    case ETHERTYPE_IPV4: {
             struct ipv4_hdr_t *ip = (struct ipv4_hdr_t *)(frame + sizeof(struct eth_hdr_t));
             macaddr_t dstmac = net_neighbor_resolve(iface, ip->dst);
             if (!mac_equal(dstmac, ETH_INVALID_MAC)) {
                 memcpy(eth->dst, dstmac.oct, ETH_ALEN);
             }
-            break;
-        }
+        } break;
+    case ETHERTYPE_ARP: {
+            struct arp_hdr *arp = (struct arp_hdr *)(frame + sizeof(struct eth_hdr_t));
+            memcpy(eth->dst, (uint8_t*)arp->dst_mac, ETH_ALEN);
+            memcpy(eth->src, (uint8_t*)arp->src_mac, ETH_ALEN);
+        } break;
     }
 
+    if (len < 60) len = 60;
     int ret = iface->transmit_frame_enqueue(frame, len);
     if (ret) return ret;
 
@@ -206,11 +334,6 @@ uint8_t * net_buf_udp4_init(uint8_t *frame,
                              const union ipv4_addr_t srcaddr, uint16_t srcport,
                              const union ipv4_addr_t dstaddr, uint16_t dstport)
 {
-    // init ethernet
-    struct eth_hdr_t *eth = (struct eth_hdr_t *)frame;
-    // dstmac will be filled after checksum
-    eth->ethertype = htons(ETHERTYPE_IPV4);
-
     // init ipv4
     struct ipv4_hdr_t *ipv4 = (struct ipv4_hdr_t*)(frame + sizeof(struct eth_hdr_t));
     ipv4->version = 4;
@@ -265,6 +388,11 @@ size_t net_buf_udp4_checksum(uint8_t *data, size_t datalen) {
     checksum = ones_complement_words_sum((uint8_t*)ipv4, sizeof(struct ipv4_hdr_t));
     ipv4->checksum = htons(~checksum);
 
+    // init ethernet
+    struct eth_hdr_t *eth = (struct eth_hdr_t *)((uint8_t *)ipv4 - sizeof(struct eth_hdr_t));
+    // HW addresses will be filled by the interface:
+    eth->ethertype = htons(ETHERTYPE_IPV4);
+
     return sizeof(struct eth_hdr_t) + sizeof(struct ipv4_hdr_t) + sizeof(struct udp_hdr_t) + datalen;
 }
 
@@ -273,21 +401,76 @@ size_t net_buf_udp4_checksum(uint8_t *data, size_t datalen) {
  */
 
 // TODO
-struct netiface  local_iface = {
-};
+//struct netiface  local_iface = {};
+
+
+/*
+ *  ARP
+ */
+
+int net_arp_send_whohas(struct netiface *iface, union ipv4_addr_t ip) {
+    return_err_if(!iface, ENODEV, "An interface is required");
+    uint8_t *frame;
+    size_t ethlen;
+
+    frame = iface->transmit_frame_alloc();
+    return_err_if(!frame, ENOMEM, "Failed to allocate frame");
+
+    struct eth_hdr_t *eth = (struct eth_hdr_t*)frame;
+    eth->ethertype = htons(ETHERTYPE_ARP);
+
+    struct arp_hdr *arp = (struct arp_hdr *)(frame + sizeof(struct eth_hdr_t));
+    arp->htype = htons(ARP_L2_ETH); arp->ptype = htons(ETHERTYPE_IPV4);
+    arp->hlen = ETH_ALEN; arp->plen = sizeof(union ipv4_addr_t);
+
+    arp->op = htons(ARP_OP_REQUEST);
+    memcpy(arp->src_mac, iface->get_mac().oct, ETH_ALEN);
+    memcpy(arp->src_ip, iface->ip_addr.oct, 4);
+    memcpy(arp->dst_mac, ETH_BROADCAST_MAC.oct, ETH_ALEN);
+    memcpy(arp->dst_ip, ip.oct, 4);
+
+    ethlen = sizeof(struct eth_hdr_t) + sizeof(struct arp_hdr);
+    net_transmit_frame(iface, frame, ethlen);
+
+    return 0;
+}
+
+static void net_arp_receive(struct netiface *iface, struct arp_hdr *arp) {
+    union ipv4_addr_t dst_ip; memcpy(dst_ip.oct, arp->dst_ip, 4);
+    macaddr_t dst_mac; memcpy(dst_mac.oct, arp->dst_mac, ETH_ALEN);
+
+    union ipv4_addr_t src_ip; memcpy(src_ip.oct, arp->src_ip, 4);
+    macaddr_t src_mac; memcpy(src_mac.oct, arp->src_mac, ETH_ALEN);
+
+    if (!iface) {
+        iface = net_interface_by_ip_or_mac(dst_ip, dst_mac);
+    }
+    if (!iface)
+        return;
+
+    if (ntohs(arp->op) == ARP_OP_REPLY) {
+        // TODO: sanity checks of addresses
+        net_neighbor_remember(iface, src_ip, src_mac);
+    } else if (ntohs(arp->op) == ARP_OP_REQUEST) {
+        // TODO: reply to src_mac/src_ip with my MAC
+    }
+}
 
 
 /*
  *  DHCP
  */
 
-static void test_read_dhcpopts(uint8_t *opts) {
+static void test_read_dhcpopts(struct netiface *iface, uint8_t *opts) {
     while (opts[0] != DHCPOPT_END) {
         switch (opts[0]) {
         case DHCPOPT_OP:
             break;
-        case DHCPOPT_SUBNET:
+        case DHCPOPT_SUBNET: {
+            union ipv4_addr_t subnet = IP4(opts[2], opts[3], opts[4], opts[5]);
             logmsgif("  subnet:\t%d.%d.%d.%d", opts[2], opts[3], opts[4], opts[5]);
+            if (iface) iface->ip_subnet.num = subnet.num;
+            }
             break;
         case DHCPOPT_DNS:
             for (int i = 0; i < opts[1]/4; ++i) {
@@ -297,8 +480,11 @@ static void test_read_dhcpopts(uint8_t *opts) {
         case DHCPOPT_SRVADDR:
             logmsgif("  dhcpsrv:\t%d.%d.%d.%d", opts[2], opts[3], opts[4], opts[5]);
             break;
-        case DHCPOPT_GW:
+        case DHCPOPT_GW: {
+            union ipv4_addr_t gw = IP4(opts[2], opts[3], opts[4], opts[5]);
             logmsgif("  router:\t%d.%d.%d.%d", opts[2], opts[3], opts[4], opts[5]);
+            if (iface) iface->ip_gw.num = gw.num;
+            }
             break;
         case DHCPOPT_LEASETIME: {
             uint32_t t = 0;
@@ -434,7 +620,8 @@ void test_net_dhcp(void) {
              server.oct[0], server.oct[1], server.oct[2], server.oct[3],
              ipaddr.oct[0], ipaddr.oct[1], ipaddr.oct[2], ipaddr.oct[3]
     );
-    test_read_dhcpopts((uint8_t *)dhcp + DHCP_OPT_OFFSET);
+    iface->ip_addr.num = ipaddr.num;
+    test_read_dhcpopts(iface, (uint8_t *)dhcp + DHCP_OPT_OFFSET);
 
     if (reply->recycle) reply->recycle(reply);
 }

@@ -140,20 +140,23 @@ char * snprint_int(char *str, char *const end, int x, uint8_t base, uint flags, 
 }
 
 const char * sscan_uint(const char *str, uint *res, const uint8_t base) {
-    *res = 0;
+    uint r = 0;
+    const char *s = str;
 
     do {
-        char c = toupper(*str);
+        char c = toupper(*s);
         if (('0' <= c) && (c <= '9')) {
-            *res *= base;
-            *res += (c - '0');
-        } else
-        if (('A' <= c) && (c <= ('A' + base - 10))) {
-            *res *= base;
-            *res += (c - 'A' + 10);
-        } else
-            return str;
-        ++str;
+            r *= base;
+            r += (c - '0');
+        } else if ((base > 10) && ('A' <= c) && (c <= ('A' + base - 10))) {
+            r *= base;
+            r += (c - 'A' + 10);
+        } else {
+            if (s != str)
+                *res = r;
+            return s;
+        }
+        ++s;
     } while (1);
 }
 
@@ -165,11 +168,10 @@ const char * sscan_int(const char *str, int *res, const uint8_t base) {
     case '+': ++str;
     }
 
-    str = sscan_uint(str, (uint *)res, base);
-
-    if (sign == -1)
+    const char *end = sscan_uint(str, (uint *)res, base);
+    if ((end != str) && (sign == -1))
         *res = - *res;
-    return str;
+    return end;
 }
 
 int printf(const char *format, ...) {

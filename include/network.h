@@ -5,6 +5,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+struct netiface;
+
 /*
  *    Network byte order
  */
@@ -68,11 +70,11 @@ enum ethertype {
     ETHERTYPE_IPV6 = 0x86DD,
 };
 
-__packed struct eth_hdr_t {
+struct eth_hdr_t {
     uint8_t dst[6];
     uint8_t src[6];
     uint16_t ethertype;
-};
+} __attribute__((packed));
 
 static inline bool mac_equal(macaddr_t m1, macaddr_t m2) {
     return (m1.word[0] == m2.word[0]) && (m1.word[1] == m2.word[1]) && (m1.word[2] == m2.word[2]);
@@ -86,7 +88,7 @@ union ipv4_addr_t {
     uint32_t num;
 };
 
-__packed struct ipv4_hdr_t {
+struct ipv4_hdr_t {
     uint8_t nwords:4;       // usually 5
     uint8_t version:4;      // 4 for IPv4
     uint8_t qos;
@@ -98,10 +100,13 @@ __packed struct ipv4_hdr_t {
     uint16_t checksum;
     union ipv4_addr_t src;
     union ipv4_addr_t dst;
-};
+} __packed;
 
 enum ipv4_subproto {
     IPV4TYPE_ICMP = 1,
+    IPV4TYPE_IGMP = 2,
+    IPV4TYPE_IPIP = 4,
+    IPV4TYPE_TCP = 6,
     IPV4TYPE_UDP = 17,
 };
 
@@ -112,12 +117,12 @@ enum ipv4_subproto {
  *  UDP
  */
 
-__packed struct udp_hdr_t {
+struct udp_hdr_t {
     uint16_t src_port;
     uint16_t dst_port;
     uint16_t udp_len;       // including UDP header
     uint16_t checksum;
-};
+} __packed;
 
 
 /*
@@ -153,13 +158,13 @@ enum dhcpopt_request {
     DHCPOPT_DOMAIN  = 0x0f,
 };
 
-__packed struct dhcp4 {
+struct dhcp4 {
     uint8_t op, htype, hlen, hops;
     uint32_t xid;
     uint16_t secs, flags;
     uint32_t ciaddr, yiaddr, siaddr, giaddr;
     uint16_t chaddr[8];
-};
+} __packed;
 
 static const size_t DHCP_OPT_OFFSET = sizeof(struct dhcp4) + DHCP_ZERO_PADDING + sizeof(uint32_t);
 
@@ -186,7 +191,7 @@ size_t net_buf_udp4_checksum(uint8_t *data, size_t datalen);
 
 
 /*
- *  neighbors table and resolvers
+ *  neighbors table and resolvers; ARP
  */
 
 // Maximum number of neighbor mappings per interface.
@@ -197,6 +202,20 @@ struct neighbor_mapping {
     macaddr_t eth;
 };
 
+enum { ARP_L2_ETH = 1 };
+enum { ARP_OP_REQUEST = 1, ARP_OP_REPLY = 2 };
+
+struct arp_hdr {
+    uint16_t htype, ptype;
+    uint8_t hlen, plen;
+    uint16_t op;
+    uint8_t src_mac[ETH_ALEN];
+    uint8_t src_ip[4];
+    uint8_t dst_mac[ETH_ALEN];
+    uint8_t dst_ip[4];
+} __packed;
+
+int net_arp_send_whohas(struct netiface *iface, union ipv4_addr_t ip);
 
 /*
  *  network driver interface
@@ -210,6 +229,24 @@ struct netiface {
     // backreferences
     size_t index;
     void *device;
+
+    // info
+    bool is_up;
+    bool can_broadcast;
+
+    union ipv4_addr_t ip_addr;
+    union ipv4_addr_t ip_subnet;
+    union ipv4_addr_t ip_gw;
+
+    struct {
+        uint64_t tx_bytes;
+        uint64_t tx_packets;
+        uint64_t tx_packets_dropped;
+
+        uint64_t rx_bytes;
+        uint64_t rx_packets;
+        uint64_t rx_packets_droppped;
+    } stat;
 
     // functions:
     bool (*is_device_up)(struct netiface *);
@@ -226,11 +263,15 @@ struct netiface {
 
 int net_interface_register(struct netiface *);
 struct netiface * net_interface_for_destination(const union ipv4_addr_t *);
+struct netiface * net_interface_by_index(size_t idx);
+struct netiface * net_interface_by_ip_or_mac(union ipv4_addr_t ip, macaddr_t mac);
 
 // Search neighbors cache of the interface;
 // If nothing is found, returns ETH_INVALID_MAC.
 macaddr_t net_neighbor_resolve(struct netiface *, union ipv4_addr_t);
 
 void net_neighbor_remember(struct netiface *, union ipv4_addr_t, macaddr_t);
+
+void net_neighbors_print(struct netiface *iface);
 
 #endif  // __COSEC_NETWORK_H__
