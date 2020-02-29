@@ -16,7 +16,7 @@
 #include <algo.h>
 
 
-#define VIRTIO_HW_CHECKSUM    0
+#define VIRTIO_HW_CHECKSUM    1
 
 /* virtio registers offsets from `portbase` */
 #define VIO_DEV_FEATURE       0   /* 32, R  */
@@ -89,7 +89,7 @@ struct __packed vring_avail {
 };
 
 struct vring_used_elem {
-    uint32_t id;
+    uint32_t id;    // not uint16_t for padding
     uint32_t len;
 };
 
@@ -109,12 +109,22 @@ struct virtioq {
     uint16_t size; // the number of descriptors
     size_t npages; // the combined size of desc+avail+used in pages
 
-    uint32_t last_avail;
     uint32_t last_used;
 
     struct vring_desc   *desc;
     struct vring_avail  *avail;
     struct vring_used   *used;
+};
+
+static inline void virtioq_notify(struct virtio_device *dev, uint16_t queue) {
+    outw_p(dev->iobase + VIO_Q_NOTIFY, queue);
+};
+
+static inline uint16_t virtioq_enqueue(struct virtioq *q, uint16_t desc) {
+    uint16_t idx = q->avail->idx;
+    q->avail->ring[idx] = desc;
+    q->avail->idx = (idx + 1) % q->size;
+    return idx;
 };
 
 static int virtio_vring_alloc(struct virtioq *q, uint16_t qsz) {
@@ -245,16 +255,32 @@ static macaddr_t net_virtio_get_macaddr() {
     return theVirtNIC->mac;
 }
 
+uint8_t * net_virtio_frame_alloc(void) {
+    uint8_t *buf = pmem_alloc(1);
+    if (!buf) return NULL;
+
+    logmsgdf("%s: buf at *%x\n", __func__, buf);
+
+    return buf + sizeof(struct virtio_net_hdr);
+}
+
+static inline void net_virtio_frame_free(uint8_t *buf) {
+    pmem_free((uintptr_t)buf / PAGE_SIZE, 1);
+}
+
 static void net_virtio_rxbuf_cleanup(struct netbuf *nbuf) {
-    logmsgf("%s: TODO\n", __func__);
-}
+    struct virtioq *rxq = &theVirtNIC->rxq;
 
-void net_virtio_irq() {
-    uint8_t val;
-    inb(theVirtNIC->virtio.iobase + VIO_ISR_STA, val);
-    logmsge("%s: isr=0x%x\n", __func__, val);
-}
+    /* get the RX descriptor index for this buffer */
+    size_t bufptr = (size_t)nbuf->buf;
+    size_t desc = (bufptr - (uintptr_t)theVirtNIC->netbuf) / (PAGE_SIZE/2);
 
+    uint16_t idx = virtioq_enqueue(rxq, desc);
+    virtioq_notify(&theVirtNIC->virtio, VIRTIO_NET_RXQ);
+
+    logmsgdf("%s(buf=*%x): recycled desc=%d to avail=%d, notify=%d\n", __func__,
+             nbuf->buf, desc, idx, rxq->used->flags);
+}
 
 bool net_virtio_is_up(struct netiface *iface) {
     struct virtio_net_device *nic = iface->device;
@@ -275,23 +301,30 @@ static void net_virtio_poll(uint32_t t) {
 
     // txq
     struct virtioq *txq = &theVirtNIC->txq;
-    last_used = theVirtNIC->txq.last_used;
-    idx_used = theVirtNIC->txq.used->idx;
-    if (last_used != idx_used) {
+    txq->avail->flags = 1;
+    idx_used = txq->used->idx;
+    while (txq->last_used != idx_used) {
         logmsgdf("%s: TX: last_used=%d, idx=%d\n", __func__,
-                 last_used, idx_used);
-        // TODO: return the buffer to available
-        theVirtNIC->txq.last_used = idx_used;
+                 txq->last_used, idx_used);
+
+        // return the buffer to available
+        struct vring_used_elem tx = txq->used->ring[txq->last_used];
+        uint8_t *buf = (uint8_t *)(uintptr_t)txq->desc[tx.id].addr;
+        net_virtio_frame_free(buf);
+
+        txq->last_used = (txq->last_used + 1) % txq->size;
     }
+    txq->avail->flags = 0;
 
     // rxq
     struct virtioq *rxq = &theVirtNIC->rxq;
+    rxq->avail->flags = 1;
     idx_used = rxq->used->idx;
     while (rxq->last_used != idx_used) {
         logmsgdf("%s: RX: last_used=%d, idx=%d\n", __func__,
-                rxq->last_used, idx_used);
+                 rxq->last_used, idx_used);
 
-        // TODO: receive the data!
+        // receive the data!
         struct vring_used_elem rx = rxq->used->ring[rxq->last_used];
         uint8_t *buf = (uint8_t *)(uintptr_t)rxq->desc[rx.id].addr;
 
@@ -305,16 +338,15 @@ static void net_virtio_poll(uint32_t t) {
 
         rxq->last_used = (rxq->last_used + 1) % rxq->size;
     }
+    rxq->avail->flags = 0;
 }
 
+void net_virtio_irq() {
+    uint8_t val;
+    inb(theVirtNIC->virtio.iobase + VIO_ISR_STA, val);
+    logmsgdf("\n%s: isr=0x%x", __func__, val);
 
-uint8_t * net_virtio_frame_alloc(void) {
-    uint8_t *buf = pmem_alloc(1);
-    if (!buf) return NULL;
-
-    logmsgdf("%s: buf at *%x\n", __func__, buf);
-
-    return buf + sizeof(struct virtio_net_hdr);
+    if (val & 1) net_virtio_poll(0);
 }
 
 
@@ -323,11 +355,14 @@ int net_virtio_tx_enqueue(uint8_t *buf, size_t eth_payload_len) {
     /* virtio net header */
     struct virtio_net_hdr *vhdr = (struct virtio_net_hdr *)buf - 1;
 
-#if (VIRTIO_HW_CHECKSUM)
-    // TODO
-    vhdr->flags = VIRTIO_NET_HDR_F_NEEDS_CSUM; // TODO
+#if VIRTIO_HW_CHECKSUM
+    vhdr->flags = VIRTIO_NET_HDR_F_NEEDS_CSUM;
     vhdr->csum_start = 0;
     vhdr->csum_offset = sizeof(struct eth_hdr_t) + eth_payload_len;
+#else
+    uint8_t *p = buf;
+    uint32_t crc = ethernet_crc32(p, eth_payload_len);
+    *(uint32_t*)(p + eth_payload_len) = crc;
 #endif
 
     /* remember it in txq */
@@ -343,25 +378,8 @@ int net_virtio_transmit(void) {
     const size_t buf_idx = 0;
     struct virtioq *txq = &theVirtNIC->txq;
 
-#if (!VIRTIO_HW_CHECKSUM)
-    /* ethernet crc32 */
-    struct vring_desc *desc = theVirtNIC->txq.desc + buf_idx;
-    uint8_t *buf = (uint8_t *)((size_t)desc->addr + sizeof(struct virtio_net_hdr));
-
-    uint8_t *p = buf;
-    size_t len = desc->len - sizeof(struct virtio_net_hdr) - 4;
-    uint32_t crc = ethernet_crc32(p, len);
-    *(uint32_t*)(p + len) = crc;
-#endif
-
-    /* write the descriptor index into txq->avail, move txq->avail->idx */
-    txq->avail->ring[txq->avail->idx % txq->size] = buf_idx;
-    txq->avail->idx += 1;
-        txq->avail->idx %= txq->size;
-
-    /* notify the NIC */
-    uint16_t val = VIRTIO_NET_TXQ;
-    outw(theVirtNIC->virtio.iobase + VIO_Q_NOTIFY, val);
+    virtioq_enqueue(txq, buf_idx);
+    virtioq_notify(&theVirtNIC->virtio, VIRTIO_NET_TXQ);
 
     return 0;
 }
@@ -371,13 +389,17 @@ static int net_virtio_setup(struct virtio_net_device *nic) {
     uint16_t port, hval;
     uint32_t val;
 
+    /* reset */
+    hval = 0;
+    outw_p(nic->virtio.iobase + VIO_DEV_STA, hval);
+
     hval = STA_ACK | STA_DRV;
-    outw(nic->virtio.iobase + VIO_DEV_STA, hval);
+    outw_p(nic->virtio.iobase + VIO_DEV_STA, hval);
 
     /* tx queue: allocate txq first, because rxq will need netbuf */
     hval = VIRTIO_NET_TXQ;
-    outw(nic->virtio.iobase + VIO_Q_SELECT, hval);
-    inw(nic->virtio.iobase + VIO_Q_SIZE, hval);
+    outw_p(nic->virtio.iobase + VIO_Q_SELECT, hval);
+    inw_p(nic->virtio.iobase + VIO_Q_SIZE, hval);
     assert(hval > 0, -ENOSYS, "%s: TX queue size is 0", __func__);
 
     ret = virtio_vring_alloc(&nic->txq, hval);
@@ -389,12 +411,12 @@ static int net_virtio_setup(struct virtio_net_device *nic) {
              (int)hval, nic->txq.desc, nic->txq.npages);
 
     val = (uint32_t)nic->txq.desc / PAGE_SIZE;
-    outl(nic->virtio.iobase + VIO_Q_ADDR, val);
+    outl_p(nic->virtio.iobase + VIO_Q_ADDR, val);
 
     /* rx queue */
     hval = VIRTIO_NET_RXQ;
-    outw(nic->virtio.iobase + VIO_Q_SELECT, hval);
-    inw(nic->virtio.iobase + VIO_Q_SIZE, hval);
+    outw_p(nic->virtio.iobase + VIO_Q_SELECT, hval);
+    inw_p(nic->virtio.iobase + VIO_Q_SIZE, hval);
     assert(hval > 0, -ENOSYS, "%s: RX queue size is 0", __func__);
 
     ret = virtio_vring_alloc(&nic->rxq, hval);
@@ -413,7 +435,7 @@ static int net_virtio_setup(struct virtio_net_device *nic) {
     return_err_if(!netbuf, -ENOMEM,
                   "%s: failed to allocate netbuf\n", __func__);
 
-    nic->netbuf = netbuf;
+    nic->netbuf = netbuf; // physical address!
     nic->netbuf_npages = netbuf_pages;
     logmsgdf("%s: netbuf at *%x (%d pages)\n", __func__, netbuf, netbuf_pages);
 
@@ -428,21 +450,27 @@ static int net_virtio_setup(struct virtio_net_device *nic) {
         rxavail->ring[i] = (uint16_t)i;
     }
     rxavail->flags = 0;  // we do need an interrupt after each packet
-    rxavail->idx = nic->rxq.size - 10;    // ?
+    rxavail->idx = nic->rxq.size - 1;
 
     val = (uint32_t)nic->rxq.desc / PAGE_SIZE;
-    outl(nic->virtio.iobase + VIO_Q_ADDR, val);
+    outl_p(nic->virtio.iobase + VIO_Q_ADDR, val);
 
     /* negotiate features */
     val = VIRTIO_F_NOTIFY_ON_EMPTY;
     val |= VIRTIO_NET_F_MAC;
     val |= VIRTIO_NET_F_STATUS;
+    val |= VIRTIO_NET_F_GUEST_CSUM;
+#if VIRTIO_HW_CHECKSUM
     // If you try to negotiate VIRTIO_NET_F_CSUM, QEMU's FCSless packets will not be delivered.
-    outl(nic->virtio.iobase + VIO_DRV_FEATURE, val);
-    logmsgdf("%s: negotiating ", __func__); net_virtio_print_features(val, nic->virtio.iobase);
+    val |= VIRTIO_NET_F_CSUM;
+#endif
+    outl_p(nic->virtio.iobase + VIO_DRV_FEATURE, val);
+    logmsgdf("%s: negotiating ", __func__);
+    net_virtio_print_features(val, nic->virtio.iobase);
 
     inl(nic->virtio.iobase + VIO_DRV_FEATURE, val);
-    logmsgdf("%s: negotiated  ", __func__); net_virtio_print_features(val, nic->virtio.iobase);
+    logmsgdf("%s: negotiated  ", __func__);
+    net_virtio_print_features(val, nic->virtio.iobase);
     nic->virtio.features = val;
 
     /* enable this virtio driver */
@@ -456,8 +484,8 @@ static int net_virtio_setup(struct virtio_net_device *nic) {
 int net_virtio_init(pci_config_t *pciconf) {
     uint32_t features = 0;
     uint16_t portbase = 0;
-    macaddr_t mac;
 
+    /* poke it for necessary features */
     return_msg_if(pciconf->pci_rev_id > 0, -ENOSYS,
                   "%s: pci.rev_id=%d, aborting configuration\n",
                   __func__, pciconf->pci_rev_id);
@@ -481,6 +509,7 @@ int net_virtio_init(pci_config_t *pciconf) {
     return_err_if(portbase == 0, -1, "%s: portbase not found\n", __func__);
 
     inl(portbase + VIO_DEV_FEATURE, features);
+    logmsgf("%s: device ", __func__);
     net_virtio_print_features(features, portbase);
     return_err_if(!(features & VIRTIO_NET_F_MAC), -EINVAL,
                   "%s: no MAC address, aborting configuration", __func__);
@@ -490,14 +519,12 @@ int net_virtio_init(pci_config_t *pciconf) {
     inw(macp + 0, mac0);
     inw(macp + 2, mac1);
     inw(macp + 4, mac2);
-    mac.word[0] = mac0;
-    mac.word[1] = mac1;
-    mac.word[2] = mac2;
 
+    macaddr_t mac = { .word = { mac0, mac1, mac2 } };
     logmsgf("%s: portbase = 0x%x, intr = #%d\n", __func__,
              (uint)portbase, pciconf->pci_interrupt_line);
 
-
+    /* initialize */
     return_err_if(theVirtNIC, -ETODO,
                   "%s: only one network device at the moment\n", __func__);
 
@@ -519,15 +546,17 @@ int net_virtio_init(pci_config_t *pciconf) {
     // this must happen before IRQ and timers:
     theVirtNIC = nic;
 
-    /* setup IRQ */
+    /* setup IRQ *
     irq_set_handler(nic->virtio.intr, net_virtio_irq);
     irq_enable(nic->virtio.intr);
     logmsgdf("%s: irq_set_handler(%d, net_virtio_irq)\n",  __func__,
              nic->virtio.intr);
+    // */
 
     /* temporary hack: set up polling */
     logmsgdf("%s: timer frequency = %d\n", __func__, timer_frequency());
     timer_push_ontimer(net_virtio_poll);
+    // */
 
     /* get network status */
     uint16_t hval;

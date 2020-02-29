@@ -230,6 +230,9 @@ void intrs_setup(void) {
         irq_disable(i);
         irq[i] = irq_slave;
     }
+
+    // slave PIC must be accessible:
+    irq_enable(NMI_IRQ);
 }
 
 int irq_wait(irqnum_t irqnum) {
