@@ -136,12 +136,12 @@ struct udp_hdr_t {
 #define DHCP_CLIENT_PORT    68
 
 enum dhcp_opt {
-    DHCPOPT_REQADDR = 0x32,     // length 4
-    DHCPOPT_LEASETIME = 0x33,   // length 4
-    DHCPOPT_OP      = 0x35,     // length 1
-    DHCPOPT_SRVADDR = 0x36,     // length 4
-    DHCPOPT_REQUEST = 0x37,     // variable length
-    DHCPOPT_END     = 0xff,
+    DHCPOPT_REQADDR   = 50,  // length 4
+    DHCPOPT_LEASETIME = 51,  // length 4
+    DHCPOPT_OP        = 53,  // length 1
+    DHCPOPT_SRVADDR   = 54,  // length 4
+    DHCPOPT_REQUEST   = 55,  // variable length
+    DHCPOPT_END       = 255,
 };
 
 enum dhcpopt_op {
@@ -152,10 +152,11 @@ enum dhcpopt_op {
 };
 
 enum dhcpopt_request {
-    DHCPOPT_SUBNET  = 0x01,
-    DHCPOPT_GW      = 0x03,
-    DHCPOPT_DNS     = 0x06,
-    DHCPOPT_DOMAIN  = 0x0f,
+    DHCPOPT_SUBNET   = 1,
+    DHCPOPT_GW       = 3,
+    DHCPOPT_DNS      = 6,
+    DHCPOPT_HOSTNAME = 12,
+    DHCPOPT_DOMAIN   = 15,
 };
 
 struct dhcp4 {

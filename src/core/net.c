@@ -245,8 +245,10 @@ recycle_netbuf:
 }
 
 int net_transmit_frame(struct netiface *iface, uint8_t *frame, uint16_t len) {
-    // resolve dstmac:
     struct eth_hdr_t *eth = (struct eth_hdr_t *)frame;
+    memcpy(eth->src, iface->get_mac().oct, ETH_ALEN);
+
+    // resolve dstmac:
     switch (ntohs(eth->ethertype)) {
     case ETHERTYPE_IPV4: {
             struct ipv4_hdr_t *ip = (struct ipv4_hdr_t *)(frame + sizeof(struct eth_hdr_t));
@@ -492,7 +494,7 @@ static void test_read_dhcpopts(struct netiface *iface, uint8_t *opts) {
             logmsgif("  lease:\t%d sec\n", t);
             } break;
         default:
-            logmsgif("  opt 0x%x, len=%d", opts[0], opts[1]);
+            logmsgif("  opt %d, len=%d", opts[0], opts[1]);
         }
 
         opts += (opts[1] + 2);
@@ -519,13 +521,13 @@ void test_net_dhcp(void) {
     macaddr_t srvmac;
 
     // DHCP DISCOVER
-    union ipv4_addr_t srcaddr = IP4(0, 0, 0, 0);
-    union ipv4_addr_t dstaddr = IP4(255, 255, 255, 255);
+    union ipv4_addr_t noaddr = IP4(0, 0, 0, 0);
+    union ipv4_addr_t broadaddr = IP4(255, 255, 255, 255);
 
     frame = iface->transmit_frame_alloc();
     returnv_err_if(!frame, "Failed to allocate frame");
 
-    data = net_buf_udp4_init(frame, srcaddr, DHCP_CLIENT_PORT, dstaddr, DHCP_SERVER_PORT);
+    data = net_buf_udp4_init(frame, noaddr, DHCP_CLIENT_PORT, broadaddr, DHCP_SERVER_PORT);
 
     memset(data, 0, DHCP_OPT_OFFSET);
     dhcp = (struct dhcp4 *)data;
@@ -577,7 +579,7 @@ void test_net_dhcp(void) {
     frame = iface->transmit_frame_alloc();
     returnv_err_if(!frame, "Failed to allocate a frame");
 
-    data = net_buf_udp4_init(frame, srcaddr, DHCP_CLIENT_PORT, server, DHCP_SERVER_PORT);
+    data = net_buf_udp4_init(frame, noaddr, DHCP_CLIENT_PORT, broadaddr, DHCP_SERVER_PORT);
     memset(data, 0, DHCP_OPT_OFFSET);
     dhcp = (struct dhcp4 *)data;
     dhcp->op = 1; dhcp->htype = 1; dhcp->hlen = ETH_ALEN;
