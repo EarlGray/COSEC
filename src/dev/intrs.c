@@ -81,7 +81,7 @@ irq_remap(uint8_t master, uint8_t slave) {
     outb(PIC2_DATA_PORT, slave_mask);
 }
 
-void irq_mask(irqnum_t irq_num, bool set) {
+static inline void irq_mask(irqnum_t irq_num, bool set) {
     uint8_t mask;
     uint16_t port = PIC1_DATA_PORT;
     if (irq_num >= 8) {
@@ -93,6 +93,15 @@ void irq_mask(irqnum_t irq_num, bool set) {
     else mask |= (1 << irq_num);
     outb(port, mask);
 }
+
+void irq_enable(irqnum_t n) {
+    irq_mask(n, true);
+}
+
+void irq_disable(irqnum_t n) {
+    irq_mask(n, false);
+}
+
 
 uint16_t irq_get_mask(void) {
     uint16_t res = 0;
@@ -133,7 +142,6 @@ void irq_stub() {
 
 void irq_slave() {
     logmsgf("irq_stubB(), shouldn't happen\n");
-    irq_eoi(0);
 }
 
 /**************** exceptions *****************/
@@ -215,11 +223,11 @@ void intrs_setup(void) {
     // prepare handler table
     int i;
     for (i = 0; i < 8; ++i) {
-        irq_mask(i, false);
+        irq_disable(i);
         irq[i] = irq_stub;
     }
     for (i = 8; i < 16; ++i) {
-        irq_mask(i, false);
+        irq_disable(i);
         irq[i] = irq_slave;
     }
 }

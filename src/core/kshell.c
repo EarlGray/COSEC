@@ -576,15 +576,13 @@ void kshell_set(const struct kshell_command *this, const char *arg) {
 }
 
 void kshell_mem(const struct kshell_command *this, const char *arg) {
-    uint addr, size;
+    uint addr = 0, size = 256;
     arg = get_int_opt(arg, (int *)&addr, 16);
     if (addr == 0) {
         k_printf("%s warning: reading 0x0000, default\n", this->name);
     }
 
     arg = get_int_opt(arg, (int *)&size, 16);
-    if (size == 0)
-        size = 0x100;
 
     print_mem((void *)addr, size);
     k_printf("\n");
@@ -1053,7 +1051,7 @@ void kshell_run(void) {
         if (cmd_buf[nread - 1] == '\n') cmd_buf[nread - 1] = 0;
         else logmsgf("kshell: cmd_buf[last] != \\n\n");
 
-        //logmsgf("kshell: nread=%d, cmd='%s'\n", nread, cmd_buf);
+        logmsgdf("kshell: nread=%d, cmd='%s'\n", nread, cmd_buf);
 
         kshell_do(cmd_buf);
     }

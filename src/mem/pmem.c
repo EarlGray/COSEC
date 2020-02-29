@@ -35,7 +35,7 @@ typedef size_t pageindex_t;
 
 extern char _end;
 
-pageindex_t theEdgefAllocatedMemory;
+pageindex_t theEdgeOfAllocatedMemory;
 pageindex_t theEndOfUpperMemory;
 
 /*
@@ -98,7 +98,7 @@ void pmem_setup(void) {
         }
     }
 
-    theEdgefAllocatedMemory = page_aligned(free_pmem_edge);
+    theEdgeOfAllocatedMemory = page_aligned(free_pmem_edge);
 
     // TODO: rescue the mboot structures.
     // TODO: create the freed regions list.
@@ -106,9 +106,7 @@ void pmem_setup(void) {
 }
 
 void * pmem_alloc(size_t pages_count) {
-    const char *funcname = __FUNCTION__;
-
-    pageindex_t old_edge = theEdgefAllocatedMemory;
+    pageindex_t old_edge = theEdgeOfAllocatedMemory;
     pageindex_t new_edge = old_edge + pages_count;
 
     if (new_edge > theEndOfUpperMemory) {
@@ -116,17 +114,15 @@ void * pmem_alloc(size_t pages_count) {
         return 0;
     }
 
-    logmsgdf("%s(0x%x) -> *%08x\n", funcname, pages_count, PAGE_SIZE * old_edge);
-    theEdgefAllocatedMemory = new_edge;
+    logmsgdf("%s(0x%x) -> *%08x\n", __func__, pages_count, PAGE_SIZE * old_edge);
+    theEdgeOfAllocatedMemory = new_edge;
     return (void *)(PAGE_SIZE * old_edge);
 }
 
 err_t pmem_free(index_t start_page, size_t pages_count) {
-    const char *funcname = __FUNCTION__;
-
     /* TODO: adding the region to the freed list */
     /* TODO: merging it with adjacent regions */
-    logmsgdf("%s(0x%x, len=%d) : TODO", funcname, start_page, pages_count);
+    logmsgdf("%s(0x%x, len=%d) : TODO", __func__, start_page, pages_count);
     return 0;
 }
 

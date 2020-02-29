@@ -115,6 +115,8 @@ void serial_setup() {
     /* configure serial interface */
     serial_configure(COM1_PORT, 1);
 
-    irq_mask(COM1_IRQ, true);
     irq_set_handler(COM1_IRQ, serial_irq);
+    irq_enable(COM1_IRQ);
+
+    serial_puts(COM1_PORT, "\n\tWelcome to COSEC\n\n");
 }

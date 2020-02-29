@@ -411,7 +411,7 @@ int net_i8254x_init(pci_config_t *conf) {
              (uint)nic->mac_addr[4], (uint)nic->mac_addr[5]);
 
     irq_set_handler(nic->intr, i8254x_irq);
-    irq_mask(nic->intr, true);
+    irq_enable(nic->intr);
 
     i8254x_mta_init(nic);
 

@@ -4,8 +4,10 @@ build/*
 tags
 tmp
 .bochsrc
+.cache
 .*.swp
 *.o
 *.a
+*.d
 *.iso
 *.img

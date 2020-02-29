@@ -203,5 +203,5 @@ void kbd_setup(void) {
     memset((bool *)theKeyboard, 0, sizeof(theKeyboard));
     kbd_buf_setup();
     irq_set_handler(PS2_IRQ, keyboard_irq);
-    irq_mask(PS2_IRQ, true);
+    irq_enable(PS2_IRQ);
 }

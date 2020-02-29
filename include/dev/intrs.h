@@ -17,17 +17,12 @@
 #ifndef ASM
 
 typedef uint8_t  irqnum_t;
-typedef void (*intr_handler_f) (void *);
+typedef void (*intr_handler_f)(int);
 
 uint16_t irq_get_mask(void);
-void irq_mask(irqnum_t irq_num, bool set);
 
-static inline void irq_enable(irqnum_t n) {
-    irq_mask(n, true);
-}
-static inline void irq_disable(irqnum_t n) {
-    irq_mask(n, false);
-}
+void irq_enable(irqnum_t n);
+void irq_disable(irqnum_t n);
 
 static inline bool irq_enabled(uint irqnum) {
     return irq_get_mask() & (1 << irqnum);
