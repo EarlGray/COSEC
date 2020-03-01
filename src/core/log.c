@@ -1,13 +1,15 @@
-#include <cosec/log.h>
-#include <mem/kheap.h>
-#include <dev/serial.h>
-#include <fs/devices.h>
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdarg.h>
 
 #include <cosec/log.h>
+
+#include "dev/serial.h"
+
+#include "mem/kheap.h"
+#include "fs/devices.h"
+
 
 #define LOGBUF_SIZE  4096
 
@@ -48,6 +50,7 @@ int logging_setup() {
 #if COM_LOGGING
     serial_configure(COM1_PORT, 1);
     k_printf("COM1_PORT configured for logging...\n");
+    serial_puts(COM1_PORT, "\n\tWelcome to COSEC\n\n");
 #endif
     return 0;
 }

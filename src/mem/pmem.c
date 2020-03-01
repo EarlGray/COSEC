@@ -122,8 +122,14 @@ void * pmem_alloc(size_t pages_count) {
 err_t pmem_free(index_t start_page, size_t pages_count) {
     /* TODO: adding the region to the freed list */
     /* TODO: merging it with adjacent regions */
-    logmsgdf("%s(0x%x, len=%d) : TODO", __func__, start_page, pages_count);
-    return 0;
+    if (start_page + pages_count == theEdgeOfAllocatedMemory) {
+        // bump back:
+        theEdgeOfAllocatedMemory = start_page;
+        return 0;
+    } else {
+        logmsgf("%s(0x%x, len=%d) : TODO\n", __func__, start_page, pages_count);
+        return ETODO;
+    }
 }
 
 

@@ -14,6 +14,14 @@
 
 #include "arch/i386.h" // for cpu_halt
 
+#define CONF_LOG_PACKETS   1
+
+#if CONF_LOG_PACKETS
+# define lognetf(...) logmsgf(__VA_ARGS__)
+#else
+# define lognetf(...)
+#endif
+
 /*
  *  The COSEC network stack
  */
@@ -183,14 +191,14 @@ void net_receive_driver_frame(struct netiface *iface, struct netbuf *qelem) {
     struct eth_hdr_t *eth = (struct eth_hdr_t*)frame;
 
     uint16_t ethtype = ntohs(eth->ethertype);
-    logmsgdf("RX: %02x:%02x:%02x:%02x:%02x:%02x -> %02x:%02x:%02x:%02x:%02x:%02x",
-             eth->src[0], eth->src[1], eth->src[2], eth->src[3], eth->src[4], eth->src[5],
-             eth->dst[0], eth->dst[1], eth->dst[2], eth->dst[3], eth->dst[4], eth->dst[5]);
+    lognetf("RX: %02x:%02x:%02x:%02x:%02x:%02x -> %02x:%02x:%02x:%02x:%02x:%02x",
+            eth->src[0], eth->src[1], eth->src[2], eth->src[3], eth->src[4], eth->src[5],
+            eth->dst[0], eth->dst[1], eth->dst[2], eth->dst[3], eth->dst[4], eth->dst[5]);
 
     switch (ethtype) {
     case ETHERTYPE_ARP: {
         struct arp_hdr *arp = (struct arp_hdr*)(frame + sizeof(struct eth_hdr_t));
-        logmsgdf(", ARP %s from %d.%d.%d.%d (%02x:%02x:%02x:%02x:%02x:%02x) to %d.%d.%d.%d (%02x:%02x:%02x:%02x:%02x:%02x)\n",
+        lognetf(", ARP %s from %d.%d.%d.%d (%02x:%02x:%02x:%02x:%02x:%02x) to %d.%d.%d.%d (%02x:%02x:%02x:%02x:%02x:%02x)\n",
                  ntohs(arp->op) == 1 ? "REQ" : "REPLY",
                  arp->src_ip[0], arp->src_ip[1], arp->src_ip[2], arp->src_ip[3],
                  arp->src_mac[0], arp->src_mac[1], arp->src_mac[2], arp->src_mac[3], arp->src_mac[4], arp->src_mac[5],
@@ -201,29 +209,29 @@ void net_receive_driver_frame(struct netiface *iface, struct netbuf *qelem) {
         } break;
     case ETHERTYPE_IPV4: {
         struct ipv4_hdr_t *ip = (struct ipv4_hdr_t*)(frame + sizeof(struct eth_hdr_t));
-        logmsgdf(", IPv4 %d.%d.%d.%d -> %d.%d.%d.%d",
+        lognetf(", IPv4 %d.%d.%d.%d -> %d.%d.%d.%d",
                  ip->src.oct[0], ip->src.oct[1], ip->src.oct[2], ip->src.oct[3],
                  ip->dst.oct[0], ip->dst.oct[1], ip->dst.oct[2], ip->dst.oct[3]);
         switch (ip->proto) {
         case IPV4TYPE_ICMP: {
-            logmsgdf(", ICMP\n");
+            lognetf(", ICMP\n");
             net_icmp_receive(iface, frame);
             } break;
         case IPV4TYPE_UDP: {
             struct udp_hdr_t *udp = (struct udp_hdr_t *)((uint8_t*)ip + 4*ip->nwords);
-            logmsgdf(", UDP %d->%d \n", ntohs(udp->src_port), ntohs(udp->dst_port));
+            lognetf(", UDP %d->%d \n", ntohs(udp->src_port), ntohs(udp->dst_port));
             }
             goto enqueue_netbuf;
         default:
-            logmsgdf(", unknown proto %d\n", ip->proto);
+            lognetf(", unknown proto %d\n", ip->proto);
         }
-        }
+        } break;
     case ETHERTYPE_IPV6:
-        logmsgdf(", IPv6\n");
+        lognetf(", IPv6\n");
         break;
     default:
-        if (ethtype > 1500) logmsgdf(", unknown ethertype %04x\n", ethtype);
-        else logmsgdf(", IEEE802.2 LLC frame: %04x\n", ethtype);
+        if (ethtype > 1500) lognetf(", unknown ethertype %04x\n", ethtype);
+        else lognetf(", IEEE802.2 LLC frame: %04x\n", ethtype);
     }
 
     qelem->recycle(qelem);
@@ -248,8 +256,10 @@ int net_transmit_frame(struct netiface *iface, uint8_t *frame, uint16_t len) {
     struct eth_hdr_t *eth = (struct eth_hdr_t *)frame;
     memcpy(eth->src, iface->get_mac().oct, ETH_ALEN);
 
+    uint16_t ethertype = ntohs(eth->ethertype);
+
     // resolve dstmac:
-    switch (ntohs(eth->ethertype)) {
+    switch (ethertype) {
     case ETHERTYPE_IPV4: {
             struct ipv4_hdr_t *ip = (struct ipv4_hdr_t *)(frame + sizeof(struct eth_hdr_t));
             macaddr_t dstmac = net_neighbor_resolve(iface, ip->dst);
@@ -264,9 +274,53 @@ int net_transmit_frame(struct netiface *iface, uint8_t *frame, uint16_t len) {
         } break;
     }
 
-    if (len < 60) len = 60;
+    if (len < 60) {
+        memset(frame + len, 0, 60 - len);
+        len = 60;
+    }
+
+#if CONF_LOG_PACKETS
+    lognetf("TX: %02x:%02x:%02x:%02x:%02x:%02x -> %02x:%02x:%02x:%02x:%02x:%02x",
+            eth->src[0], eth->src[1], eth->src[2], eth->src[3], eth->src[4], eth->src[5],
+            eth->dst[0], eth->dst[1], eth->dst[2], eth->dst[3], eth->dst[4], eth->dst[5]);
+    switch (ethertype) {
+    case ETHERTYPE_ARP: {
+        struct arp_hdr *arp = (struct arp_hdr*)(frame + sizeof(struct eth_hdr_t));
+        lognetf(", ARP %s from %d.%d.%d.%d (%02x:%02x:%02x:%02x:%02x:%02x) to %d.%d.%d.%d (%02x:%02x:%02x:%02x:%02x:%02x)\n",
+                 ntohs(arp->op) == 1 ? "REQ" : "REPLY",
+                 arp->src_ip[0], arp->src_ip[1], arp->src_ip[2], arp->src_ip[3],
+                 arp->src_mac[0], arp->src_mac[1], arp->src_mac[2], arp->src_mac[3], arp->src_mac[4], arp->src_mac[5],
+                 arp->dst_ip[0], arp->dst_ip[1], arp->dst_ip[2], arp->dst_ip[3],
+                 arp->dst_mac[0], arp->dst_mac[1], arp->dst_mac[2], arp->dst_mac[3], arp->dst_mac[4], arp->dst_mac[5]);
+         } break;
+    case ETHERTYPE_IPV4: {
+        struct ipv4_hdr_t *ip = (struct ipv4_hdr_t*)(frame + sizeof(struct eth_hdr_t));
+        lognetf(", IPv4 %d.%d.%d.%d -> %d.%d.%d.%d",
+                 ip->src.oct[0], ip->src.oct[1], ip->src.oct[2], ip->src.oct[3],
+                 ip->dst.oct[0], ip->dst.oct[1], ip->dst.oct[2], ip->dst.oct[3]);
+        switch (ip->proto) {
+        case IPV4TYPE_ICMP: {
+            lognetf(", ICMP\n");
+            } break;
+        case IPV4TYPE_UDP: {
+            struct udp_hdr_t *udp = (struct udp_hdr_t *)((uint8_t*)ip + 4*ip->nwords);
+            lognetf(", UDP %d->%d \n", ntohs(udp->src_port), ntohs(udp->dst_port));
+            } break;
+        default:
+            lognetf(", unknown proto %d\n", ip->proto);
+        }
+        } break;
+    case ETHERTYPE_IPV6:
+        lognetf(", IPv6\n");
+        break;
+    default:
+        if (ethertype > 1500) lognetf(", unknown ethertype %04x\n", ethertype);
+        else lognetf(", IEEE802.2 LLC frame: %04x\n", ethertype);
+    }
+#endif
+
     int ret = iface->transmit_frame_enqueue(frame, len);
-    if (ret) return ret;
+    return_err_if(ret, ret, "%s: transmit_frame_enqueue failed (%d)", __func__, ret);
 
     return iface->do_transmit();
 }
@@ -387,6 +441,7 @@ size_t net_buf_udp4_checksum(uint8_t *data, size_t datalen) {
     */
 
     // ipv4 header checksum:
+    ipv4->checksum = 0;
     checksum = ones_complement_words_sum((uint8_t*)ipv4, sizeof(struct ipv4_hdr_t));
     ipv4->checksum = htons(~checksum);
 
@@ -482,6 +537,8 @@ static void net_icmp_receive(struct netiface *iface, uint8_t *frame) {
     if (icmp->type == ICMP_ECHO_REQUEST) {
         assertv(icmp->code == 0, "%s: ICMP echo request has code %d\n", icmp->type);
 
+        /* TODO: stash MAC into ARP cache */
+
         /* reply */
         uint16_t ethlen = sizeof(struct eth_hdr_t);
         uint8_t *rframe = iface->transmit_frame_alloc();
@@ -512,10 +569,12 @@ static void net_icmp_receive(struct netiface *iface, uint8_t *frame) {
 
         uint16_t checksum;
         /* ICMP checksum */
+        ricmp->checksum = 0;
         checksum = ones_complement_words_sum((uint8_t*)ricmp, sizeof(struct icmp_hdr_t) + datalen);
         ricmp->checksum = htons(~checksum);
 
         /* IP checksum */
+        rip->checksum = 0;
         checksum = ones_complement_words_sum((uint8_t*)rip, sizeof(struct ipv4_hdr_t));
         rip->checksum = htons(~checksum);
 
@@ -524,7 +583,7 @@ static void net_icmp_receive(struct netiface *iface, uint8_t *frame) {
         return;
     }
 
-    logmsgf("%s: ICMP type %d, dropping\n", __func__, icmp->type);
+    lognetf("%s: ICMP type %d, dropping\n", __func__, icmp->type);
 }
 
 
@@ -582,7 +641,7 @@ void test_net_dhcp(void) {
     const uint32_t xid = 0x3903f326;
 
     struct netbuf *reply;
-    const uint32_t timeout_s = 10;
+    const uint32_t timeout_s = 5;
 
     struct netiface * iface = net_interface_for_destination(0);
     returnv_err_if(!iface, "No interface for DHCP");
@@ -681,7 +740,6 @@ void test_net_dhcp(void) {
     }
     logmsgf("%s: received *%x[%d]\n", __func__, reply->buf, reply->len);
 
-    eth = (struct eth_hdr_t *)reply;
     ip = (struct ipv4_hdr_t *)(reply->buf + sizeof(struct eth_hdr_t));
     dhcp = (struct dhcp4 *)((uint8_t *)ip + 4*ip->nwords + sizeof(struct udp_hdr_t));
 

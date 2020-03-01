@@ -79,7 +79,7 @@ qemu_net    += -device virtio-net-pci,netdev=tap0
 else
 qemu_net    := -netdev user,id=usr0
 qemu_net    += -device virtio-net-pci,netdev=usr0
-#qemu_debug  += -object filter-dump,id=usr0,netdev=usr0,file=tmp/qemu.pcap
+qemu_debug  += -object filter-dump,id=usr0,netdev=usr0,file=tmp/qemu.pcap
 endif
 
 qemu_flags  := -m 64 -serial stdio $(qemu_debug) $(QEMU_OPT)

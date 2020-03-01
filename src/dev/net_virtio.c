@@ -1,19 +1,19 @@
 #include <string.h>
 #include <stdio.h>
 #include <sys/errno.h>
-
-#include <attrs.h>
-#include <network.h>
-#include <mem/kheap.h>
-#include <mem/pmem.h>
-#include <dev/intrs.h>
-#include <dev/pci.h>
-#include <dev/timer.h>
-#include <arch/i386.h>
-
-#define __DEBUG
-#include <cosec/log.h>
 #include <algo.h>
+
+//#define __DEBUG
+#include <cosec/log.h>
+
+#include "attrs.h"
+#include "network.h"
+#include "mem/kheap.h"
+#include "mem/pmem.h"
+#include "dev/intrs.h"
+#include "dev/pci.h"
+#include "dev/timer.h"
+#include "arch/i386.h"
 
 
 #define CONF_HW_CHECKSUM    0
@@ -48,7 +48,7 @@
 #define VIRTIO_NET_CTLQ 2
 
 #define VIRTIO_PAD  4096
-
+#define FRAME_SIZE             (PAGE_SIZE/2)
 #define MAX_VIRTIO_FRAME_SIZE  (sizeof(struct virtio_net_hdr) + sizeof(struct eth_hdr_t) + ETH_MTU + 4)
 
 /* VIO_DEV_STA register */
@@ -85,7 +85,7 @@ struct __packed vring_desc {
 
 #define VIRTQ_AVAIL_F_NOINTR  1
 struct __packed vring_avail {
-    uint16_t flags;
+    uint16_t flags; // 1: AVAIL_F_NO_INTERRUPT
     uint16_t idx;
     uint16_t ring[];
 };
@@ -96,8 +96,8 @@ struct vring_used_elem {
 };
 
 struct __packed vring_used {
-    uint16_t flags;
-    uint16_t idx;
+    uint16_t flags; // 1: USED_F_NO_NOTIFY
+    uint16_t idx;   // can increase beyond q->size (?), wraps around.
     struct vring_used_elem ring[];
 };
 
@@ -111,7 +111,7 @@ struct virtioq {
     uint16_t size; // the number of descriptors
     size_t npages; // the combined size of desc+avail+used in pages
 
-    uint32_t last_used;
+    uint16_t last_used; // must wrap around
 
     struct vring_desc   *desc;
     struct vring_avail  *avail;
@@ -124,8 +124,8 @@ static inline void virtioq_notify(struct virtio_device *dev, uint16_t queue) {
 
 static inline uint16_t virtioq_enqueue(struct virtioq *q, uint16_t desc) {
     uint16_t idx = q->avail->idx;
-    q->avail->ring[idx] = desc;
-    q->avail->idx = (idx + 1) % q->size;
+    q->avail->ring[idx % q->size] = desc;
+    q->avail->idx += 1;
     return idx;
 };
 
@@ -210,7 +210,7 @@ struct __packed virtio_net_hdr {
     uint16_t gso_size;
     uint16_t csum_start;
     uint16_t csum_offset;
-    // uint16_t num_buffers; /* if VIRTIO_NET_F_MRG_RXBUF */
+    // uint16_t num_buffers; // only if VIRTIO_NET_F_MRG_RXBUF
 };
 
 
@@ -267,6 +267,7 @@ uint8_t * net_virtio_frame_alloc(void) {
 }
 
 static inline void net_virtio_frame_free(uint8_t *buf) {
+    assertv(buf, "%s(NULL)", __func__);
     pmem_free((uintptr_t)buf / PAGE_SIZE, 1);
 }
 
@@ -275,13 +276,14 @@ static void net_virtio_rxbuf_cleanup(struct netbuf *nbuf) {
 
     /* get the RX descriptor index for this buffer */
     size_t bufptr = (size_t)nbuf->buf;
-    size_t desc = (bufptr - (uintptr_t)theVirtNIC->netbuf) / (PAGE_SIZE/2);
+    size_t desc = (bufptr - (uintptr_t)theVirtNIC->netbuf) / FRAME_SIZE;
 
     uint16_t idx = virtioq_enqueue(rxq, desc);
-    virtioq_notify(&theVirtNIC->virtio, VIRTIO_NET_RXQ);
+    if (!rxq->used->flags)
+        virtioq_notify(&theVirtNIC->virtio, VIRTIO_NET_RXQ);
 
-    logmsgdf("%s(buf=*%x): recycled desc=%d to avail=%d, notify=%d\n", __func__,
-             nbuf->buf, desc, idx, rxq->used->flags);
+    logmsgdf("%s(buf=*%x): recycled desc=%d to avail=%d%s\n", __func__,
+             nbuf->buf, desc, idx, rxq->used->flags ? ", no_notify" : "");
 }
 
 bool net_virtio_is_up(struct netiface *iface) {
@@ -297,9 +299,9 @@ bool net_virtio_is_up(struct netiface *iface) {
     return false;
 }
 
-// a temporary hack until interrupts work!
 static void net_virtio_poll(uint32_t t) {
-    uint32_t last_used, idx_used;
+    UNUSED(t);
+    uint16_t last_used, idx_used;
 
     // txq
     struct virtioq *txq = &theVirtNIC->txq;
@@ -310,11 +312,14 @@ static void net_virtio_poll(uint32_t t) {
                  txq->last_used, idx_used);
 
         // return the buffer to available
-        struct vring_used_elem tx = txq->used->ring[txq->last_used];
+        uint16_t idx = txq->last_used % txq->size;
+        struct vring_used_elem tx = txq->used->ring[idx];
+
         uint8_t *buf = (uint8_t *)(uintptr_t)txq->desc[tx.id].addr;
         net_virtio_frame_free(buf);
+        txq->desc[tx.id].addr = 0; // mark it free for re-use
 
-        txq->last_used = (txq->last_used + 1) % txq->size;
+        txq->last_used += 1;
     }
     txq->avail->flags = 0;
 
@@ -327,18 +332,19 @@ static void net_virtio_poll(uint32_t t) {
                  rxq->last_used, idx_used);
 
         // receive the data!
-        struct vring_used_elem rx = rxq->used->ring[rxq->last_used];
+        uint16_t idx = rxq->last_used % rxq->size;
+        struct vring_used_elem rx = rxq->used->ring[idx];
         uint8_t *buf = (uint8_t *)(uintptr_t)rxq->desc[rx.id].addr;
 
         struct netbuf *nbuf = (struct netbuf *)(buf + MAX_VIRTIO_FRAME_SIZE);
         nbuf->buf = buf + sizeof(struct virtio_net_hdr);
-        nbuf->len = rx.len;
+        nbuf->len = rx.len - sizeof(struct virtio_net_hdr);
         nbuf->recycle = net_virtio_rxbuf_cleanup;
         logmsgdf("%s: received *%x[%d], netbuf at *%x\n", __func__, buf, rx.len, nbuf);
 
         net_receive_driver_frame(&theVirtNIC->iface, nbuf);
 
-        rxq->last_used = (rxq->last_used + 1) % rxq->size;
+        rxq->last_used += 1;
     }
     rxq->avail->flags = 0;
 }
@@ -350,37 +356,44 @@ void net_virtio_irq() {
 }
 
 
-int net_virtio_tx_enqueue(uint8_t *buf, size_t eth_payload_len) {
-    logmsgdf("%s(buf=*%x, len=%d)\n", __func__, buf, eth_payload_len);
-    /* virtio net header */
+int net_virtio_tx_enqueue(uint8_t *buf, size_t eth_len) {
+    logmsgdf("%s(buf=*%x, len=%d)\n", __func__, buf, eth_len);
+
+    struct virtioq *txq = &theVirtNIC->txq;
     struct virtio_net_hdr *vhdr = (struct virtio_net_hdr *)buf - 1;
 
 #if (CONF_HW_CHECKSUM)
     vhdr->flags = VIRTIO_NET_HDR_F_NEEDS_CSUM;
     vhdr->csum_start = 0;
-    vhdr->csum_offset = sizeof(struct eth_hdr_t) + eth_payload_len;
+    vhdr->csum_offset = sizeof(struct eth_hdr_t) + eth_len;
 #else
     uint8_t *p = buf;
-    uint32_t crc = ethernet_crc32(p, eth_payload_len);
-    *(uint32_t*)(p + eth_payload_len) = crc;
+    uint32_t crc = ethernet_crc32(p, eth_len);
+    *(uint32_t*)(p + eth_len) = crc;
 #endif
 
+    /* find a free descriptor */
+    uint16_t desc_offset = 0;
+    while (txq->desc[desc_offset].addr != 0) {
+        ++desc_offset;
+        if (desc_offset >= txq->size) {
+            logmsgef("%s: txq descriptors exhausted", __func__);
+            return ENOMEM;
+        }
+    }
+
     /* remember it in txq */
-    const size_t desc_offset = 0;
-    struct vring_desc *desc = theVirtNIC->txq.desc + desc_offset;
+    struct vring_desc *desc = txq->desc + desc_offset;
     desc->addr = (uint64_t)(uint32_t)vhdr;
-    desc->len = sizeof(struct virtio_net_hdr) + eth_payload_len + 4;
-    desc->flags = 0;
+    desc->len = sizeof(struct virtio_net_hdr) + eth_len + 4;
+    desc->flags = 0; // read-only, no indirection, no next.
+
+    virtioq_enqueue(txq, desc_offset);
     return 0;
 }
 
 int net_virtio_transmit(void) {
-    const size_t buf_idx = 0;
-    struct virtioq *txq = &theVirtNIC->txq;
-
-    virtioq_enqueue(txq, buf_idx);
     virtioq_notify(&theVirtNIC->virtio, VIRTIO_NET_TXQ);
-
     return 0;
 }
 
@@ -404,7 +417,6 @@ static int net_virtio_setup(struct virtio_net_device *nic) {
 
     ret = virtio_vring_alloc(&nic->txq, hval);
     return_msg_if(ret, ret, "%s: txq setup failed(%d)\n", __func__, ret);
-
     //nic->txq.avail->flags |= VIRTQ_AVAIL_F_NOINTR;
 
     logmsgdf("%s: tx_q[%d] at *%x (%d pages)\n", __func__,
@@ -426,8 +438,7 @@ static int net_virtio_setup(struct virtio_net_device *nic) {
              __func__, (int)hval, nic->rxq.desc, nic->rxq.npages);
 
     /* netbuf: fill rx queue */
-    const uint16_t packetsz = 2048;
-    const uint32_t netbufsz = nic->rxq.size * packetsz;
+    const uint32_t netbufsz = nic->rxq.size * FRAME_SIZE;
     size_t netbuf_pages = netbufsz / PAGE_SIZE;
     if (netbufsz % PAGE_SIZE)
         ++netbuf_pages;
@@ -442,15 +453,15 @@ static int net_virtio_setup(struct virtio_net_device *nic) {
     struct vring_avail *rxavail = nic->rxq.avail;
     for (i = 0; i < nic->rxq.size - 1; ++i) {
         struct vring_desc *vrd = nic->rxq.desc + i;
-        vrd->addr = (uint64_t)(uint32_t)(netbuf + packetsz * i);
-        vrd->len = packetsz;
+        vrd->addr = (uint64_t)(uint32_t)(netbuf + FRAME_SIZE * i);
+        vrd->len = FRAME_SIZE;
         vrd->flags = VIRTQ_DESC_F_WRITE;
         vrd->next = 0;
         /* write this descriptor index into vring_avail */
         rxavail->ring[i] = (uint16_t)i;
     }
     rxavail->flags = 0;  // we do need an interrupt after each packet
-    rxavail->idx = nic->rxq.size - 1;
+    rxavail->idx = nic->rxq.size - 1; // TODO: fix off-by-one
 
     val = (uint32_t)nic->rxq.desc / PAGE_SIZE;
     outl_p(nic->virtio.iobase + VIO_Q_ADDR, val);
