@@ -3,7 +3,7 @@
  *  Now it also includes PIC-related code, though it would be nice to put it
  *  to its own header, but I don't want mupltiply files now
  *  TODO: separate pic.c
- *      About interrupt handling: 
+ *      About interrupt handling:
  *  exceptions are handled directly by one of int_foo() functions
  *  IRQs are handled by irq_hander(), which calls a handler registered in irq[]
  */
@@ -218,7 +218,7 @@ void int_gpf(uint32_t *stack, err_t err) {
 
 
 void intrs_setup(void) {
-    // remap interrupts   
+    // remap interrupts
     irq_remap(I8259A_BASE, I8259A_BASE + 8);
 
     // disable all except slave PIC pin
