@@ -16,7 +16,9 @@
 #include <algo.h>
 
 
-#define VIRTIO_HW_CHECKSUM    0
+#define CONF_HW_CHECKSUM    0
+#define CONF_TIMER_POLL     0
+#define CONF_ENABLE_IRQ     1
 
 /* virtio registers offsets from `portbase` */
 #define VIO_DEV_FEATURE       0   /* 32, R  */
@@ -344,8 +346,6 @@ static void net_virtio_poll(uint32_t t) {
 void net_virtio_irq() {
     uint8_t val;
     inb(theVirtNIC->virtio.iobase + VIO_ISR_STA, val);
-    logmsgdf("\n%s: isr=0x%x", __func__, val);
-
     if (val & 1) net_virtio_poll(0);
 }
 
@@ -355,7 +355,7 @@ int net_virtio_tx_enqueue(uint8_t *buf, size_t eth_payload_len) {
     /* virtio net header */
     struct virtio_net_hdr *vhdr = (struct virtio_net_hdr *)buf - 1;
 
-#if (VIRTIO_HW_CHECKSUM)
+#if (CONF_HW_CHECKSUM)
     vhdr->flags = VIRTIO_NET_HDR_F_NEEDS_CSUM;
     vhdr->csum_start = 0;
     vhdr->csum_offset = sizeof(struct eth_hdr_t) + eth_payload_len;
@@ -460,7 +460,7 @@ static int net_virtio_setup(struct virtio_net_device *nic) {
     val |= VIRTIO_NET_F_MAC;
     val |= VIRTIO_NET_F_STATUS;
     val |= VIRTIO_NET_F_GUEST_CSUM;
-#if VIRTIO_HW_CHECKSUM
+#if (CONF_HW_CHECKSUM)
     // If you try to negotiate VIRTIO_NET_F_CSUM, QEMU's FCSless packets will not be delivered.
     val |= VIRTIO_NET_F_CSUM;
 #endif
@@ -546,17 +546,18 @@ int net_virtio_init(pci_config_t *pciconf) {
     // this must happen before IRQ and timers:
     theVirtNIC = nic;
 
-    /* setup IRQ *
+#if CONF_ENABLE_IRQ
     irq_set_handler(nic->virtio.intr, net_virtio_irq);
     irq_enable(nic->virtio.intr);
     logmsgdf("%s: irq_set_handler(%d, net_virtio_irq)\n",  __func__,
              nic->virtio.intr);
-    // */
+#endif
 
+#if CONF_TIMER_POLL
     /* temporary hack: set up polling */
-    logmsgdf("%s: timer frequency = %d\n", __func__, timer_frequency());
+    logmsgdf("%s: poll frequency = %d\n", __func__, timer_frequency());
     timer_push_ontimer(net_virtio_poll);
-    // */
+#endif
 
     /* get network status */
     uint16_t hval;

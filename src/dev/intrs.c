@@ -47,13 +47,15 @@
  *      Declarations
  */
 // IRQ handlers
-intr_handler_f irq[16];
+intr_handler_f irq[16] = { 0 };
 
 volatile uint32_t irq_happened[16] = { 0 };
 
 /*
  *    Implementations
  */
+
+/****************** IRQs ***********************/
 
 static void
 irq_remap(uint8_t master, uint8_t slave) {
@@ -114,35 +116,34 @@ uint16_t irq_get_mask(void) {
     return res;
 }
 
-inline void irq_eoi(uint32_t irq_num) {
-    uint32_t port = (irq_num < 8 ? PIC1_CMD_PORT : PIC2_DATA_PORT);
-    outb_p(port, PIC_EOI);
+void irq_set_mask(uint16_t mask) {
+    uint8_t m = mask & 0xff;
+    outb(PIC1_DATA_PORT, m);
+    m = (uint8_t)(mask >> 8);
+    outb(PIC2_DATA_PORT, m);
 }
 
 void irq_handler(void *stack, uint32_t irq_num) {
-    /*
-    if (irq_num > 0)
-        logmsgf("%s(%d)\n", __FUNCTION__, irq_num);
-        */
     irq_happened[irq_num] += 1;
+
     intr_handler_f callee = irq[irq_num];
-    callee((void *)cpu_stack());
-    irq_eoi(irq_num);
+    if (callee) {
+        callee((void *)cpu_stack());
+    } else {
+        logmsgef("%s(%d): no handler", __func__, irq_num);
+    }
+
+    // End Of Interrupt
+    if (irq_num >= 8) {
+        outb(PIC2_CMD_PORT, PIC_EOI);
+    }
+    outb_p(PIC1_CMD_PORT, PIC_EOI);
 }
 
 inline void irq_set_handler(irqnum_t irq_num, intr_handler_f handler) {
     irq[irq_num] = handler;
 }
 
-/****************** IRQs ***********************/
-
-void irq_stub() {
-    logmsgf("irq_stubA(), shouldn't happen\n");
-}
-
-void irq_slave() {
-    logmsgf("irq_stubB(), shouldn't happen\n");
-}
 
 /**************** exceptions *****************/
 
@@ -220,19 +221,8 @@ void intrs_setup(void) {
     // remap interrupts   
     irq_remap(I8259A_BASE, I8259A_BASE + 8);
 
-    // prepare handler table
-    int i;
-    for (i = 0; i < 8; ++i) {
-        irq_disable(i);
-        irq[i] = irq_stub;
-    }
-    for (i = 8; i < 16; ++i) {
-        irq_disable(i);
-        irq[i] = irq_slave;
-    }
-
-    // slave PIC must be accessible:
-    irq_enable(NMI_IRQ);
+    // disable all except slave PIC pin
+    irq_set_mask(~(1 << NMI_IRQ));
 }
 
 int irq_wait(irqnum_t irqnum) {
