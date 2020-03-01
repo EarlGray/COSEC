@@ -204,7 +204,7 @@ struct neighbor_mapping {
 };
 
 enum { ARP_L2_ETH = 1 };
-enum { ARP_OP_REQUEST = 1, ARP_OP_REPLY = 2 };
+typedef enum { ARP_OP_REQUEST = 1, ARP_OP_REPLY = 2 } arp_op_t;
 
 struct arp_hdr {
     uint16_t htype, ptype;

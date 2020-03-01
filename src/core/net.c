@@ -410,7 +410,9 @@ size_t net_buf_udp4_checksum(uint8_t *data, size_t datalen) {
  *  ARP
  */
 
-int net_arp_send_whohas(struct netiface *iface, union ipv4_addr_t ip) {
+static int net_arp_send(struct netiface *iface, arp_op_t op,
+                        union ipv4_addr_t dst_ip, macaddr_t dst_mac)
+{
     return_err_if(!iface, ENODEV, "An interface is required");
     uint8_t *frame;
     size_t ethlen;
@@ -425,16 +427,20 @@ int net_arp_send_whohas(struct netiface *iface, union ipv4_addr_t ip) {
     arp->htype = htons(ARP_L2_ETH); arp->ptype = htons(ETHERTYPE_IPV4);
     arp->hlen = ETH_ALEN; arp->plen = sizeof(union ipv4_addr_t);
 
-    arp->op = htons(ARP_OP_REQUEST);
+    arp->op = htons(op);
     memcpy(arp->src_mac, iface->get_mac().oct, ETH_ALEN);
     memcpy(arp->src_ip, iface->ip_addr.oct, 4);
-    memcpy(arp->dst_mac, ETH_BROADCAST_MAC.oct, ETH_ALEN);
-    memcpy(arp->dst_ip, ip.oct, 4);
+    memcpy(arp->dst_mac, dst_mac.oct, ETH_ALEN);
+    memcpy(arp->dst_ip, dst_ip.oct, 4);
 
     ethlen = sizeof(struct eth_hdr_t) + sizeof(struct arp_hdr);
     net_transmit_frame(iface, frame, ethlen);
 
     return 0;
+}
+
+int net_arp_send_whohas(struct netiface *iface, union ipv4_addr_t ip) {
+    return net_arp_send(iface, ARP_OP_REQUEST, ip, ETH_BROADCAST_MAC);
 }
 
 static void net_arp_receive(struct netiface *iface, struct arp_hdr *arp) {
@@ -452,9 +458,15 @@ static void net_arp_receive(struct netiface *iface, struct arp_hdr *arp) {
 
     if (ntohs(arp->op) == ARP_OP_REPLY) {
         // TODO: sanity checks of addresses
-        net_neighbor_remember(iface, src_ip, src_mac);
-    } else if (ntohs(arp->op) == ARP_OP_REQUEST) {
-        // TODO: reply to src_mac/src_ip with my MAC
+        return net_neighbor_remember(iface, src_ip, src_mac);
+    }
+    if (ntohs(arp->op) == ARP_OP_REQUEST
+        && mac_equal(dst_mac, ETH_INVALID_MAC)
+        && (dst_ip.num == iface->ip_addr.num))
+    {
+        // Reply "it's me!"
+        int ret = net_arp_send(iface, ARP_OP_REPLY, src_ip, src_mac);
+        returnv_msg_if(ret, "%s: failed to reply (%d)", __func__, ret);
     }
 }
 
