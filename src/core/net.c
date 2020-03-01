@@ -30,6 +30,7 @@ struct network_stack theNetwork;
  *  Declarations
  */
 static void net_arp_receive(struct netiface *iface, struct arp_hdr *arp);
+static void net_icmp_receive(struct netiface *iface, uint8_t *frame);
 
 /*
  *  Utils
@@ -176,7 +177,7 @@ void net_neighbors_print(struct netiface *iface) {
 // To be called by a network driver.
 // The driver is responsible for allocating the netbuf;
 //   it also recycles it when `netbuf->recycle_frame()` is called by the network stack.
-void net_receive_driver_frame(struct netbuf *qelem) {
+void net_receive_driver_frame(struct netiface *iface, struct netbuf *qelem) {
     // Take a quick look and log the packet:
     uint8_t *frame = qelem->buf;
     struct eth_hdr_t *eth = (struct eth_hdr_t*)frame;
@@ -196,9 +197,8 @@ void net_receive_driver_frame(struct netbuf *qelem) {
                  arp->dst_ip[0], arp->dst_ip[1], arp->dst_ip[2], arp->dst_ip[3],
                  arp->dst_mac[0], arp->dst_mac[1], arp->dst_mac[2], arp->dst_mac[3], arp->dst_mac[4], arp->dst_mac[5]);
 
-        net_arp_receive(NULL, arp);
-        }
-        goto recycle_netbuf;
+        net_arp_receive(iface, arp);
+        } break;
     case ETHERTYPE_IPV4: {
         struct ipv4_hdr_t *ip = (struct ipv4_hdr_t*)(frame + sizeof(struct eth_hdr_t));
         logmsgdf(", IPv4 %d.%d.%d.%d -> %d.%d.%d.%d",
@@ -207,23 +207,27 @@ void net_receive_driver_frame(struct netbuf *qelem) {
         switch (ip->proto) {
         case IPV4TYPE_ICMP: {
             logmsgdf(", ICMP\n");
+            net_icmp_receive(iface, frame);
             } break;
         case IPV4TYPE_UDP: {
             struct udp_hdr_t *udp = (struct udp_hdr_t *)((uint8_t*)ip + 4*ip->nwords);
             logmsgdf(", UDP %d->%d \n", ntohs(udp->src_port), ntohs(udp->dst_port));
-            } break;
+            }
+            goto enqueue_netbuf;
         default:
             logmsgdf(", unknown proto %d\n", ip->proto);
         }
-        } goto enqueue_netbuf;
+        }
     case ETHERTYPE_IPV6:
         logmsgdf(", IPv6\n");
-        goto recycle_netbuf;
+        break;
     default:
         if (ethtype > 1500) logmsgdf(", unknown ethertype %04x\n", ethtype);
         else logmsgdf(", IEEE802.2 LLC frame: %04x\n", ethtype);
-        goto recycle_netbuf;
     }
+
+    qelem->recycle(qelem);
+    return;
 
 enqueue_netbuf:
     // Add to the ingress queue:
@@ -237,10 +241,6 @@ enqueue_netbuf:
         theNetwork.rxq = qelem;
         qelem->prev = qelem->next = qelem;
     }
-    return;
-
-recycle_netbuf:
-    qelem->recycle(qelem);
     return;
 }
 
@@ -342,11 +342,11 @@ uint8_t * net_buf_udp4_init(uint8_t *frame,
     ipv4->nwords = 5;
     ipv4->qos = 0;
     //ipv4->iplen = <later>;
+    //ipv4->checksum = <later>;
     ipv4->ident = 0;
     ipv4->flags = 0;
     ipv4->ttl = IPV4_DEFAULT_TTL;
     ipv4->proto = IPV4TYPE_UDP;
-    ipv4->checksum = 0;
     ipv4->src.num = srcaddr.num;
     ipv4->dst.num = dstaddr.num;
 
@@ -468,6 +468,63 @@ static void net_arp_receive(struct netiface *iface, struct arp_hdr *arp) {
         int ret = net_arp_send(iface, ARP_OP_REPLY, src_ip, src_mac);
         returnv_msg_if(ret, "%s: failed to reply (%d)", __func__, ret);
     }
+}
+
+/*
+ *  ICMP
+ */
+static void net_icmp_receive(struct netiface *iface, uint8_t *frame) {
+    struct eth_hdr_t *eth = (struct eth_hdr_t*)frame;
+    struct ipv4_hdr_t *ip = (struct ipv4_hdr_t*)(frame + sizeof(struct eth_hdr_t));
+    struct icmp_hdr_t *icmp = (struct icmp_hdr_t*)((uint8_t*)ip + 4*ip->nwords);
+    uint8_t *payload = (uint8_t*)icmp + sizeof(struct icmp_hdr_t);
+
+    if (icmp->type == ICMP_ECHO_REQUEST) {
+        assertv(icmp->code == 0, "%s: ICMP echo request has code %d\n", icmp->type);
+
+        /* reply */
+        uint16_t ethlen = sizeof(struct eth_hdr_t);
+        uint8_t *rframe = iface->transmit_frame_alloc();
+        returnv_err_if(!rframe, "Failed to allocate frame");
+
+        struct eth_hdr_t *reth = (struct eth_hdr_t*)rframe;
+        reth->ethertype = htons(ETHERTYPE_IPV4);
+        memcpy(reth->dst, eth->src, ETH_ALEN);
+        memcpy(reth->src, iface->get_mac().oct, ETH_ALEN);
+
+        struct ipv4_hdr_t *rip = (struct ipv4_hdr_t*)(rframe + sizeof(struct eth_hdr_t));
+        rip->version = 4; rip->nwords = 5; rip->qos = 0;
+        rip->ident = 0; rip->flags = 0; rip->ttl = IPV4_DEFAULT_TTL;
+        rip->proto = IPV4TYPE_ICMP;
+        rip->src.num = iface->ip_addr.num;
+        rip->dst.num = ip->src.num;
+        rip->iplen = ip->iplen; rip->checksum = 0;
+
+        struct icmp_hdr_t *ricmp = (struct icmp_hdr_t*)((uint8_t*)rip + 4*rip->nwords);
+        ricmp->type = ICMP_ECHO_REPLY; ricmp->code = 0;
+        ricmp->rest.data = icmp->rest.data;
+
+        struct uint8_t *rpayload = (uint8_t *)ricmp + sizeof(struct icmp_hdr_t);
+        uint16_t datalen = ntohs(ip->iplen);
+        ethlen += datalen;
+        datalen -= 4*ip->nwords - sizeof(struct icmp_hdr_t);
+        memcpy(rpayload, payload, datalen);
+
+        uint16_t checksum;
+        /* ICMP checksum */
+        checksum = ones_complement_words_sum((uint8_t*)ricmp, sizeof(struct icmp_hdr_t) + datalen);
+        ricmp->checksum = htons(~checksum);
+
+        /* IP checksum */
+        checksum = ones_complement_words_sum((uint8_t*)rip, sizeof(struct ipv4_hdr_t));
+        rip->checksum = htons(~checksum);
+
+        int ret = net_transmit_frame(iface, rframe, ethlen);
+        returnv_msg_if(ret, "%s: failed to reply (%d)\n", ret);
+        return;
+    }
+
+    logmsgf("%s: ICMP type %d, dropping\n", __func__, icmp->type);
 }
 
 

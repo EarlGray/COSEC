@@ -16,7 +16,7 @@
 #include <algo.h>
 
 
-#define VIRTIO_HW_CHECKSUM    1
+#define VIRTIO_HW_CHECKSUM    0
 
 /* virtio registers offsets from `portbase` */
 #define VIO_DEV_FEATURE       0   /* 32, R  */
@@ -30,7 +30,7 @@
 #define VIO_DEVICE_SPECIFIC_OFFSET    20
 
 #define VIO_MSIX_CONF_VECT   20   /* 16, RW */
-#define VIO_MSIX_Q_VECT      22   /* 16, RW */
+#define VIO_MSIX_Q_VECT      23   /* 16, RW */
 #define VIO_DEVICE_SPECIFIC_OFFSET_WITH_MSIX  24
 
 #define VIO_DEVIO_OFF      VIO_DEVICE_SPECIFIC_OFFSET
@@ -334,7 +334,7 @@ static void net_virtio_poll(uint32_t t) {
         nbuf->recycle = net_virtio_rxbuf_cleanup;
         logmsgdf("%s: received *%x[%d], netbuf at *%x\n", __func__, buf, rx.len, nbuf);
 
-        net_receive_driver_frame(nbuf);
+        net_receive_driver_frame(&theVirtNIC->iface, nbuf);
 
         rxq->last_used = (rxq->last_used + 1) % rxq->size;
     }
@@ -355,7 +355,7 @@ int net_virtio_tx_enqueue(uint8_t *buf, size_t eth_payload_len) {
     /* virtio net header */
     struct virtio_net_hdr *vhdr = (struct virtio_net_hdr *)buf - 1;
 
-#if VIRTIO_HW_CHECKSUM
+#if (VIRTIO_HW_CHECKSUM)
     vhdr->flags = VIRTIO_NET_HDR_F_NEEDS_CSUM;
     vhdr->csum_start = 0;
     vhdr->csum_offset = sizeof(struct eth_hdr_t) + eth_payload_len;
@@ -369,7 +369,7 @@ int net_virtio_tx_enqueue(uint8_t *buf, size_t eth_payload_len) {
     const size_t desc_offset = 0;
     struct vring_desc *desc = theVirtNIC->txq.desc + desc_offset;
     desc->addr = (uint64_t)(uint32_t)vhdr;
-    desc->len = sizeof(struct virtio_net_hdr) + sizeof(struct eth_hdr_t) + eth_payload_len + 4;
+    desc->len = sizeof(struct virtio_net_hdr) + eth_payload_len + 4;
     desc->flags = 0;
     return 0;
 }

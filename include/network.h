@@ -37,7 +37,7 @@ struct netbuf {
     void (*recycle)(struct netbuf *);
 };
 
-void net_receive_driver_frame(struct netbuf *qelem);
+void net_receive_driver_frame(struct netiface *iface, struct netbuf *qelem);
 
 // Blocks waiting to receive a UDP4 datagram and consumes it.
 // *nbuf will be set to the received frame or to NULL if timed out.
@@ -111,6 +111,28 @@ enum ipv4_subproto {
 };
 
 #define IP4(a, b, c, d) { .oct = {(a), (b), (c), (d)} }
+
+/*
+ *  ICMP
+ */
+struct icmp_hdr_t {
+    uint8_t type;
+    uint8_t code;
+    uint16_t checksum;
+    union {
+        uint32_t data;
+        struct { uint16_t id, seq; } echo;
+    } rest;
+} __packed;
+
+typedef enum {
+    ICMP_ECHO_REPLY = 0,
+    ICMP_DEST_UNREACH = 3,
+    ICMP_SRC_QUENCH = 4,
+    ICMP_ECHO_REQUEST = 8,
+    ICMP_TIME_EXCEEDED = 11,
+    ICMP_BAD_IP_HDR = 12,
+} icmp_type_t;
 
 
 /*
