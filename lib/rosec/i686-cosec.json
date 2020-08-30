@@ -9,5 +9,6 @@
     "executables": true,
     "linker-flavor": "ld.lld",
     "linker": "rust-lld",
-    "panic-strategy": "abort"
+    "panic-strategy": "abort",
+    "features": "-mmx,-sse"
 }

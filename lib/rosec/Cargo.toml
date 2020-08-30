@@ -7,18 +7,6 @@ edition = "2018"
 [lib]
 crate-type = ["staticlib"]
 
-[profile.dev]
-abort = "panic"
-
-[profile.release]
-abort = "panic"
-
 [features]
 
 [dependencies]
-
-[dependencies.compiler_builtins]
-#features = ["weak"]
-
-[package.metadata.cargo-xbuild]
-#memcpy = false
