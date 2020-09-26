@@ -1,6 +1,8 @@
+#include <stdint.h>
 #include <string.h>
 
 #include <dev/screen.h>
+#include <dev/acpi.h>
 #include <arch/i386.h>
 #include <arch/multiboot.h>
 #include <arch/mboot.h>
@@ -180,6 +182,56 @@ int syslua_meml(lua_State *L) {
     return 1;
 }
 
+int syslua_msr(lua_State *L) {
+    int argc = (int)lua_gettop(L);
+    if (argc == 1) {
+        uint32_t msr = (uint32_t)lua_tonumber(L, 1);
+        uint64_t val = i386_read_msr(msr);
+        lua_pushnumber(L, (lua_Number)val);
+        return 1;
+    } else if (argc == 2) {
+        logmsgef("### TODO: sys.msr(<reg>, <value>)\n");
+        return 0;
+    } else {
+        LUA_ERROR(L, "Expected msr(<read reg>) or msg(<write reg>, <64-bit value>)");
+    }
+}
+
+int syslua_cpuid(lua_State *L) {
+    int argc = (int)lua_gettop(L);
+    uint32_t func = 0;
+    if (argc > 0) {
+        func = (uint32_t)lua_tonumber(L, 1);
+    }
+
+    if (!i386_cpuid_check()) {
+        return 0;
+    }
+
+    union {
+        char as_str[13];
+        struct { uint32_t ebx, ecx, edx; } as_reg;
+    } cpu_info = {
+        .as_str[12] = '\0'
+    };
+    uint32_t eax = i386_cpuid_info(&cpu_info, func);
+    if (func == 0) {
+        lua_pushstring(L, cpu_info.as_str);
+    } else {
+        k_printf("eax = 0x%0.8x\n", eax);
+        k_printf("ebx = 0x%0.8x\n", cpu_info.as_reg.ebx);
+        k_printf("ecx = 0x%0.8x\n", cpu_info.as_reg.ecx);
+        k_printf("edx = 0x%0.8x\n", cpu_info.as_reg.edx);
+
+        lua_createtable(L, 0, 4);
+        lua_pushnumber(L, (lua_Number)eax); lua_setfield(L, -2, "eax");
+        lua_pushnumber(L, (lua_Number)cpu_info.as_reg.ebx); lua_setfield(L, -2, "ebx");
+        lua_pushnumber(L, (lua_Number)cpu_info.as_reg.ecx); lua_setfield(L, -2, "ecx");
+        lua_pushnumber(L, (lua_Number)cpu_info.as_reg.edx); lua_setfield(L, -2, "edx");
+    }
+    return 1;
+}
+
 int syslua_malloc(lua_State *L) {
     if (1 != lua_gettop(L))
         LUA_ERROR(L, "expected one argument");
@@ -203,6 +255,10 @@ int syslua_free(lua_State *L) {
     return 0;
 }
 
+int syslua_halt(lua_State *L) {
+    acpi_poweroff();
+}
+
 struct luamod_entry {
     const char *fname;
     int (*fptr)(lua_State *);
@@ -214,10 +270,13 @@ const struct luamod_entry luamod_sys[] = {
     { .fname = "meml",      .fptr = syslua_meml     },
     { .fname = "inb",       .fptr = syslua_inb      },
     { .fname = "outb",      .fptr = syslua_outb     },
+    { .fname = "msr",       .fptr = syslua_msr      },
+    { .fname = "cpuid",     .fptr = syslua_cpuid    },
     { .fname = "symaddr",   .fptr = syslua_symaddr  },
     { .fname = "ccall",     .fptr = syslua_ccall    },
     { .fname = "malloc",    .fptr = syslua_malloc   },
     { .fname = "free",      .fptr = syslua_free     },
+    { .fname = "halt",      .fptr = syslua_halt     },
     { .fname = NULL,        .fptr = NULL            }
 };
 
@@ -245,7 +304,6 @@ void kshell_lua_test(void) {
     const char *prompt = "lua> ";
     char cmd_buf[CMD_SIZE];
     lua_State *lua;
-    int luastack;
 
     logmsg("starting Lua...\n");
     vcsa_set_attribute(CONSOLE_VCSA, VCSA_ATTR_GREEN);
@@ -258,7 +316,6 @@ void kshell_lua_test(void) {
         logmsge("luaL_newstate() -> NULL");
 
     lua_modinit(lua, "sys", luamod_sys);
-
     luaL_openlibs(lua);
 
     const char *custom = "dir = function(t) for k, v in pairs(t) do print(k, v) end end";
@@ -275,11 +332,15 @@ void kshell_lua_test(void) {
         if (!strcasecmp(cmd_buf, "q"))
             break;
 
-        int err = luaL_loadbuffer(lua, cmd_buf, strlen(cmd_buf), "<line>")
-               || lua_pcall(lua, 0, 0, 0);
-        if (err) {
-            fprintf(stderr, "### Error: %s\n", lua_tostring(lua, -1));
-            lua_pop(lua, 1);
+        int err = luaL_loadbuffer(lua, cmd_buf, strlen(cmd_buf), "*input*");
+        if (err == LUA_OK) {
+            err = lua_pcall(lua, 0, 0, 0);
+            if (err != LUA_OK) {
+                fprintf(stderr, "### Exception: %s\n", lua_tostring(lua, -1));
+                lua_pop(lua, 1);
+            }
+        } else {
+            fprintf(stderr, "### Error: %s\n", luaL_checkstring(lua, -1));
         }
     }
 
@@ -297,4 +358,3 @@ void kshell_lua() {
 }
 
 #endif // COSEC_LUA
-

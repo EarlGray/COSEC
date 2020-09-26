@@ -50,10 +50,9 @@ process_t * current_proc(void) {
 }
 
 int alloc_fd_for_pid(pid_t pid) {
-    const char *funcname = __FUNCTION__;
     int i;
     process *p = proc_by_pid(pid);
-    return_dbg_if(!p, EKERN, "%s: no process with pid %d\n", funcname, pid);
+    return_dbg_if(!p, EKERN, "%s: no process with pid %d\n", __func__, pid);
 
     for (i = 0; i < N_PROCESS_FDS; ++i)
         if (p->ps_fds[i].fd_ino < 1)
@@ -63,12 +62,11 @@ int alloc_fd_for_pid(pid_t pid) {
 }
 
 filedescr * get_filedescr_for_pid(pid_t pid, int fd) {
-    const char *funcname = __FUNCTION__;
     process *p = proc_by_pid(pid);
     return_dbg_if(p == NULL, NULL,
-            "%s: no process with pid %d\n", funcname, pid);
+            "%s: no process with pid %d\n", __func__, pid);
     return_dbg_if(!((0 <= fd) && (fd < N_PROCESS_FDS)), NULL,
-            "%s: fd=%d out of range\n", funcname, fd);
+            "%s: fd=%d out of range\n", __func__, fd);
 
     return p->ps_fds + fd;
 }
@@ -108,52 +106,47 @@ static const module_t *find_init_module(void) {
 }
 
 static bool elf_is_runnable(Elf32_Ehdr *elfhdr) {
-    const char *funcname = __FUNCTION__;
     int ret;
 
     ret = strncmp((const char *)elfhdr->e_ident, elf_magic, 4);
     return_msg_if(ret, false,
-            "%s: ELF magic is invalid", funcname);
+            "%s: ELF magic is invalid", __func__);
 
     ret = (elfhdr->e_machine == EM_386);
     return_msg_if(!ret, false,
-            "%s: ELF arch is not EM_386", funcname);
+            "%s: ELF arch is not EM_386", __func__);
 
     ret = (elfhdr->e_ident[EI_CLASS] == ELFCLASS32);
     return_msg_if(!ret, false,
-            "%s: ELF class is %d, not ELFCLASS32", funcname, (uint)elfhdr->e_type);
+            "%s: ELF class is %d, not ELFCLASS32", __func__, (uint)elfhdr->e_type);
 
     return_msg_if(elfhdr->e_ident[EI_VERSION] != 1, false,
-            "%s: ELF version is %d\n", funcname, elfhdr->e_version);
+            "%s: ELF version is %d\n", __func__, elfhdr->e_version);
     return_msg_if(elfhdr->e_ident[EI_DATA] != ELFDATA2LSB, false,
-            "%s: ELF cpu flags = 0x%x\n", funcname, elfhdr->e_flags);
+            "%s: ELF cpu flags = 0x%x\n", __func__, elfhdr->e_flags);
     return_msg_if(elfhdr->e_type != ET_EXEC, false,
-            "%s: ELF file is not executable(%d)\n", funcname, elfhdr->e_type);
+            "%s: ELF file is not executable(%d)\n", __func__, elfhdr->e_type);
 
     return true;
 }
 
 void run_init(void) {
-    const char *funcname = __FUNCTION__;
-#if 1
-    logmsgef("%s: TODO\n", funcname);
-#else
     const module_t *initmod = NULL;
     size_t i;
 
     /* find module named `init` */
     initmod = find_init_module();
     returnv_msg_if(!initmod,
-            "%s: module `init` not found", funcname);
+            "%s: module `init` not found", __func__);
     logmsgif("%s: ok, found module 'init' at *%x",
-            funcname, initmod->mod_start);
+            __func__, initmod->mod_start);
 
     /* parse it as ELF file */
     char *elfmem = (char *)initmod->mod_start;
     Elf32_Ehdr *elfhdr = (Elf32_Ehdr*)elfmem;
     bool ok = elf_is_runnable(elfhdr);
-    returnv_msg_if(!ok, "%s: parsing ELF failed", funcname);
-    logmsgif("%s: ok, 'init' is a correct ELF binary", funcname);
+    returnv_msg_if(!ok, "%s: parsing ELF failed", __func__);
+    logmsgif("%s: ok, 'init' is a correct ELF binary", __func__);
 
     /* determine if its memory does not conflict */
     for (i = 0; i < elfhdr->e_shnum; ++i) {
@@ -164,10 +157,10 @@ void run_init(void) {
         char *sect_start = (char *)section->sh_addr;
         char *sect_end = sect_start + section->sh_size;
 
-        logmsgdf("%s: checking *%x-*%x\n", funcname, (uint)sect_start, (uint)sect_end);
+        logmsgdf("%s: checking *%x-*%x\n", __func__, (uint)sect_start, (uint)sect_end);
         uint ret = pmem_check_avail(sect_start, sect_end);
         returnv_msg_if(ret,
-                "%s: section[%d] cannot be allocated\n", funcname, i);
+                "%s: section[%d] cannot be allocated\n", __func__, i);
     }
 
     /* copy ELF sections there */
@@ -180,14 +173,14 @@ void run_init(void) {
         char *sect_end = sect_start + section->sh_size;
 
         logmsgdf("%s: init section[%d]: *%x-*%x, file offset 0x%x\n",
-                funcname, i, (uint)sect_start, (uint)sect_end, section->sh_offset);
+                __func__, i, (uint)sect_start, (uint)sect_end, section->sh_offset);
         pmem_reserve(sect_start, sect_end);
         memcpy(sect_start, elfmem + section->sh_offset, section->sh_size);
     }
 
     /* TODO: allocate stack and heap regions */
 
-    logmsgif("%s: ready to rock!", funcname);
+    logmsgif("%s: ready to rock!", __func__);
 
     /* TODO: start tasks */
 #endif
@@ -220,7 +213,7 @@ void cosecd_setup(int pid) {
     logmsgdf("infd = *%x\n", (uint)infd);
 
     ret = vfs_lookup("/dev/tty0", &sb, &ino);
-    returnv_err_if(ret, "%s: vfs_lookup('/dev/tty0'): %s", funcname, strerror(ret));
+    returnv_err_if(ret, "%s: vfs_lookup('/dev/tty0'): %s", __func__, strerror(ret));
     logmsgdf("/dev/tty0 ino=%d\n", ino);
 
     infd->fd_sb  = outfd->fd_sb  = errfd->fd_sb  = sb;

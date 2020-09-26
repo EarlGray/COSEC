@@ -163,6 +163,12 @@ typedef struct {
 extern uint i386_rdtsc(uint64_t *timestamp);
 extern void i386_snapshot(char *buf);
 
+static inline uint64_t i386_read_msr(uint32_t msr) {
+    uint32_t eax = 0, edx = 0;
+    asm("rdmsr\n" : "=c"(msr) : "a"(eax), "d"(edx));
+    return (((uint64_t)edx) << 32) | (uint64_t)eax;
+}
+
 #define i386_eflags(flags)          \
     asm("pushf              \n\t"   \
         "movl (%%esp), %0   \n\t"   \

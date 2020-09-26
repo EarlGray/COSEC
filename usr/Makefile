@@ -6,7 +6,7 @@ endif
 CC = $(CROSSCOMP)gcc
 
 CFLAGS   += -m32 -nostdinc -isystem ../lib/c/include
-LDFLAGS  += -ffreestanding -nostdlib -static 
+LDFLAGS  += -ffreestanding -nostdlib -static -fno-pie -emain
 
 LIBC     := ../lib/c/libc.a
 LIBCOSEC := ../lib/c/cosec.o

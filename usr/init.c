@@ -3,6 +3,4 @@
 
 int main(int argc, char *argv[]) {
     printf("[init] hello, userspace\n");
-
-    exit(0);
 }
