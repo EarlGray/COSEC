@@ -1,6 +1,8 @@
 #ifndef __KSHELL_H__
 #define __KSHELL_H__
 
+#include <stdint.h>
+
 void kshell_run(void);
 void panic(const char *);
 

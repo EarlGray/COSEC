@@ -921,6 +921,7 @@ bool kshell_autocomplete(char *buf) {
     }
     return false;
 }
+
 void kshell_help(const struct kshell_command __unused *this, const char *cmdline) {
     const struct kshell_command *cmd;
     if (*cmdline) {

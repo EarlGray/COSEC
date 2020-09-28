@@ -31,11 +31,6 @@ uintptr_t cpu_stack(void) {
     return esp + 8;   // this function ret addr (4) + C push %ebp (4)
 }
 
-inline uint32_t x86_eflags(void) {
-    uint32_t efl;
-    i386_eflags(efl);
-    return efl;
-}
 
 /*****************************************************************************
         GDT
@@ -73,7 +68,7 @@ void gdt_setup(void) {
 index_t gdt_alloc_entry(segment_descriptor entry) {
     index_t i;
     for (i = 1; i < N_GDT; ++i)
-        if (0 == *(uint *)(theGDT + i)) {
+        if (0 == theGDT[i].as.ll) {
             theGDT[i] = entry;
             return i;
         }

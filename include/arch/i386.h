@@ -31,7 +31,7 @@ typedef enum gatetype {
 #define SD_TYPE_ER_CODE         SDTP_CODE | SDTP_CODE_READ
 #define SD_TYPE_EO_CODE         SDTP_CODE
 #define SD_TYPE_RO_DATA         0
-#define	SD_TYPE_RW_DATA         SDTP_DATA_WRITE
+#define SD_TYPE_RW_DATA         SDTP_DATA_WRITE
 
 /* sysbit set: LDT/gate/TSS */
 #define SD_TYPE_LDT             0x2
@@ -65,8 +65,12 @@ typedef struct segdescr {
     } as;
 } segment_descriptor;
 
-#define segdescr_base(seg)      ( ((seg).base_h << 24) | ((seg).base_m << 16) | (seg).base_l )
-#define segdescr_limit(seg)     ( ((seg).limit_h << 16) | (seg).limit_l )
+static inline uint32_t segdescr_base(segment_descriptor seg) {
+    return (seg.as.strct.base_h << 24) | (seg.as.strct.base_m << 16) | seg.as.strct.base_l;
+}
+static inline uint32_t segdescr_limit(segment_descriptor seg) {
+    return (seg.as.strct.limit_h << 16) | seg.as.strct.limit_l;
+}
 
 #define segdescr_usual_init(seg, type, limit, base, dpl, gran) {   \
     (seg).as.ints[0] = ((base) << 16) | ((limit) & 0xFFFF);                               \
@@ -115,6 +119,12 @@ typedef struct {
 #define make_selector(index, ti, pl) \
     ((((index) & 0xFFFF) << 3) + (((ti) & 1) << 2) + ((pl) & 3))
 
+static inline segment_selector make_segment_selector(uint16_t index, uint8_t ti, uint8_t pl) {
+    segment_selector sel;
+    sel.as.word = ((((index) & 0xFFFF) << 3) + (((ti) & 1) << 2) + ((pl) & 3));
+    return sel;
+};
+
 #define segsel_index(ss)        ((ss) >> 3)
 #define rpl(ss)                 ((ss >> 1) & 0x3)
 
@@ -158,7 +168,15 @@ typedef struct {
 
 #define i386_esp(p)    asm ("\t movl %%esp, %0 \n" : "=r"(p))
 
-#define i386_load_task_reg(sel) asm ("ltrw %%ax     \n\t"::"a"( sel ));
+static inline void i386_load_task_reg(segment_selector sel) {
+    asm ("ltrw %%ax     \n\t"::"a"( sel.as.word ));
+}
+
+static inline uint16_t i386_store_task_reg(void) {
+    uint16_t ret;
+    asm ("strw %%ax     \n\t" : "=a"(ret));
+    return ret;
+}
 
 extern uint i386_rdtsc(uint64_t *timestamp);
 extern void i386_snapshot(char *buf);
@@ -169,13 +187,20 @@ static inline uint64_t i386_read_msr(uint32_t msr) {
     return (((uint64_t)edx) << 32) | (uint64_t)eax;
 }
 
-#define i386_eflags(flags)          \
+static inline uint32_t i386_eflags(void) {
+    uint32_t flags;
     asm("pushf              \n\t"   \
         "movl (%%esp), %0   \n\t"   \
         "popf               \n\t"   \
-        : "=r"(flags))
+        : "=r"(flags));
+    return flags;
+}
 
-#define eflags_iopl(pl)     ((pl & 3) << 12)
+#define EFL_RSRVD   (1 <<  1)
+#define EFL_IF      (1 <<  9)
+#define EFL_NT      (1 << 14)
+#define EFL_VM      (1 << 17)
+#define EFL_IOPL3   (PL_USER << 12)
 
 struct eflags {
     uint8_t cf:1;   // 0
@@ -202,6 +227,8 @@ struct eflags {
     uint8_t vip:1;  // 20
     uint8_t id:1;
 };
+
+#define eflags_iopl(pl)     ((pl & 3) << 12)
 
 uint32_t x86_eflags(void);
 
@@ -263,6 +290,7 @@ extern void i386_switch_pagedir(void *new_pagedir);
 extern uint32_t  intr_err_code(void);
 extern uintptr_t intr_context_esp(void);
 extern void  intr_set_context_esp(uintptr_t esp);
+extern void  intr_switch_cr3(uintptr_t cr3);
 
 /***
   *     Task-related definitions
@@ -293,6 +321,9 @@ struct task_state_seg {
     uint io_map1, io_map2;
 };
 typedef  struct task_state_seg  tss_t;
+
+
+void i386_iret(uintptr_t eip3, uint cs3, uint32_t eflags, uintptr_t esp3, uint ss3);
 
 
 /***

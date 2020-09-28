@@ -77,12 +77,6 @@ void test_sprintf(void) {
     test_vsprint("%s: %d, %s: %+x\n", "test1", -100, "test2", 200);
 }
 
-void test_eflags(void) {
-    uint flags = 0;
-    i386_eflags(flags);
-    logmsgf("flags=0x%x\n", flags);
-}
-
 void test_usleep(void) {
     usleep(2 * 1000000);
     k_printf("Done\n\n");
@@ -256,7 +250,7 @@ void test_kbd(void) {
 /***
   *     Example tasks
  ***/
-#include <tasks.h>
+#include "tasks.h"
 
 uint8_t task0_stack[TASK_KERNSTACK_SIZE];
 uint8_t task1_stack[TASK_KERNSTACK_SIZE];
@@ -322,19 +316,22 @@ task_struct *next_task(/*uint tick*/) {
 void test_tasks(void) {
     def_task = task_current();
 
-#if 0
+#if 1
     task_kthread_init(&task0, (void *)do_task0,
-            (void *)((ptr_t)task0_stack + TASK_KERNSTACK_SIZE - 0x20));
+            (task0_stack + TASK_KERNSTACK_SIZE - 0x20));
     task_kthread_init(&task1, (void *)do_task1,
-            (void *)((ptr_t)task1_stack + TASK_KERNSTACK_SIZE - 0x20));
+            (task1_stack + TASK_KERNSTACK_SIZE - 0x20));
 #else
+	/* this does not work because userspace tasks
+	 * cannot access their code in kernel space
+	 */
     const segment_selector ucs = { .as.word = SEL_USER_CS };
     const segment_selector uds = { .as.word = SEL_USER_DS };
 
     uint espU0 = ((uint)task0_usr_stack + R3_STACK_SIZE - 0x18);
     uint espK0 = ((uint)task0_stack + TASK_KERNSTACK_SIZE - CONTEXT_SIZE - 0x14);
 
-    uint espU1 = ((uintptr_t)task1_usr_stack + R3_STACK_SIZE);
+    uint espU1 = ((uintptr_t)task1_usr_stack + R3_STACK_SIZE - 0x18);
     uint espK1 = ((uintptr_t)task1_stack + TASK_KERNSTACK_SIZE - CONTEXT_SIZE - 0x14);
 
     task_init((task_struct *)&task0, (void *)do_task0,
@@ -394,13 +391,11 @@ void run_userspace(void) {
     }
 }
 
-extern void start_userspace(uint eip3, uint cs3, uint eflags, uint esp3, uint ss3);
-
 task_struct task3;
 
 void test_userspace(void) {
     /* init task */
-    task3.tss.eflags = x86_eflags(); // | eflags_iopl(PL_USER);
+    task3.tss.eflags = i386_eflags(); // | eflags_iopl(PL_USER);
     task3.tss.cs = SEL_USER_CS;
     task3.tss.ds = task3.tss.es = task3.tss.fs = task3.tss.gs = SEL_USER_DS;
     task3.tss.ss = SEL_USER_DS;
@@ -420,7 +415,7 @@ void test_userspace(void) {
     tss_sel.as.word = make_selector(taskdescr_index, 0, taskdescr.as.strct.dpl);
 
     uint efl = 0x00203202;
-    test_eflags();
+    logmsgf("flags=0x%x\n", i386_eflags());
     logmsgf("efl = 0x%x\n", efl);
     logmsgf("tss_sel = 0x%x\n", (uint)tss_sel.as.word);
     logmsgf("tssd = %x %x\n", taskdescr.as.ints[0], taskdescr.as.ints[1]);
@@ -432,7 +427,7 @@ void test_userspace(void) {
     //asm ("lldt %%ax     \n\t"::"a"( SEL_DEF_LDT ));
 
     /* go userspace */
-    start_userspace(
+    i386_iret(
         (uint)run_userspace, task3.tss.cs,
         efl,
         task3.tss.esp, task3.tss.ss

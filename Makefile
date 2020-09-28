@@ -55,8 +55,9 @@ cc_flags  += -m32
 as_flags  += -m32
 ld_flags  += -melf_i386
 
-libc      := lib/libc.a
 kernel    := $(build)/kernel
+libc      := lib/libc.a
+init      := usr/init
 
 cd_img      := cosec.iso
 
@@ -66,7 +67,6 @@ objdfile      := $(kernel).objd
 
 qemu        := qemu-system-i386
 qemu_cdboot := -cdrom $(cd_img) -boot d
-qemu_mltboot:= -kernel ../$(kernel) -initrd init
 qemu_debug  := -D tmp/qemu.log -d int,unimp,guest_errors
 #qemu_debug  += -trace virtio_notify,file=tmp/qemu.trace
 #qemu_debug  += -trace virtio_queue_notify,file=tmp/qemu.trace
@@ -79,12 +79,11 @@ qemu_net    += -device virtio-net-pci,netdev=tap0
 else
 qemu_net    := -netdev user,id=usr0
 qemu_net    += -device virtio-net-pci,netdev=usr0
-qemu_debug  += -object filter-dump,id=usr0,netdev=usr0,file=tmp/qemu.pcap
+#qemu_debug  += -object filter-dump,id=usr0,netdev=usr0,file=tmp/qemu.pcap
 endif
 
 qemu_flags  := -m 64 -serial stdio $(qemu_debug) $(QEMU_OPT)
 
-init        := usr/init
 
 .PHONY: run install mount umount clean
 .PHONY: qemu runq default
@@ -97,7 +96,7 @@ qemu: $(cd_img)
 	$(qemu) $(qemu_cdboot) $(qemu_flags) $(qemu_net)
 
 runq: $(kernel) $(init)
-	cd usr && $(qemu) $(qemu_flags) $(qemu_mltboot)
+	cd $(dir $(init)) && $(qemu) -kernel $(kernel) -initrd $(notdir $(init)) $(qemu_flags)
 
 run: install
 	@echo "\n#### Running..." && \
