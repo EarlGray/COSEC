@@ -6,7 +6,7 @@ endif
 CC = $(CROSSCOMP)gcc
 
 CFLAGS   += -m32 -nostdinc -isystem ../lib/c/include
-LDFLAGS  += -ffreestanding -nostdlib -static -fno-pie -emain
+LDFLAGS  += -ffreestanding -nostdlib -static -fno-pie
 
 LIBC     := ../lib/c/libc.a
 LIBCOSEC := ../lib/c/cosec.o
@@ -19,8 +19,5 @@ init: $(LIBC) $(LIBCOSEC) init.c
 $(LIBC):
 	make -C ../lib/c libc.a
 
-$(LIBCOSEC):
-	make -C ../lib/c cosec.o
-
 clean:
-	rm init || true
+	rm init *.o || true

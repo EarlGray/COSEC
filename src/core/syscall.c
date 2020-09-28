@@ -4,12 +4,24 @@
 
 #include <cosec/fs.h>
 #include <cosec/log.h>
+#include <cosec/syscall.h>
 
-int sys_print(const char **fmt);
+int sys_print(const char **fmt) {
+    logmsgdf("sys_printf()");
+    k_printf(*fmt);
+    return 0;
+}
+
+int sys_exit() {
+	logmsgef("%s: TODO", __func__);
+	return 0;
+}
+
 
 typedef int (*syscall_handler)();
 
 const syscall_handler syscalls[] = {
+	[SYS_EXIT]		= sys_exit,
     [SYS_READ]      = sys_read,
     [SYS_WRITE]     = sys_write,
 
@@ -46,11 +58,5 @@ uint32_t int_syscall(uint32_t *stack) {
     uint32_t result = callee(arg1, arg2, arg3);
     logmsgdf("callee result = %d\n", result);
     return result;
-}
-
-int sys_print(const char **fmt) {
-    logmsgdf("sys_printf()");
-    k_printf(*fmt);
-    return 0;
 }
 

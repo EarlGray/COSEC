@@ -18,7 +18,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define __DEBUG
 #include <cosec/log.h>
 
 #include "arch/i386.h"
@@ -92,7 +91,7 @@ static inline void task_cpu_load(task_struct *task) {
     logmsgdf("%s:       cr3 = @%x\n", __func__, task->tss.cr3);
 
     i386_load_task_reg( tss_sel );
-    i386_switch_pagedir(task->tss.cr3);
+    i386_switch_pagedir((void *)task->tss.cr3);
     logmsgdf("%s: task loaded\n", __func__);
 }
 
@@ -104,7 +103,7 @@ static void task_timer_handler(uint tick) {
     if (!next)
         return; // no next task, keep the current one
 
-    logmsgf("%s: tick=%d\n", __func__, tick);
+    logmsgdf("%s: tick=%d\n", __func__, tick);
 
     // switch to the next task:
     task_struct *current = (task_struct*)theCurrentTask;    // make a non-volatile copy
