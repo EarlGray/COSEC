@@ -9,12 +9,11 @@ CFLAGS   += -m32 -nostdinc -isystem ../lib/c/include
 LDFLAGS  += -ffreestanding -nostdlib -static -fno-pie
 
 LIBC     := ../lib/c/libc.a
-LIBCOSEC := ../lib/c/cosec.o
 
 .PHONY: clean
 
-init: $(LIBC) $(LIBCOSEC) init.c
-	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^
+init: init.c $(LIBC)
+	$(CC) $(CFLAGS) $(LDFLAGS) $^ -o $@
 
 $(LIBC):
 	make -C ../lib/c libc.a
