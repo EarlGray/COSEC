@@ -108,7 +108,10 @@ static const module_t *find_init_module(void) {
     for (i = 0; i < (int)nmods; ++i) {
         if (0 == minfo[i].string)
             continue;
-        if (!strcmp("init", (char *)minfo[i].string)) {
+
+        const char *name = (const char *)minfo[i].string;
+        if (name[0] == '/') ++name;
+        if (!strcmp("init", name)) {
             return minfo + i;
         }
     }
