@@ -53,8 +53,9 @@ static inline void *__va(void *paddr) {
 }
 
 enum pte_bits {
-	PTE_PRESENT = 1 << 0,
-	PTE_WRITABLE = 1 << 1,
+    PTE_PRESENT = 1 << 0,
+    PTE_WRITABLE = 1 << 1,
+    PTE_USER = 1 << 2,
 };
 
 typedef union {

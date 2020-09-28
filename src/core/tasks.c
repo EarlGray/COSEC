@@ -29,7 +29,7 @@
 #include "tasks.h"
 
 
-volatile task_struct *volatile theCurrentTask = NULL;
+task_struct *volatile theCurrentTask = NULL;
 
 task_next_f         task_next           = null;
 
@@ -41,17 +41,18 @@ inline static int task_sysinfo_size(task_struct *task) {
   *     Task switching
  ***/
 
-/* this routine is normally called from within interrupt! */
 static void task_save_context(task_struct *task) {
     if (task == null) return;
 
     /* ss3:esp3, efl, cs:eip, general-purpose registers, DS and ES are saved */
-    uint context = intr_context_esp();
-    assertv(context, "task_save_context: intr_ret is cleared!");
+    uintptr_t context = intr_context_esp();
+    if (!context) {
+        panic("task_save_context() called outside of a IRQ");
+    }
 
     task->tss.esp0 = context + CONTEXT_SIZE + task_sysinfo_size(task)*sizeof(uint);
 
-    logmsgdf("%s: ctx=*%x, tss=0x%x\n", __func__, context, task->tss_index);
+    logmsgdf("%s: ctx=*%x, tss=%d\n", __func__, context, task->tss_index);
 }
 
 /* this routine is normally called from within interrupt! */
@@ -63,16 +64,14 @@ static void task_push_context(task_struct *task) {
     void *context = (void*)iret_stack - CONTEXT_SIZE;
     intr_set_context_esp((uintptr_t)context);
 
-    logmsgdf("%s: ctx=*%x, tss=0x%x\n", __func__, context, task->tss_index);
+    logmsgdf("%s: ctx=*%x, tss=%d\n", __func__, context, task->tss_index);
 
-    /*
     if (iret_stack[1] != SEL_KERN_CS) {
-        logmsgdf("%s: stack  ss = *%x\n", __func__, iret_stack[4]);
+        logmsgdf("%s: stack  ss = 0x%x\n", __func__, iret_stack[4]);
         logmsgdf("%s: stack esp = *%x\n", __func__, iret_stack[3]);
     }
-    */
     logmsgdf("%s: stack efl = 0x%x\n", __func__, iret_stack[2]);
-    logmsgdf("%s: stack  cs = *%x\n", __func__, iret_stack[1]);
+    logmsgdf("%s: stack  cs = 0x%x\n", __func__, iret_stack[1]);
     logmsgdf("%s: stack eip = *%x\n", __func__, iret_stack[0]);
 }
 
@@ -85,15 +84,16 @@ static inline void task_cpu_load(task_struct *task) {
     uint16_t pl = ((task->tss.cs == SEL_KERN_CS) ? PL_KERN : PL_USER);
     segment_selector tss_sel = make_segment_selector(task->tss_index, SEL_TI_GDT, pl);
 
-    logmsgdf("%s:    eflags = 0x%x\n", __func__, i386_eflags());
+    logmsgdf("%s:    eflags = 0x%x\n", __func__, task->tss.eflags);
     logmsgdf("%s:   tss_sel = 0x%x\n", __func__, tss_sel.as.word);
     logmsgdf("%s:      tssd = %x %x\n", __func__, tssd->as.ints[0], tssd->as.ints[1]);
     logmsgdf("%s: tssd.base = 0x%x\n", __func__, tssd->as.strct.base_l +
             (tssd->as.strct.base_m << 16) + (tssd->as.strct.base_h << 24));
+    logmsgdf("%s:       cr3 = @%x\n", __func__, task->tss.cr3);
 
     i386_load_task_reg( tss_sel );
-    if (task->tss.cr3)
-        intr_switch_cr3(task->tss.cr3);
+    i386_switch_pagedir(task->tss.cr3);
+    logmsgdf("%s: task loaded\n", __func__);
 }
 
 static void task_timer_handler(uint tick) {
@@ -150,7 +150,6 @@ void task_init(task_struct *task, void *entry,
     /* initialize stack as if the task was interrupted */
     uint32_t *stack = (uint32_t*)tss->esp0 - task_sysinfo_size(task);
     logmsgdf("%s(task=*%x): esp0=*%x\n", __func__, task, esp0);
-    logmsgdf("%s(task=*%x): stack=*%x\n", __func__, task, stack);
     stack[0] = tss->eip;
     stack[1] = tss->cs;
     stack[2] = tss->eflags;
@@ -167,8 +166,7 @@ void task_init(task_struct *task, void *entry,
 
     /* register task TSS in GDT */
     segment_descriptor taskdescr;
-    uint16_t pl = (tss->cs == SEL_KERN_CS ? PL_KERN : PL_USER);
-    segdescr_taskstate_init(taskdescr, (uint)tss, pl);
+    segdescr_taskstate_init(taskdescr, (uintptr_t)tss, PL_KERN);
 
     task->tss_index = gdt_alloc_entry(taskdescr);
     assertv( task->tss_index, "Error: can't allocate GDT entry for TSSD\n");
@@ -209,6 +207,14 @@ task_struct* the_scheduler(uint32_t tick) {
             return c;
     }
     return NULL;
+}
+
+int sched_add_task(task_struct *task) {
+    task_struct *current = (task_struct *)theCurrentTask;   // a non-volatile copy
+    task_struct *was_next = current->next;
+    task->next = was_next;
+    current->next = task;
+    return 0;
 }
 
 /*

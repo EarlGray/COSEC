@@ -91,9 +91,9 @@ static inline uint32_t segdescr_limit(segment_descriptor seg) {
 }
 
 #define segdescr_taskstate_init(seg, addr, dpl) {                    \
-    (seg).as.ints[0] = (0x67 /*limit*/ | ((addr & 0xFFFF) << 16));   \
+    (seg).as.ints[0] = (0x67 /*sizeof(tss_t)*/ | ((addr & 0xFFFF) << 16));   \
     (seg).as.ints[1] = ((addr & 0xFF000000) | ((addr >> 16) & 0xFF)  \
-            | 0x00808900 | ((dpl & 0x3) << 13));                     \
+            | 0x00008900 | ((dpl & 0x3) << 13));                     \
 }
 
 #define segdescr_taskstate_busy(seg, busy_flag) {       \
@@ -314,7 +314,7 @@ struct task_state_seg {
 
     uint es, cs, ss, ds, fs, gs;
     uint ldt;
-    uint io_map_addr;
+    uint io_map_addr;   // [16:31] is the address; [0] is debug trap bit; [1:15] reserved
 
     uint io_map1, io_map2;
 };

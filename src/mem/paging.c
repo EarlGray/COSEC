@@ -82,8 +82,15 @@ pde_t * pagedir_alloc(void) {
     /* set up kernel memory */
     size_t kpde_offset = (KERN_OFF >> PDE_SHIFT);
     size_t kpde_size = sizeof(pde_t) * (N_PDE - kpde_offset);
-    logmsgdf("%s: to=*%x, from=*%x, kpde_size=0x%x", __func__, vpde+kpde_offset, thePageDirectory+kpde_offset, kpde_size);
+    logmsgdf("%s: to=*%x, from=*%x, kpde_size=0x%x\n", __func__,
+            vpde+kpde_offset, thePageDirectory+kpde_offset, kpde_size);
     memcpy(vpde + kpde_offset, thePageDirectory + kpde_offset, kpde_size);
+
+    /* HACK:
+     *  identity-map the first 4 MB for kernel usage.
+     *  i386_switch_pagedir() _really_ does not like absence of this mapping.
+     */
+    vpde[0] = thePageDirectory[0];
 
     return pagedir;
 }

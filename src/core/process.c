@@ -191,7 +191,7 @@ void run_init(void) {
         for (uintptr_t off = 0; off < hdr.p_memsz; off += PAGE_SIZE) {
             uintptr_t vaddr = hdr.p_vaddr + off;
 
-            uint32_t mask = PTE_WRITABLE; // TODO: check if
+            uint32_t mask = PTE_WRITABLE | PTE_USER; // TODO: check if
             void *paddr = pagedir_get_or_new(pagedir, (void*)vaddr, mask);
             assertv(paddr, "%s: failed to allocate page at *%x", __func__, vaddr);
 
@@ -215,7 +215,7 @@ void run_init(void) {
     void *esp0 = __va(kernstack) + PAGE_SIZE - 0x20;
 
     void *userstack = (void *)(USER_STACK_TOP - PAGE_SIZE);
-    void *stack = pagedir_get_or_new(pagedir, userstack, PTE_WRITABLE);
+    void *stack = pagedir_get_or_new(pagedir, userstack, PTE_WRITABLE | PTE_USER);
     logmsgf("%s: userstack @%x\n", __func__, stack);
 
     /* setting the new process */
@@ -240,6 +240,7 @@ void run_init(void) {
 #if 1
     /* run the process */
     theProcessTable[pid] = proc;
+    sched_add_task(&proc->ps_task);
     logmsgif("%s: ready to rock!", __func__);
 #else
     logmsgif("%s: TODO", __func__);
@@ -296,7 +297,6 @@ void cosecd_setup(int pid) {
 
     /* make it official */
     theProcessTable[pid] = &theCosecThread;
-    logmsgdf("%s: ready\n", __func__);
 }
 
 
@@ -310,7 +310,6 @@ void proc_setup(void) {
 
     /* the kernel thread `cosecd` with pid=2, keep pid=1 for init */
     cosecd_setup(PID_COSECD);
-    logmsgdf("%s: ready\n", __func__);
 
     theCurrentPID = PID_COSECD;
 

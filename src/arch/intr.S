@@ -44,6 +44,7 @@ context_esp:
 switch_to_esp:
 .long 0
 
+.global switch_to_cr3
 switch_to_cr3:
 .long 0
 
