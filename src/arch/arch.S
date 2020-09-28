@@ -150,8 +150,8 @@ i386_rdtsc:
     movl %edx, 4(%edi)
     ret
 
-.global start_userspace
-start_userspace:
+.global i386_iret
+i386_iret:
     movw $043, %ax
     movw %ax, %ds
     movw %ax, %es

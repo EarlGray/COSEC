@@ -44,6 +44,9 @@ context_esp:
 switch_to_esp:
 .long 0
 
+switch_to_cr3:
+.long 0
+
 /* last exception error code */
 intr_error:
 .long 0
@@ -115,6 +118,12 @@ intr_set_context_esp:
     movl %eax, switch_to_esp
     ret
 
+.global intr_switch_cr3
+intr_switch_cr3:
+    movl 4(%esp), %eax
+    movl %eax, switch_to_cr3
+    ret
+
 .global intr_err_code
 intr_err_code:
     movl intr_error, %eax
@@ -168,6 +177,7 @@ intr_start_rdtsc:
     /* save an interrupt's stack context pointer */
     movl %esp, context_esp
     movl $0, switch_to_esp
+    movl $0, switch_to_cr3
 
     movl %esp, %esi
     addl $0x30, %esi    // the size of saved registers
@@ -177,6 +187,8 @@ intr_start_rdtsc:
     movl switch_to_esp, %eax
     test %eax, %eax
     cmovnz %eax, %esp
+
+    movl $0, context_esp
 
     popl %fs
     popl %gs
@@ -241,9 +253,18 @@ err_return:
 .endm
 
 irq_return:
-    pushl %edi          // argument 1: context
+    pushl %esi          // argument 1: context
     call irq_handler
     addl $8, %esp       // pop the handler arguments
+
+
+    movl switch_to_cr3, %eax
+    test %eax, %eax
+    jz .L4
+    pushl %eax
+    call i386_switch_pagedir
+    addl $4, %esp
+.L4:
 
     INTR_PROFILING_END
     INTR_END
