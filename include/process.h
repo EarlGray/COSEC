@@ -11,6 +11,10 @@
 /* temporary value */
 #define N_PROCESS_FDS   20
 
+#define PID_INIT    1
+#define PID_COSECD  2
+
+
 typedef uint32_t        pid_t;
 typedef struct process  process;
 typedef struct filedesc filedescr;
@@ -24,12 +28,12 @@ typedef struct filedesc {
 } filedescr_t;
 
 typedef struct process {
+    task_struct ps_task;        /* context-switching info, keep it first */
+
+    void *      ps_userstack;   /* vaddr of bottom of the user stack */
+
     pid_t   ps_pid;
     pid_t   ps_ppid;
-
-    void *      ps_kernstack;
-    task_struct ps_task;        /* context-switching info */
-    pde_t *     ps_pagedir;     /* page directory: kernel address */
 
     mindev_t    ps_tty;         /* controlling tty */
     mode_t      ps_umask;       /* umask */

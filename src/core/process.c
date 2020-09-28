@@ -1,3 +1,6 @@
+#include "kshell.h"
+#include <stddef.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -6,12 +9,19 @@
 #define __DEBUG
 #include <cosec/log.h>
 
-#include <process.h>
-#include <dev/tty.h>
-#include <fs/vfs.h>
-#include <mem/pmem.h>
+#include "arch/i386.h"
+#include "arch/mboot.h"
+#include "conf.h"
+#include "mem/pmem.h"
+#include "mem/paging.h"
+#include "dev/tty.h"
+#include "fs/vfs.h"
+#include "tasks.h"
 
-#include <arch/mboot.h>
+#include "process.h"
+
+
+#define USER_STACK_TOP  (KERN_OFF - PAGE_SIZE)
 
 
 /*
@@ -105,7 +115,7 @@ static const module_t *find_init_module(void) {
     return NULL;
 }
 
-static bool elf_is_runnable(Elf32_Ehdr *elfhdr) {
+static bool elf_is_runnable(const Elf32_Ehdr *elfhdr) {
     int ret;
 
     ret = strncmp((const char *)elfhdr->e_ident, elf_magic, 4);
@@ -130,6 +140,8 @@ static bool elf_is_runnable(Elf32_Ehdr *elfhdr) {
     return true;
 }
 
+process_t theInitProcess;
+
 void run_init(void) {
     const module_t *initmod = NULL;
     size_t i;
@@ -140,50 +152,102 @@ void run_init(void) {
             "%s: module `init` not found", __func__);
     logmsgif("%s: ok, found module 'init' at *%x",
             __func__, initmod->mod_start);
+    size_t elf_size = initmod->mod_end - initmod->mod_start;
 
     /* parse it as ELF file */
-    char *elfmem = (char *)initmod->mod_start;
-    Elf32_Ehdr *elfhdr = (Elf32_Ehdr*)elfmem;
+    uint8_t *elfmem = (uint8_t *)initmod->mod_start;
+    const Elf32_Ehdr *elfhdr = (Elf32_Ehdr*)elfmem;
+
     bool ok = elf_is_runnable(elfhdr);
     returnv_msg_if(!ok, "%s: parsing ELF failed", __func__);
     logmsgif("%s: ok, 'init' is a correct ELF binary", __func__);
 
-    /* determine if its memory does not conflict */
-    for (i = 0; i < elfhdr->e_shnum; ++i) {
-        Elf32_Shdr *section = (Elf32_Shdr *)(elfmem + elfhdr->e_shoff + i * elfhdr->e_shentsize);
-        if (!(section->sh_flags & SHF_ALLOC))
+    void *entry = (void*)elfhdr->e_entry;
+    logmsgif("%s:   entry = *%0.8x", __func__, entry);
+
+    /* allocate a page directory */
+    void *pagedir = pagedir_alloc();
+    assertv(pagedir, "%s: failed to allocate pagedir", __func__);
+    logmsgf("%s: pagedir = @%x\n", __func__, pagedir);
+
+    /* read program headers */
+    assertv((size_t)elfhdr->e_phoff < elf_size,
+            "%s: e_phoff=0x%0.8x > elfsize=0x%0.8x", elfhdr->e_phoff, elf_size);
+    Elf32_Phdr *program_headers = (Elf32_Phdr *)(elfmem + elfhdr->e_phoff);
+
+    for (i = 0; i < elfhdr->e_phnum; ++i) {
+        Elf32_Phdr hdr = program_headers[i];
+        logmsgif("%s:   %d\t0x%0.8x[%x]\t0x%0.8x[%x]\t0x%x", __func__,
+            hdr.p_type, hdr.p_offset, hdr.p_filesz, hdr.p_vaddr, hdr.p_memsz, hdr.p_align);
+
+        if (hdr.p_type != PT_LOAD)
             continue;
 
-        char *sect_start = (char *)section->sh_addr;
-        char *sect_end = sect_start + section->sh_size;
+        assertv(hdr.p_align == PAGE_SIZE,
+                "%s: p_align=0x%x, PT_LOAD not on page boundary", __func__, hdr.p_align);
+        assertv((hdr.p_vaddr & 0xFFF) == 0,
+                "%s: p_vaddr=0x%x, not on page boundary", __func__, hdr.p_vaddr);
 
-        logmsgdf("%s: checking *%x-*%x\n", __func__, (uint)sect_start, (uint)sect_end);
-        uint ret = pmem_check_avail(sect_start, sect_end);
-        returnv_msg_if(ret,
-                "%s: section[%d] cannot be allocated\n", __func__, i);
+        for (uintptr_t off = 0; off < hdr.p_memsz; off += PAGE_SIZE) {
+            uintptr_t vaddr = hdr.p_vaddr + off;
+
+            uint32_t mask = PTE_WRITABLE; // TODO: check if
+            void *paddr = pagedir_get_or_new(pagedir, (void*)vaddr, mask);
+            assertv(paddr, "%s: failed to allocate page at *%x", __func__, vaddr);
+
+            void *page = __va(paddr);
+
+            size_t bytes_to_copy = 0;
+            if (off < hdr.p_filesz) {
+                bytes_to_copy = hdr.p_filesz - off;
+                if (bytes_to_copy > PAGE_SIZE)
+                    bytes_to_copy = PAGE_SIZE;
+            }
+            memset(page + bytes_to_copy, 0, PAGE_SIZE - bytes_to_copy);
+            memcpy(page, elfmem + hdr.p_offset + off, bytes_to_copy);
+        }
     }
 
-    /* copy ELF sections there */
-    for (i = 0; i < elfhdr->e_shnum; ++i) {
-        Elf32_Shdr *section = (Elf32_Shdr *)(elfmem + elfhdr->e_shoff + i * elfhdr->e_shentsize);
-        if (!(section->sh_flags & SHF_ALLOC))
-            continue;
+    /* allocate stack and heap regions */
+    void *kernstack = pmem_alloc(1);
+    assertv(kernstack, "%s: failed to allocate kernstack", __func__);
+    logmsgf("%s: kernstack @%x\n", __func__, kernstack);
+    void *esp0 = __va(kernstack) + PAGE_SIZE - 0x20;
 
-        char *sect_start = (char *)section->sh_addr;
-        char *sect_end = sect_start + section->sh_size;
+    void *userstack = (void *)(USER_STACK_TOP - PAGE_SIZE);
+    void *stack = pagedir_get_or_new(pagedir, userstack, PTE_WRITABLE);
+    logmsgf("%s: userstack @%x\n", __func__, stack);
 
-        logmsgdf("%s: init section[%d]: *%x-*%x, file offset 0x%x\n",
-                __func__, i, (uint)sect_start, (uint)sect_end, section->sh_offset);
-        pmem_reserve(sect_start, sect_end);
-        memcpy(sect_start, elfmem + section->sh_offset, section->sh_size);
-    }
+    /* setting the new process */
+    const pid_t pid = PID_INIT;
+    process_t *proc = &theInitProcess;
+    proc->ps_ppid = 0;
+    proc->ps_pid = pid;
+    proc->ps_cwd = "/";
+    proc->ps_tty = CONSOLE_TTY;
 
-    /* TODO: allocate stack and heap regions */
+    const segment_selector cs = { .as.word = SEL_USER_CS };
+    const segment_selector ds = { .as.word = SEL_USER_DS };
+    void *esp = userstack + PAGE_SIZE - 0x10;
+    task_init(&proc->ps_task, entry,
+            esp0, esp, cs, ds
+    );
+    proc->ps_task.tss.cr3 = (uintptr_t)pagedir;
 
+    proc->ps_userstack = userstack;
+
+#if 1
+    /* run the process */
+    theProcessTable[pid] = proc;
     logmsgif("%s: ready to rock!", __func__);
-
-    /* TODO: start tasks */
+#else
+    logmsgif("%s: TODO", __func__);
 #endif
+    return;
+
+cleanup_pagedir:
+    pagedir_free(pagedir);
+    return;
 }
 
 /*
@@ -194,12 +258,21 @@ process_t theCosecThread;
 extern char kern_stack;
 
 void cosecd_setup(int pid) {
-    const char *funcname = __FUNCTION__;
+    /* initialize tss and memory */
+    void *pagedir = __pa(thePageDirectory);
 
     theCosecThread.ps_pid = pid;
-    theCosecThread.ps_kernstack = &kern_stack;
     theCosecThread.ps_tty = CONSOLE_TTY;
-    theCosecThread.ps_pagedir = thePageDirectory;
+
+    task_struct *task = &theCosecThread.ps_task;
+
+    task->kstack = &kern_stack;
+    task->kstack_size = KERN_STACK_SIZE;
+    task->entry = kshell_run;
+
+    void *esp0 = task->kstack + task->kstack_size - 0x10;
+    task_kthread_init(task, task->entry, esp0);
+    task->tss.cr3 = (uintptr_t)pagedir;
 
     /* initialize input/output from /dev/tty0 */
     int ret = 0;
@@ -210,11 +283,11 @@ void cosecd_setup(int pid) {
     filedescr *infd =   fds + STDIN_FILENO;
     filedescr *outfd =  fds + STDOUT_FILENO;
     filedescr *errfd =  fds + STDERR_FILENO;
-    logmsgdf("infd = *%x\n", (uint)infd);
+    logmsgdf("%s: infd = *%x\n", __func__, (uint)infd);
 
     ret = vfs_lookup("/dev/tty0", &sb, &ino);
     returnv_err_if(ret, "%s: vfs_lookup('/dev/tty0'): %s", __func__, strerror(ret));
-    logmsgdf("/dev/tty0 ino=%d\n", ino);
+    logmsgdf("%s: /dev/tty0 ino=%d\n", __func__, ino);
 
     infd->fd_sb  = outfd->fd_sb  = errfd->fd_sb  = sb;
     infd->fd_ino = outfd->fd_ino = errfd->fd_ino = ino;
@@ -222,6 +295,7 @@ void cosecd_setup(int pid) {
 
     /* make it official */
     theProcessTable[pid] = &theCosecThread;
+    logmsgdf("%s: ready\n", __func__);
 }
 
 
@@ -234,7 +308,11 @@ void proc_setup(void) {
     theProcessTable[0] = NULL;
 
     /* the kernel thread `cosecd` with pid=2, keep pid=1 for init */
-    cosecd_setup(2);
-    theCurrentPID = 2;
-}
+    cosecd_setup(PID_COSECD);
+    logmsgdf("%s: ready\n", __func__);
 
+    theCurrentPID = PID_COSECD;
+
+    tasks_setup(&theCosecThread.ps_task);   // noreturn, must be last
+    logmsgef("%s: unreachable", __func__);  // a load-bearing logmsgef
+}

@@ -46,13 +46,11 @@ void kinit(uint32_t magic, struct multiboot_info *mbi) {
 
     /* do something useful */
     dev_setup();
-    tasks_setup();
     vfs_setup();
 
     intrs_enable();
     pci_setup();
 
     proc_setup();
-    kshell_run();
+    panic("kinit: an unreachable point");
 }
-
