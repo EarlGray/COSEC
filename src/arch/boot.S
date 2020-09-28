@@ -3,10 +3,8 @@
 #define __ELF__  
 */
 
-#include <arch/multiboot.h>
-#include <mem/paging.h>
-
-#define STACK_SIZE  0x0000f000
+#include "arch/multiboot.h"
+#include "mem/paging.h"
 
 #define CR4_PSE     0x00000010
 #define CR4_PGE     0x00000080
@@ -64,7 +62,7 @@ multiboot_entry:
 #endif
 
     /** initialize the stack **/
-    movl $(kern_stack + STACK_SIZE), %esp
+    movl $(kern_stack + KERN_STACK_SIZE), %esp
 
     pushl   $0
     popf                    // clear eflags
@@ -76,4 +74,4 @@ multiboot_entry:
 hang:   hlt
     jmp hang
 
-.comm kern_stack, STACK_SIZE
+.comm kern_stack, KERN_STACK_SIZE

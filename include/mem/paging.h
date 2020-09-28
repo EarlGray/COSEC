@@ -31,6 +31,8 @@
 #define CR0_PG      0x80000000
 #define CR0_WP      0x00010000
 
+#define KERN_STACK_SIZE  0x00001000
+
 
 #ifndef NOT_CC
 
@@ -40,6 +42,11 @@
 
 #define __pa(vaddr) (void *)(((char *)vaddr) - KERN_OFF)
 #define __va(paddr) (void *)(((char *)paddr) + KERN_OFF)
+
+enum pte_bits {
+	PTE_PRESENT = 1 << 0,
+	PTE_WRITABLE = 1 << 1,
+};
 
 typedef union {
     uint32_t word;
@@ -80,6 +87,11 @@ extern pde_t thePageDirectory[N_PDE];
 void pg_fault(uint32_t *context, err_t err);
 
 void paging_setup(void);
+
+pde_t * pagedir_alloc(void);
+void pagedir_free(pde_t *pagedir);
+
+void* pagedir_get_or_new(pde_t *pagedir, void *vaddr, uint32_t pte_mask);
 
 #endif // NOT_CC
 #endif //__PAGING_H__
