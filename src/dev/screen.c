@@ -15,7 +15,7 @@
   *     VGA 80x25 'driver'
  ***/
 
-#define VIDEO_MEM           0x000B8000
+#define VIDEO_MEM           (KERN_OFF + 0x000B8000)
 #define VIDEOBUF            ((uint8_t *)VIDEO_MEM)
 
 /* global state */
