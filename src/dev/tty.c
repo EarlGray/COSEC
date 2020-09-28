@@ -491,7 +491,7 @@ static bool dev_tty_has_data() {
     return false;
 }
 
-static int dev_tty_ioctl(device *dev, enum tty_ioctl op, size_t *ret) {
+static int dev_tty_ioctl(device *dev, int op, size_t *ret) {
     struct tty_device *tty = dev->dev_data;
     switch (op) {
         case KDGKBMODE:
@@ -516,7 +516,7 @@ int tty_ioctl(mindev_t ttyno, enum tty_ioctl op, size_t *arg) {
     return_dbg_if(!dev, ENOENT,
             "%s: ttyno=%d\n", __func__, ttyno);
 
-    return dev_tty_ioctl(dev, op, arg);
+    return dev_tty_ioctl(dev, (int)op, arg);
 }
 
 
@@ -532,7 +532,7 @@ struct device_operations  tty_ops = {
     .dev_write_buf  = dev_tty_write,
     .dev_has_data   = dev_tty_has_data,
 
-    .dev_ioctlv     = (int (*)(device*, int, size_t*, va_list))dev_tty_ioctl,
+    .dev_ioctlv     = dev_tty_ioctl,
 };
 
 #define MAX_CHARS_FROM_SCAN     4

@@ -144,8 +144,6 @@ static inline segment_selector make_segment_selector(uint16_t index, uint8_t ti,
     "rep insw           \n"\
     :: "n"(count), "r"(buf), "m"(port))
 
-#define i386_hang()   asm volatile ("cli \n1: hlt\n\tjmp 1b\n" ::)
-
 #define io_wait()       asm ("\tjmp 1f\n1:\tjmp 1f\n1:")
 
 #define i386_inb(port, value)    asm volatile ("inb %%dx,%%al\n": "=a"(value): "d"(port))
@@ -336,7 +334,7 @@ uintptr_t cpu_stack(void);
 #define intrs_disable()        i386_intrs_disable()
 #define cpu_halt()             i386_halt()
 
-static void __noreturn cpu_hang(void) { i386_hang(); }
+static void __noreturn cpu_hang(void) { for (;;) i386_halt(); }
 
 #define inb(port, value)       i386_inb(port, value)
 #define outb(port, value)      i386_outb(port, value)

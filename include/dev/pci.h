@@ -20,7 +20,7 @@ typedef union {
     uint32_t val;
 } pci_bar_t;
 
-typedef struct __packed pci_config {
+typedef struct pci_config {
     union {
         struct {
             uint16_t  vendor;
@@ -62,8 +62,8 @@ typedef struct __packed pci_config {
     uint8_t   pci_max_latency;
 } pci_config_t;
 
-void pci_list(uint bus);
-void pci_info(uint bus, int slot);
+void pci_list(uint32_t bus);
+void pci_info(uint32_t bus, int slot);
 
 void pci_setup(void);
 

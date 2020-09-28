@@ -38,7 +38,7 @@ int vcs_current(void) {
     return active_vcs;
 }
 
-static inline void move_hw_cursor(uint cursorX, uint cursorY) {
+inline void move_hw_cursor(uint cursorX, uint cursorY) {
     uint temp = cursorY * SCR_WIDTH + cursorX;
 
     /* This sends a command to indicies 14 and 15 in the

@@ -40,8 +40,17 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define __pa(vaddr) (void *)(((char *)vaddr) - KERN_OFF)
-#define __va(paddr) (void *)(((char *)paddr) + KERN_OFF)
+static inline void *__pa(void *vaddr) {
+    uintptr_t p = (uintptr_t)vaddr;
+    p -= KERN_OFF;
+    return (void *)p;
+}
+
+static inline void *__va(void *paddr) {
+    uintptr_t p = (uintptr_t)paddr;
+    p += KERN_OFF;
+    return (void *)p;
+}
 
 enum pte_bits {
 	PTE_PRESENT = 1 << 0,

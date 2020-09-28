@@ -14,6 +14,9 @@
 
 #include <cosec/log.h>
 
+// TODO: kernel/userspace ambiguity
+extern void *krealloc(void *p, size_t size);
+
 int theErrNo = 0;
 
 const char * const sys_errlist[] = {

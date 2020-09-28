@@ -127,7 +127,7 @@ struct device_operations {
      * @param ret           a pointer that ioctl result may be returned through;
      * @param ap            action-specific data;
      */
-    int     (*dev_ioctlv)(device *dev, int ioctl_code, size_t *ret, va_list ap);
+    int     (*dev_ioctlv)(device *dev, int ioctl_code, size_t *ret);
 };
 
 struct device {

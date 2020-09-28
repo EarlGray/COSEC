@@ -86,7 +86,7 @@ FILE *stderr = &f_stderr;
 
 
 char * snprint_uint(char *str, char *const end, uint x, uint8_t base, uint flags, int precision, int minwidth) {
-#define maxDigits 32	// 4 * 8 max for binary
+#define maxDigits 32    // 4 * 8 max for binary
     char a[maxDigits] = { 0 };
     uint8_t n = maxDigits;
     if (x == 0) {
@@ -128,7 +128,7 @@ char * snprint_uint(char *str, char *const end, uint x, uint8_t base, uint flags
 char * snprint_int(char *str, char *const end, int x, uint8_t base, uint flags, int precision, int minwidth) {
     if (end && (end <= str)) return end;
 
-   	if (x < 0) {
+    if (x < 0) {
         *(str++) = '-';
         x = -x;
     } else if (flags & PRINT_PLUS)

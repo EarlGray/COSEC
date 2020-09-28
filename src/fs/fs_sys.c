@@ -8,8 +8,6 @@
 #include <cosec/log.h>
 #include <cosec/fs.h>
 
-#warning "TODO: remove #pragma GCC diagnostic ignored -Wunused-parameter"
-#pragma GCC diagnostic ignored "-Wunused-parameter"
 
 int sys_mount(mount_info_t *mnt) {
     return ETODO; //vfs_mount(mnt->source, mnt->target, mnt->fstype);
@@ -220,7 +218,7 @@ off_t sys_lseek(int fd, off_t offset, int whence) {
       case S_IFCHR:
         dev = device_by_devno(DEV_CHR, inode_devno(&idata));
         return_dbg_if(!dev, -ENXIO, "%s: ENODEV\n", funcname);
-        return_dbg_if(dev->dev_ops->dev_has_data, -ESPIPE, 
+        return_dbg_if(dev->dev_ops->dev_has_data, -ESPIPE,
                     "%s(fd=%d): device is not seekable\n", funcname, fd);
         break;
     }

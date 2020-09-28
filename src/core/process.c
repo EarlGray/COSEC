@@ -225,16 +225,17 @@ void run_init(void) {
     proc->ps_pid = pid;
     proc->ps_cwd = "/";
     proc->ps_tty = CONSOLE_TTY;
+    proc->ps_userstack = userstack;
 
     const segment_selector cs = { .as.word = SEL_USER_CS };
     const segment_selector ds = { .as.word = SEL_USER_DS };
     void *esp = userstack + PAGE_SIZE - 0x10;
+
     task_init(&proc->ps_task, entry,
             esp0, esp, cs, ds
     );
     proc->ps_task.tss.cr3 = (uintptr_t)pagedir;
 
-    proc->ps_userstack = userstack;
 
 #if 1
     /* run the process */
@@ -255,7 +256,7 @@ cleanup_pagedir:
  */
 process_t theCosecThread;
 
-extern char kern_stack;
+extern uint8_t kern_stack[KERN_STACK_SIZE];
 
 void cosecd_setup(int pid) {
     /* initialize tss and memory */
@@ -266,7 +267,7 @@ void cosecd_setup(int pid) {
 
     task_struct *task = &theCosecThread.ps_task;
 
-    task->kstack = &kern_stack;
+    task->kstack = kern_stack;
     task->kstack_size = KERN_STACK_SIZE;
     task->entry = kshell_run;
 

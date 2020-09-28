@@ -561,7 +561,7 @@ static void net_icmp_receive(struct netiface *iface, uint8_t *frame) {
         ricmp->type = ICMP_ECHO_REPLY; ricmp->code = 0;
         ricmp->rest.data = icmp->rest.data;
 
-        struct uint8_t *rpayload = (uint8_t *)ricmp + sizeof(struct icmp_hdr_t);
+        uint8_t *rpayload = (uint8_t *)ricmp + sizeof(struct icmp_hdr_t);
         uint16_t datalen = ntohs(ip->iplen);
         ethlen += datalen;
         datalen -= 4*ip->nwords - sizeof(struct icmp_hdr_t);

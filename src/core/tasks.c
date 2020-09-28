@@ -107,7 +107,7 @@ static void task_timer_handler(uint tick) {
     logmsgf("%s: tick=%d\n", __func__, tick);
 
     // switch to the next task:
-    task_struct *current = theCurrentTask;
+    task_struct *current = (task_struct*)theCurrentTask;    // make a non-volatile copy
     task_save_context(current);
 
     task_cpu_load(next);
@@ -203,7 +203,7 @@ void task_switch(task_struct *task) {
  *  Scheduling
  */
 task_struct* the_scheduler(uint32_t tick) {
-    task_struct *current = theCurrentTask;
+    task_struct *current = (task_struct *)theCurrentTask;   // a non-volatile copy
     for (task_struct *c = current->next; c && (c != current); c = c->next) {
         if (c->state == TS_READY)
             return c;
@@ -218,9 +218,12 @@ task_struct* the_scheduler(uint32_t tick) {
 void tasks_setup(task_struct *default_task) {
     // initialize default task
     if (!default_task->tss.eip)
-        default_task->tss.eip = default_task->entry;
+        default_task->tss.eip = (uintptr_t)default_task->entry;
+
     logmsgdf("%s: tss.eip = *%x\n", __func__, default_task->tss.eip);
 
+    // initialize scheduling:
+    default_task->next = default_task;
     theCurrentTask = default_task;
 
     task_set_scheduler(the_scheduler);

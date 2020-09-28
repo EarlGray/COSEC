@@ -189,12 +189,13 @@ int syslua_msr(lua_State *L) {
         uint64_t val = i386_read_msr(msr);
         lua_pushnumber(L, (lua_Number)val);
         return 1;
-    } else if (argc == 2) {
+    }
+    if (argc == 2) {
         logmsgef("### TODO: sys.msr(<reg>, <value>)\n");
-        return 0;
     } else {
         LUA_ERROR(L, "Expected msr(<read reg>) or msg(<write reg>, <64-bit value>)");
     }
+    return 0;
 }
 
 int syslua_cpuid(lua_State *L) {
@@ -257,6 +258,8 @@ int syslua_free(lua_State *L) {
 
 int syslua_halt(lua_State *L) {
     acpi_poweroff();
+    logmsgef("%s: unreachable", __func__);
+    return 0;
 }
 
 struct luamod_entry {

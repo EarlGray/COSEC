@@ -304,11 +304,11 @@ task_struct *next_task(/*uint tick*/) {
     if (quit) return (task_struct *)def_task;
 
     task_struct *current = task_current();
-    if (current == def_task) return &task0;
+    if (current == def_task) return (task_struct *)&task0;
     //if (tick % 1000) return NULL;
 
-    if (current == &task0) return &task1;
-    if (current == &task1) return &task0;
+    if (current == &task0) return (task_struct *)&task1;
+    if (current == &task1) return (task_struct *)&task0;
     panic("Invalid task");
     return null;
 }
@@ -317,9 +317,9 @@ void test_tasks(void) {
     def_task = task_current();
 
 #if 1
-    task_kthread_init(&task0, (void *)do_task0,
+    task_kthread_init((task_struct *)&task0, (void *)do_task0,
             (task0_stack + TASK_KERNSTACK_SIZE - 0x20));
-    task_kthread_init(&task1, (void *)do_task1,
+    task_kthread_init((task_struct *)&task1, (void *)do_task1,
             (task1_stack + TASK_KERNSTACK_SIZE - 0x20));
 #else
 	/* this does not work because userspace tasks

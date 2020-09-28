@@ -17,7 +17,7 @@
 #ifndef ASM
 
 typedef uint8_t  irqnum_t;
-typedef void (*intr_handler_f)(int);
+typedef void (*intr_handler_f)();
 
 uint16_t irq_get_mask(void);
 

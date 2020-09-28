@@ -128,7 +128,7 @@ void irq_handler(void *stack, uint32_t irq_num) {
 
     intr_handler_f callee = irq[irq_num];
     if (callee) {
-        callee((void *)cpu_stack());
+        callee();
     } else {
         logmsgef("%s(%d): no handler", __func__, irq_num);
     }
