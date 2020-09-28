@@ -2,6 +2,7 @@ cosec.img
 res/initfs
 build/*
 tags
+compile_commands.json
 tmp
 .bochsrc
 .cache
