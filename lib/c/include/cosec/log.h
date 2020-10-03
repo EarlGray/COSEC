@@ -6,11 +6,19 @@
 /*
  *  kernel log
  */
+#ifdef COSEC_KERN
 int logging_setup();
-int vlprintf(const char *fmt, va_list ap);
-int lprintf(const char *fmt, ...);
 
+# define KERN_API
 int k_printf(const char *fmt, ...);
+#else
+# define KERN_API __attribute__((weak))
+# define k_printf(...)
+#endif
+
+int lprintf(const char *fmt, ...);
+int vlprintf(const char *fmt, va_list ap) KERN_API;
+
 
 #define logmsg(msg) lprintf(msg)
 #define logmsgf(...) lprintf(__VA_ARGS__)

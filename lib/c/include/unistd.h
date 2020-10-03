@@ -11,4 +11,6 @@ int link(const char *path1, const char *path2);
 
 int unlink(const char *path);
 
+off_t lseek(int fd, off_t offset, int whence);
+
 #endif //__CSCLIBC_UNISTD_H__

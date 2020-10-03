@@ -42,8 +42,10 @@
 
 #ifndef NOT_CC
 
+#include <stdint.h>
+
 static inline
-int syscall(int num, int arg1, int arg2, int arg3) {
+int syscall(int num, uintptr_t arg1, uintptr_t arg2, uintptr_t arg3) {
     int ret;
     asm(
         "movl %3, %%ebx         \n"
@@ -55,6 +57,10 @@ int syscall(int num, int arg1, int arg2, int arg3) {
     );
     return ret;
 }
+
+int lprintf(const char *fmt, ...) __attribute__((weak));
+
+int vlprintf(const char *fmt, va_list ap);
 
 #endif
 #endif

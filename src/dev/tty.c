@@ -551,6 +551,7 @@ void tty_keyboard_handler(scancode_t sc) {
     tty_device *tty = theTTYlist[ theActiveTTY ];
     returnv_err_if(!tty, "%s: no active tty", __func__);
 
+    /* on F1-F8 : switch to tty 0-7 */
     if ((0x3b <= sc) && (sc <= 0x42)) {
         theActiveTTY = (sc - 0x3b);
         vcsa_switch(sc - 0x3b);

@@ -89,12 +89,3 @@ int vlprintf(const char *fmt, va_list ap) {
     return ret;
 }
 
-int lprintf(const char *fmt, ...) {
-    int ret;
-    va_list ap;
-    va_start(ap, fmt);
-    ret = vlprintf(fmt, ap);
-    va_end(ap);
-    return ret;
-}
-

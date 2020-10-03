@@ -2,7 +2,7 @@
 #define __CPU_H__
 
 #include <stdint.h>
-#include <attrs.h>
+#include "attrs.h"
 
 typedef enum {
     PL_KERN = 0,
@@ -278,17 +278,6 @@ int i386_sema_up(int semcounter, int release_callback(int, void *));
   *     Paging
  ***/
 extern void i386_switch_pagedir(void *new_pagedir);
-
-/***
-  *     Interrupts
- ***/
-
-#define CONTEXT_SIZE        0x30
-
-extern uint32_t  intr_err_code(void);
-extern uintptr_t intr_context_esp(void);
-extern void  intr_set_context_esp(uintptr_t esp);
-extern void  intr_switch_cr3(uintptr_t cr3);
 
 /***
   *     Task-related definitions

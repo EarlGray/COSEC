@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-struct mount_info_struct {
+struct mount_info {
     dev_t       source;
     const char *target;
     const char *fstype;
@@ -11,7 +11,7 @@ struct mount_info_struct {
     void *opts;
 };
 
-typedef  struct mount_info_struct  mount_info_t;
+typedef  struct mount_info  mount_info_t;
 
 int sys_mount(mount_info_t *);
 int sys_umount(const char *target);
@@ -39,7 +39,6 @@ int sys_unlink(const char *pathname);
 int sys_open(const char *pathname, int flags);
 int sys_read(int fd, void *buf, size_t count);
 int sys_write(int fd, const void *buf, size_t count);
-off_t lseek(int fd, off_t offset, int whence);
 int sys_close(int fd);
 
 off_t sys_lseek(int fd, off_t offset, int whence);

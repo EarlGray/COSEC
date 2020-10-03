@@ -1,15 +1,17 @@
 #include <stdint.h>
 #include <string.h>
 
-#include <dev/screen.h>
-#include <dev/acpi.h>
-#include <arch/i386.h>
-#include <arch/multiboot.h>
-#include <arch/mboot.h>
-#include <misc/elf.h>
-#include <kshell.h>
-
 #include <cosec/log.h>
+
+#include "arch/i386.h"
+#include "arch/multiboot.h"
+#include "arch/mboot.h"
+
+#include "dev/screen.h"
+#include "dev/acpi.h"
+#include "misc/elf.h"
+#include "kshell.h"
+#include "libc.h"
 
 #ifdef COSEC_LUA
 

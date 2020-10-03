@@ -16,12 +16,13 @@
 #include <cosec/fs.h>
 #include <cosec/syscall.h>
 
-#include <dev/timer.h>
-#include <dev/kbd.h>
-#include <dev/acpi.h>
-#include <arch/i386.h>
+#include "dev/timer.h"
+#include "dev/kbd.h"
+#include "dev/acpi.h"
+#include "arch/i386.h"
+#include "arch/intr.h"
 
-#include <kshell.h>
+#include "kshell.h"
 
 void test_strs(void) {
     printf("strcmp('DUM', 'DUM') = %d\n", strcmp("DUM", "DUM"));

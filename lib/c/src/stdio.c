@@ -174,6 +174,15 @@ const char * sscan_int(const char *str, int *res, const uint8_t base) {
     return end;
 }
 
+int lprintf(const char *fmt, ...) {
+    int ret;
+    va_list ap;
+    va_start(ap, fmt);
+    ret = vlprintf(fmt, ap);
+    va_end(ap);
+    return ret;
+}
+
 int printf(const char *format, ...) {
     int ret;
     va_list ap;

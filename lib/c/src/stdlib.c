@@ -588,6 +588,7 @@ char *setlocale(int category, const char *locale) {
  *  setjmp/longjmp
  */
 
+/*
 int setjmp(jmp_buf env) {
     return i386_setjmp(env);
 }
@@ -595,52 +596,10 @@ int setjmp(jmp_buf env) {
 void longjmp(jmp_buf env, int val) {
     i386_longjmp(env, val);
 }
+*/
 
 void __stack_chk_fail(void) {
     panic("__stack_chk_fail()");
-}
-
-struct {
-    jmp_buf exit_env;
-    bool actual_exit;
-    int status;
-} theExitInfo = {
-    .exit_env = { 0 },
-    .actual_exit = false,
-    .status = 0,
-};
-
-int exitpoint(void) {
-    int ret = setjmp(theExitInfo.exit_env);
-
-    if (ret) {
-        // actual exit
-        theExitInfo.status = ret;
-        theExitInfo.actual_exit = true;
-        theExitInfo.exit_env[0] = 0;
-        if (ret == EXITENV_ABORTED)
-            logmsg("...aborted\n");
-        return (ret == EXITENV_SUCCESS ? EXIT_SUCCESS : ret);
-    } else {
-        // exit point set
-        theExitInfo.status = EXITENV_SUCCESS;
-        theExitInfo.actual_exit = false;
-        return EXITENV_EXITPOINT;
-    }
-}
-
-void exit(int status) {
-    if (theExitInfo.exit_env[0] == 0) {
-        logmsge("exit: exitpoint not set");
-        return;
-    }
-    /* TODO : atexit handlers */
-    longjmp(theExitInfo.exit_env,
-            (status == EXIT_SUCCESS ? EXITENV_SUCCESS : status));
-}
-
-void abort(void) {
-    longjmp(theExitInfo.exit_env, EXITENV_ABORTED);
 }
 
 

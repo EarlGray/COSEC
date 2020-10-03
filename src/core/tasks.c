@@ -21,6 +21,7 @@
 #include <cosec/log.h>
 
 #include "arch/i386.h"
+#include "arch/intr.h"
 #include "dev/intrs.h"
 #include "dev/timer.h"
 #include "mem/paging.h"
@@ -44,12 +45,12 @@ static void task_save_context(task_struct *task) {
     if (task == null) return;
 
     /* ss3:esp3, efl, cs:eip, general-purpose registers, DS and ES are saved */
-    uintptr_t context = intr_context_esp();
+    void* context = intr_context_esp();
     if (!context) {
         panic("task_save_context() called outside of a IRQ");
     }
 
-    task->tss.esp0 = context + CONTEXT_SIZE + task_sysinfo_size(task)*sizeof(uint);
+    task->tss.esp0 = (uintptr_t)context + CONTEXT_SIZE + task_sysinfo_size(task)*sizeof(uint);
 
     logmsgdf("%s: ctx=*%x, tss=%d\n", __func__, context, task->tss_index);
 }

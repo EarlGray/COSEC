@@ -1,10 +1,12 @@
-#include <syscall.h>
-#include <arch/i386.h>
-#include <process.h>
+#include "syscall.h"
+#include "process.h"
+#include "arch/intr.h"
 
+#define __DEBUG
 #include <cosec/fs.h>
 #include <cosec/log.h>
 #include <cosec/syscall.h>
+
 
 int sys_print(const char **fmt) {
     logmsgdf("sys_printf()");
@@ -13,15 +15,15 @@ int sys_print(const char **fmt) {
 }
 
 int sys_exit() {
-	logmsgef("%s: TODO", __func__);
-	return 0;
+    logmsgef("%s: TODO", __func__);
+    return 0;
 }
 
 
 typedef int (*syscall_handler)();
 
 const syscall_handler syscalls[] = {
-	[SYS_EXIT]		= sys_exit,
+    [SYS_EXIT]      = sys_exit,
     [SYS_READ]      = sys_read,
     [SYS_WRITE]     = sys_write,
 
@@ -36,14 +38,14 @@ const syscall_handler syscalls[] = {
     [SYS_LSEEK]     = sys_lseek,
     [SYS_GETPID]    = sys_getpid,
     [SYS_MOUNT]     = sys_mount,
-    [SYS_PRINT]     = sys_print,
 };
 
 uint32_t int_syscall(uint32_t *stack) {
-    uint32_t intr_num = stack[-1];   /* eax : syscall number */
-    uint32_t arg1 = stack[-2];       /* ecx : arg1 */
-    uint32_t arg2 = stack[-3];       /* edx : arg2 */
-    uint32_t arg3 = stack[-4];       /* ebx : arg3 */
+    struct interrupt_context *ctx = intr_context_esp();
+    uint32_t intr_num = ctx->eax;
+    uint32_t arg1 = ctx->ecx;
+    uint32_t arg2 = ctx->edx;
+    uint32_t arg3 = ctx->ebx;
 
     logmsgdf("\n#syscall(%d, 0x%x, 0x%x, 0x%x)\n",
             intr_num, arg1, arg2, arg3);
@@ -59,4 +61,3 @@ uint32_t int_syscall(uint32_t *stack) {
     logmsgdf("callee result = %d\n", result);
     return result;
 }
-

@@ -1,14 +1,16 @@
-#include "conf.h"
-#include "mem/pmem.h"
 #include <stdint.h>
 #include <string.h>
 
-#include <mem/paging.h>
-#include <arch/i386.h>
-#include <arch/mboot.h>
-
 #define __DEBUG
 #include <cosec/log.h>
+
+#include "arch/i386.h"
+#include "arch/mboot.h"
+#include "mem/pmem.h"
+#include "mem/paging.h"
+#include "process.h"
+#include "tasks.h"
+
 
 pde_t thePageDirectory[N_PDE] __attribute__((aligned (PAGE_SIZE)));
 

@@ -36,7 +36,10 @@ lds     := vmcosec.lds
 
 cc_includes := -isystem $(STDINC_DIR) $(addprefix -I, $(include_dir))
 
-cc_flags    := -ffreestanding -nostdinc -fno-stack-protector -Wall -Wextra -Wno-inline -Wno-implicit-fallthrough -Wno-unused -O2 -MD -DCOSEC=1
+cc_flags    := -ffreestanding -nostdinc -fno-stack-protector
+cc_flags    += -Wall -Wextra -Wno-inline -Wno-implicit-fallthrough -Wno-unused
+cc_flags    += -O2 -MD -DCOSEC=1 -DCOSEC_KERN=1
+
 as_flags    := -nostdinc -Wall -MD $(cc_includes)
 ld_flags    := -static -nostdlib -T$(build)/$(lds)
 
@@ -56,7 +59,7 @@ as_flags  += -m32
 ld_flags  += -melf_i386
 
 kernel    := $(build)/kernel
-libc      := lib/libc.a
+libkernc  := lib/c/libc0.a
 init      := usr/init
 
 cd_img      := cosec.iso
@@ -85,8 +88,9 @@ endif
 qemu_flags  := -m 64 -serial stdio $(qemu_debug) $(QEMU_OPT)
 
 
-.PHONY: run install mount umount clean
-.PHONY: qemu runq default
+.PHONY: run install clean
+.PHONY: libc init
+.PHONY: default qemu runq
 
 default: qemu
 
@@ -105,24 +109,29 @@ run: install
 	        echo "@@@@ Error: VirtualBox, qemu or Bochs must be installed"; \
 	else $(qemu) $(qemu_cdboot) $(qemu_flags) -curses; fi
 
-$(init):
-	make -C $(dir $(init))
-
 $(cd_img): $(kernel) $(init)
 	@echo "Creating a LiveCD..."
 	@res/mkcd
 
-$(kernel): $(libc) $(liblua) $(libsecd) $(build) $(objs) $(build)/$(lds)
+$(kernel): $(libkernc) $(liblua) $(libsecd) $(build) $(objs) $(build)/$(lds)
 	@echo "\n#### Linking..."
-	$(ld) -o $(kernel) $(objs) $(libsecd) $(liblua) $(libc) $(ld_flags)
+	$(ld) -o $(kernel) $(objs) $(libsecd) $(liblua) $(libkernc) $(ld_flags)
 	@echo "## ...linked"
 	@[ `which $(objdump) 2>/dev/null` ] && $(objdump) -d $(kernel) > $(objdfile) || true
 	@[ `which $(nm) 2>/dev/null` ] && $(nm) $(kernel) | sort > $(kernel).nm || true
 	@[ `which ctags 2>/dev/null ` ] && ctags -R * || true
 
-$(libc):
+$(libkernc):
+	@make CROSSCOMP=$(crosscompile) -C lib/c $(notdir $@)
+
+libc:
 	@make CROSSCOMP=$(crosscompile) -C lib/c libc.a
-	@rm lib/libc.a 2>/dev/null; ln lib/c/libc.a lib/libc.a
+
+$(init):
+	@make CROSSCOMP=$(crosscompile) -C $(dir $(init))
+
+init:
+	@make CROSSCOMP=$(crosscompile) -C $(dir $(init))
 
 $(build):
 	@echo "\n#### Compiling"

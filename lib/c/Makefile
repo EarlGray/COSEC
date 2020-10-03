@@ -10,13 +10,17 @@ CFLAGS	= -m32 -ffreestanding -nostdinc -isystem ./include
 
 .PHONY: clean
 
-srcs := $(wildcard ./src/*.c) cosec/cosec.c
-objs := cosec.o $(patsubst ./src/%.c, ./build/%.o, $(srcs)) crt0.o
+srcs := $(wildcard ./src/*.c)
+objs := crt0.o $(patsubst ./src/%.c, ./build/%.o, $(srcs))
 
-libc.a: build $(objs) cosec.o
-	@echo "srcs: $(srcs)"
-	@echo "objs: $^"
-	$(AR) cr $@ $(objs) cosec.o
+libc.a: build cosec.o $(objs)
+	@#echo "srcs: $(srcs)"
+	@#echo "objs: $^"
+	$(AR) cr $@ cosec.o $(objs)
+
+# kernel libc, with userspace parts omitted:
+libc0.a: build $(objs)
+	$(AR) cr $@ $(objs)
 
 cosec.o: ./cosec/cosec.c
 	$(CC) $(CFLAGS) -c $< -o $@
