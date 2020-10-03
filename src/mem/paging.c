@@ -22,9 +22,21 @@ void pg_fault(uint32_t *context, err_t err) {
     uint32_t eip = context[1];
     uint32_t cs = context[2];
 
-    logmsgef("Page Fault: err=0x%x from %x:%x accessing *%x\n",
-             fault_error, cs, eip, fault_addr);
+    process_t *proc = (process_t *)task_current();
+    if (proc && fault_error == 6
+        && ((uintptr_t)(proc->ps_userstack - 10 * PAGE_SIZE) <= fault_addr)
+        && (fault_addr < (uintptr_t)proc->ps_userstack))
+    {
+        logmsgf("%s: err=0x%x from %x:%x accessing *%x, grow stack for pid=%d\n",
+                 __func__, fault_error, cs, eip, fault_addr, proc->ps_pid);
+        process_grow_stack(proc, (void*)fault_addr);
+        return; // TODO: send SIGSEGV if failed to grow
+    }
 
+    logmsgef("%s: err=0x%x from %x:%x accessing *%x\n",
+             __func__, fault_error, cs, eip, fault_addr);
+
+    // TODO: send SIGSEGV to the current process
     cpu_hang();
 }
 

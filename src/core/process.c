@@ -86,10 +86,34 @@ int sys_getpid() {
     return theCurrentPID;
 }
 
+
 /*
- *      Global scheduling and task dispatch
+ *  Process memory
  */
 
+/* Physical address of the pagedir */
+inline void *process_pagedir(process_t *proc) {
+    return (void *)proc->ps_task.tss.cr3;
+}
+
+int process_grow_stack(process_t *proc, void *faultaddr) {
+    // TODO: check max process stack
+    // TODO: check any other mappings
+    void *pagedir = process_pagedir(proc);
+
+    while (proc->ps_userstack > faultaddr) {
+        void *ustack = proc->ps_userstack - PAGE_SIZE;
+        void *paddr = pagedir_get_or_new(pagedir, ustack, PTE_WRITABLE | PTE_USER);
+        assert(paddr, -1, "%s: cannot allocate page for *%x\n", __func__, ustack);
+
+        void *page = __va(paddr);
+        memset(page, 0, PAGE_SIZE);
+
+        proc->ps_userstack = ustack;
+    }
+
+    return 0;
+}
 
 /*
  *      Test init process
@@ -178,6 +202,7 @@ void run_init(void) {
             "%s: e_phoff=0x%0.8x > elfsize=0x%0.8x", elfhdr->e_phoff, elf_size);
     Elf32_Phdr *program_headers = (Elf32_Phdr *)(elfmem + elfhdr->e_phoff);
 
+    uintptr_t off;
     for (i = 0; i < elfhdr->e_phnum; ++i) {
         Elf32_Phdr hdr = program_headers[i];
         logmsgif("%s:   %d\t0x%0.8x[%x]\t0x%0.8x[%x]\t0x%x", __func__,
@@ -188,10 +213,31 @@ void run_init(void) {
 
         assertv(hdr.p_align == PAGE_SIZE,
                 "%s: p_align=0x%x, PT_LOAD not on page boundary", __func__, hdr.p_align);
-        assertv((hdr.p_vaddr & 0xFFF) == 0,
-                "%s: p_vaddr=0x%x, not on page boundary", __func__, hdr.p_vaddr);
+        //assertv((hdr.p_vaddr & 0xFFF) == 0, "%s: p_vaddr=0x%x, not on page boundary", __func__, hdr.p_vaddr);
+        off = 0;
+        if (hdr.p_vaddr & 0xFFF) {
+            uintptr_t vaddr = hdr.p_vaddr & 0xFFFFF000;
+            size_t voff = hdr.p_vaddr & 0xFFF;
+            size_t size = PAGE_SIZE - voff;
 
-        for (uintptr_t off = 0; off < hdr.p_memsz; off += PAGE_SIZE) {
+            uint32_t mask = PTE_WRITABLE | PTE_USER;
+            void *paddr = pagedir_get_or_new(pagedir, (void*)vaddr, mask);
+            assertv(paddr, "%s: failed to allocate page at *%x", __func__, vaddr);
+
+            void *page = __va(paddr);
+
+            size_t bytes_to_copy = size;
+            if (bytes_to_copy > hdr.p_filesz) {
+                bytes_to_copy = hdr.p_filesz;
+            }
+            // TODO: set the preceding part to 0 to if it's a fresh page
+            memcpy(page + voff, elfmem + hdr.p_offset + off, bytes_to_copy);
+            memset(page + voff + bytes_to_copy, 0, size - bytes_to_copy);
+
+            off += size;
+        }
+
+        for (; off < hdr.p_memsz; off += PAGE_SIZE) {
             uintptr_t vaddr = hdr.p_vaddr + off;
 
             uint32_t mask = PTE_WRITABLE | PTE_USER; // TODO: check if
@@ -206,8 +252,8 @@ void run_init(void) {
                 if (bytes_to_copy > PAGE_SIZE)
                     bytes_to_copy = PAGE_SIZE;
             }
-            memset(page + bytes_to_copy, 0, PAGE_SIZE - bytes_to_copy);
             memcpy(page, elfmem + hdr.p_offset + off, bytes_to_copy);
+            memset(page + bytes_to_copy, 0, PAGE_SIZE - bytes_to_copy);
         }
     }
 

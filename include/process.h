@@ -46,6 +46,8 @@ pid_t current_pid(void);
 process * current_proc(void);
 process * proc_by_pid(pid_t pid);
 
+int process_grow_stack(process_t *, void *faultaddr);
+
 int alloc_fd_for_pid(pid_t pid);
 filedescr * get_filedescr_for_pid(pid_t pid, int fd);
 
