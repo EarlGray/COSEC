@@ -6,7 +6,7 @@
 #include <process.h>
 
 #include <cosec/log.h>
-#include <cosec/fs.h>
+#include <cosec/syscall.h>
 
 
 int sys_mount(mount_info_t *mnt) {

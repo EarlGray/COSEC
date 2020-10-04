@@ -24,10 +24,10 @@ libc0.a: build $(objs)
 libc.linux.a: build linux.o $(objs)
 	$(AR) cr $@ linux.o $(objs)
 
-cosec.o: ./cosec/cosec.c
+cosec.o: ./os/cosec.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
-linux.o: ./cosec/linux.c
+linux.o: ./os/linux.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 crt0.o: crt0.S

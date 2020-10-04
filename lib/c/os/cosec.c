@@ -4,8 +4,7 @@
 #include <stdarg.h>
 #include <fcntl.h>
 
-#include <cosec/fs.h>
-#include <cosec/syscall.h>
+#include <cosec/sys.h>
 
 /*
  *  Syscalls

@@ -13,7 +13,6 @@
 #include <unistd.h>
 
 #include <cosec/log.h>
-#include <cosec/fs.h>
 #include <cosec/syscall.h>
 
 #include "dev/timer.h"

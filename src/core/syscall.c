@@ -3,7 +3,6 @@
 #include "arch/intr.h"
 
 #define __DEBUG
-#include <cosec/fs.h>
 #include <cosec/log.h>
 #include <cosec/syscall.h>
 

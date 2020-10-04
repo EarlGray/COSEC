@@ -10,8 +10,8 @@
 #include <fcntl.h>
 #include <sys/errno.h>
 
-#include <cosec/fs.h>
 #include <cosec/log.h>
+#include <cosec/sys.h>
 
 extern int theErrNo;
 

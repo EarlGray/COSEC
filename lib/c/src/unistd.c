@@ -1,7 +1,7 @@
 #include <unistd.h>
 #include <signal.h>
 
-#include <cosec/fs.h>
+#include <cosec/sys.h>
 
 void abort(void) {
     // TODO: unlock SIGABRT if blocked
