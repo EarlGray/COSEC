@@ -15,8 +15,8 @@ typedef unsigned long long  clock_t;    /* time in CLOCKS_PER_SEC ticks */
 #define NOERR       0
 
 typedef  unsigned int  size_t;
-typedef  int           ptrdiff_t;
-typedef  int           off_t;
+typedef  int           ptrdiff_t, off_t;
+typedef  int           pid_t;
 
 typedef  unsigned long long int  dev_t;
 

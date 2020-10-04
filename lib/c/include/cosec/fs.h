@@ -44,4 +44,7 @@ int sys_close(int fd);
 off_t sys_lseek(int fd, off_t offset, int whence);
 int sys_ftruncate(int fd, off_t length);
 
+int sys_kill(pid_t pid, int sig);
+pid_t sys_getpid(void);
+
 #endif // __FILESYSTEM_SYSCALLS_H__

@@ -11,63 +11,58 @@
  *  Syscalls
  */
 inline void exit(int status) {
-    syscall(SYS_EXIT, status, 0, 0);
+    __syscall1(SYS_EXIT, status);
+}
+
+inline int sys_getpid(void) {
+	return __syscall0(SYS_GETPID);
 }
 inline int sys_mkdir(const char *pathname, mode_t mode) {
-    return syscall(SYS_MKDIR, (uintptr_t)pathname, mode, 0);
+    return __syscall2(SYS_MKDIR, (intptr_t)pathname, mode);
 }
 inline int sys_rmdir(const char *pathname) {
-    return syscall(SYS_RMDIR, (uintptr_t)pathname, 0, 0);
+    return __syscall1(SYS_RMDIR, (intptr_t)pathname);
 }
 inline int sys_chdir(const char *path) {
-    return syscall(SYS_CHDIR, (uintptr_t)path, 0, 0);
+    return __syscall1(SYS_CHDIR, (intptr_t)path);
 }
 inline int sys_link(const char *oldpath, const char *newpath) {
-    return syscall(SYS_LINK, (uintptr_t)oldpath, (uintptr_t)newpath, 0);
+    return __syscall2(SYS_LINK, (intptr_t)oldpath, (intptr_t)newpath);
 }
 inline int sys_unlink(const char *pathname) {
-    return syscall(SYS_UNLINK, (uintptr_t)pathname, 0, 0);
+    return __syscall1(SYS_UNLINK, (intptr_t)pathname);
 }
 inline int sys_rename(const char *oldpath, const char *newpath) {
-    return syscall(SYS_RENAME, (uintptr_t)oldpath, (uintptr_t)newpath, 0);
+    return __syscall2(SYS_RENAME, (intptr_t)oldpath, (intptr_t)newpath);
+}
+
+inline int sys_open(const char *pathname, int flags) {
+    return __syscall2(SYS_OPEN, (intptr_t)pathname, flags);
+}
+inline int sys_read(int fd, void *buf, size_t count) {
+    return __syscall3(SYS_READ, fd, (intptr_t)buf, count);
+}
+inline int sys_write(int fd, const void *buf, size_t count) {
+    return __syscall3(SYS_WRITE, fd, (intptr_t)buf, count);
+}
+inline int sys_close(int fd) {
+    return __syscall1(SYS_CLOSE, fd);
+}
+
+inline int sys_kill(pid_t pid, int sig) {
+    return __syscall2(SYS_KILL, pid, sig);
+}
+inline off_t sys_lseek(int fd, off_t offset, int whence) {
+    return __syscall3(SYS_LSEEK, fd, offset, whence);
+}
+inline int sys_ftruncate(int fd, off_t length) {
+    return __syscall2(SYS_TRUNC, fd, length);
 }
 
 // inline int sys_symlink(const char *oldpath, const char *newpath) { return syscall(SYS_
 // inline char *sys_pwd(char *buf) { return (char *)syscall() };
 // inline int sys_lsdir(const char *pathname, struct cosec_dirent *dirs, count_t count);
 
-
-inline int sys_open(const char *pathname, int flags) {
-    return syscall(SYS_OPEN, (uintptr_t)pathname, flags, 0);
-}
-inline int sys_read(int fd, void *buf, size_t count) {
-    return syscall(SYS_READ, fd, (uintptr_t)buf, count);
-}
-inline int sys_write(int fd, const void *buf, size_t count) {
-    return syscall(SYS_WRITE, fd, (uintptr_t)buf, count);
-}
-inline int sys_close(int fd) {
-    return syscall(SYS_CLOSE, fd, 0, 0);
-}
-
-inline off_t sys_lseek(int fd, off_t offset, int whence) {
-    return syscall(SYS_LSEEK, fd, offset, whence);
-}
-inline int sys_ftruncate(int fd, off_t length) {
-    return syscall(SYS_TRUNC, fd, length, 0);
-}
-
-/*
- *  Process
- */
-void panic(const char *msg) {
-    fprintf(stderr, "PANIC: %s\n", msg);
-    abort();
-}
-
-void abort(void) {
-    // TODO: raise SIGABRT
-}
 
 /*
  *  Memory management
@@ -86,4 +81,9 @@ int kfree(void *ptr) {
 void *krealloc(void *ptr, size_t size) {
     fprintf(stderr, "%s: TODO\n", __func__);
     return NULL;
+}
+
+void panic(const char *msg) {
+    fprintf(stderr, "FATAL: %s\n", msg);
+    abort();
 }

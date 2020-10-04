@@ -1,9 +1,12 @@
 #ifndef __COSEC_PROCESS_H__
 #define __COSEC_PROCESS_H__
 
-#include <mem/paging.h>
-#include <fs/vfs.h>
-#include <tasks.h>
+#include <stdint.h>
+#include <sys/types.h>
+
+#include "mem/paging.h"
+#include "fs/vfs.h"
+#include "tasks.h"
 
 /* should be 65536 */
 #define NPROC_MAX       10
@@ -15,7 +18,6 @@
 #define PID_COSECD  2
 
 
-typedef uint32_t        pid_t;
 typedef struct process  process;
 typedef struct filedesc filedescr;
 

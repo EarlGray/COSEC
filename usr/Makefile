@@ -5,7 +5,10 @@ endif
 
 CC = $(CROSSCOMP)gcc
 
-CFLAGS   += -m32 -nostdinc -static -fno-pic -isystem ../lib/c/include
+CFLAGS   += -m32 -nostdinc -static -fno-pic
+CFLAGS   += -isystem ../lib/c/include
+CFLAGS   += -DCOSEC=1
+
 LDFLAGS  += -ffreestanding -nostdlib -static -fno-pie
 
 LIBC     := ../lib/c/libc.a

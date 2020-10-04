@@ -45,7 +45,7 @@
 #include <stdint.h>
 
 static inline
-int syscall(int num, uintptr_t arg1, uintptr_t arg2, uintptr_t arg3) {
+int syscall(int num, intptr_t arg1, intptr_t arg2, intptr_t arg3) {
     int ret;
     asm(
         "movl %3, %%ebx         \n"
@@ -57,6 +57,11 @@ int syscall(int num, uintptr_t arg1, uintptr_t arg2, uintptr_t arg3) {
     );
     return ret;
 }
+
+#define __syscall0(num)             syscall((num), 0, 0, 0)
+#define __syscall1(num, a)          syscall((num), (a), 0, 0)
+#define __syscall2(num, a, b)       syscall((num), (a), (b), 0)
+#define __syscall3(num, a, b, c)    syscall((num), (a), (b), (c))
 
 int lprintf(const char *fmt, ...) __attribute__((weak));
 

@@ -14,25 +14,30 @@ srcs := $(wildcard ./src/*.c)
 objs := crt0.o $(patsubst ./src/%.c, ./build/%.o, $(srcs))
 
 libc.a: build cosec.o $(objs)
-	@#echo "srcs: $(srcs)"
-	@#echo "objs: $^"
 	$(AR) cr $@ cosec.o $(objs)
 
 # kernel libc, with userspace parts omitted:
 libc0.a: build $(objs)
 	$(AR) cr $@ $(objs)
 
+# linux build for testing
+libc.linux.a: build linux.o $(objs)
+	$(AR) cr $@ linux.o $(objs)
+
 cosec.o: ./cosec/cosec.c
+	$(CC) $(CFLAGS) -c $< -o $@
+
+linux.o: ./cosec/linux.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 crt0.o: crt0.S
 	$(CC) $(CFLAGS) -c $< -o $@
 
 build:
-	@mkdir build
+	@mkdir -p build
 
 ./build/%.o: ./src/%.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
-	rm -r build libc.a *.o || true
+	rm -r build libc*.a *.o || true
