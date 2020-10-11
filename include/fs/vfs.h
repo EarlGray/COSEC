@@ -206,6 +206,8 @@ int vfs_rename(const char *oldpath, const char *newpath);
 int vfs_inode_get(mountnode *sb, inode_t ino, struct inode *idata);
 int vfs_inode_set(mountnode *sb, inode_t ino, struct inode *idata);
 
+int vfs_inode_stat(mountnode *sb, inode_t ino, struct stat *stat);
+
 int vfs_inode_read(mountnode *sb, inode_t ino, off_t pos,
                    char *buf, size_t buflen, size_t *written);
 

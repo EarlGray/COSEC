@@ -29,6 +29,7 @@ int tty_write(mindev_t ttyno, const char *buf, size_t buflen);
 int tty_read(mindev_t ttyno, char *buf, size_t buflen, size_t *written);
 
 void tty_switch(mindev_t ttyno);
+int tty_set_foreground_procgroup(mindev_t ttyno, pid_t pg);
 
 #include <dev/kbd.h>
 

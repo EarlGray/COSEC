@@ -7,12 +7,12 @@
 #define __DEBUG
 #include <cosec/log.h>
 
-#include <dev/kbd.h>
-#include <dev/screen.h>
-
-#include <fs/devices.h>
-#include <dev/tty.h>
 #include <arch/i386.h>
+#include "dev/kbd.h"
+#include "dev/screen.h"
+#include "fs/devices.h"
+
+#include "dev/tty.h"
 
 typedef  struct tty_device       tty_device;
 typedef  struct tty_input_queue  tty_inpqueue;
@@ -35,6 +35,7 @@ struct tty_device {
     struct winsize          tty_size;
 
     mindev_t                tty_vcs;
+    pid_t                   tty_foreground_procgroup;
 };
 
 
@@ -63,13 +64,6 @@ stty_sane = {
 struct termios stty_raw = {
 };
 */
-
-void tty_switch(mindev_t ttyno) {
-    assertv(ttyno < N_VCSA_DEVICES, "%s: no tty%d", __func__, ttyno);
-
-    theActiveTTY = ttyno;
-    vcsa_switch(ttyno);
-}
 
 /*
  *      TTY input queue
@@ -523,6 +517,24 @@ int tty_ioctl(mindev_t ttyno, enum tty_ioctl op, size_t *arg) {
             "%s: ttyno=%d\n", __func__, ttyno);
 
     return dev_tty_ioctl(dev, (int)op, arg);
+}
+
+void tty_switch(mindev_t ttyno) {
+    assertv(ttyno < N_VCSA_DEVICES, "%s: no tty%d", __func__, ttyno);
+
+    theActiveTTY = ttyno;
+    vcsa_switch(ttyno);
+}
+
+int tty_set_foreground_procgroup(mindev_t ttyno, pid_t pg) {
+    device *dev = get_tty_device(ttyno);
+    return_dbg_if(!dev, ENOENT,
+            "%s: ttyno=%d\n", __func__, ttyno);
+
+    struct tty_device *ttydev = dev->dev_data;
+    ttydev->tty_foreground_procgroup = pg;
+
+    return 0;
 }
 
 

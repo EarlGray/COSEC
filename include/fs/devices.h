@@ -101,7 +101,7 @@ struct device_operations {
 
     /* mostly character devices operations */
     /**
-     * \brief   non-blocing read from (mostly character) device
+     * \brief   non-blocking read from (mostly character) devices
      * @param written   *written contains number of actually written bytes if not NULL;
      * @param pos       read offset for devices that support offset;
      * @return  0 if data available;

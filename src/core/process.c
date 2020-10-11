@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/types.h>
 #include <unistd.h>
 #include <sys/errno.h>
 
@@ -180,14 +181,24 @@ static int process_attach_tty(process_t *proc, const char *ttyfile) {
     logmsgdf("%s: infd = *%x\n", __func__, (uintptr_t)infd);
 
     ret = vfs_lookup(ttyfile, &sb, &ino);
-    returnv_err_if(ret, "%s: vfs_lookup('%s'): %s",
+    return_err_if(ret, ret, "%s: vfs_lookup('%s'): %s",
                    __func__, ttyfile, strerror(ret));
     logmsgdf("%s: %s ino=%d\n", __func__, ttyfile, ino);
 
     infd->fd_sb  = outfd->fd_sb  = errfd->fd_sb  = sb;
     infd->fd_ino = outfd->fd_ino = errfd->fd_ino = ino;
     infd->fd_pos = outfd->fd_pos = errfd->fd_pos = -1;
-    return 0;
+
+    struct stat st;
+    ret = vfs_inode_stat(sb, ino, &st);
+    return_err_if(ret, ret, "%s: vfs_stat: %s", __func__, strerror(ret));
+    return_err_if(!S_ISCHR(st.st_mode), ENOTTY,
+                  "%s: not a chardev: %s", __func__, ttyfile);
+
+    mindev_t ttyno = gnu_dev_minor(st.st_rdev);
+    logmsgdf("%s: %s has mindev %d\n", __func__, ttyfile, ttyno);
+
+    return tty_set_foreground_procgroup(ttyno, proc->ps_pid);
 }
 
 static int process_segment_from_memory(Elf32_Phdr hdr, void *elfmem, void *pagedir) {
