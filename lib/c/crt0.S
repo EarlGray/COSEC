@@ -19,3 +19,5 @@ start:
     movl %eax, %ecx         # exit status
     movl $SYS_EXIT, %eax    # SYS_EXIT 
     int $0x80
+
+1:  jmp 1b                  # should be unreachable

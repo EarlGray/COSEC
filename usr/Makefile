@@ -5,7 +5,7 @@ endif
 
 CC = $(CROSSCOMP)gcc
 
-CFLAGS   += -m32 -nostdinc -static -fno-pic
+CFLAGS   += -m32 -O1 -nostdinc -static -fno-pic
 CFLAGS   += -isystem ../lib/c/include
 CFLAGS   += -DCOSEC=1
 

@@ -15,6 +15,8 @@ int unlink(const char *path);
 
 off_t lseek(int fd, off_t offset, int whence);
 
+ssize_t write(int fd, const void *buf, size_t count);
+
 pid_t getpid(void);
 
 #endif //__CSCLIBC_UNISTD_H__

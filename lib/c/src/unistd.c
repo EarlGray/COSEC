@@ -1,7 +1,12 @@
+#include "cosec/syscall.h"
 #include <unistd.h>
 #include <signal.h>
 
 #include <cosec/sys.h>
+
+ssize_t write(int fd, const void *buf, size_t count) {
+    return sys_write(fd, buf, count);
+}
 
 void abort(void) {
     // TODO: unlock SIGABRT if blocked

@@ -6,14 +6,10 @@
 static inline
 int syscall(int num, intptr_t arg1, intptr_t arg2, intptr_t arg3) {
     int ret;
-    asm(
-        "movl %3, %%ebx         \n"
-        "movl %2, %%edx         \n"
-        "movl %1, %%ecx         \n"
-        "movl %0, %%eax         \n"
-        "int $0x80              \n"
-        :"=a"(ret):"m"(num), "m"(arg1), "m"(arg2), "m"(arg3)
-    );
+    asm("int $0x80  \n"
+        :"=a"(ret)
+        :"a"(num), "c"(arg1), "d"(arg2), "b"(arg3)
+        :"memory");
     return ret;
 }
 

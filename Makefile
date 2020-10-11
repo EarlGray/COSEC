@@ -122,10 +122,10 @@ $(kernel): $(libkernc) $(liblua) $(libsecd) $(build) $(objs) $(build)/$(lds)
 	@[ `which ctags 2>/dev/null ` ] && ctags -R * || true
 
 $(libkernc):
-	@make CROSSCOMP=$(crosscompile) -C lib/c $(notdir $@)
+	$(MAKE) CROSSCOMP=$(crosscompile) -C lib/c $(notdir $@)
 
 libc:
-	@make CROSSCOMP=$(crosscompile) -C lib/c libc.a
+	$(MAKE) CROSSCOMP=$(crosscompile) -C lib/c libc.a
 
 $(init):
 	@make CROSSCOMP=$(crosscompile) -C $(dir $(init))

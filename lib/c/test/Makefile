@@ -23,4 +23,5 @@ $(LIBC):
 	make -C .. $(notdir $(LIBC))
 
 clean:
-	rm *.o || true
+	-rm *.o
+	-find -type f -executable -delete
