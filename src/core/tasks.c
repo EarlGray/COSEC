@@ -45,7 +45,7 @@ static void task_save_context(task_struct *task) {
     if (task == null) return;
 
     /* ss3:esp3, efl, cs:eip, general-purpose registers, DS and ES are saved */
-    void* context = intr_context_esp();
+    struct interrupt_context *context = intr_context_esp();
     if (!context) {
         panic("task_save_context() called outside of a IRQ");
     }
@@ -66,13 +66,13 @@ static void task_push_context(task_struct *task) {
 
     logmsgdf("%s: ctx=*%x, tss=%d\n", __func__, context, task->tss_index);
 
-    if (iret_stack[1] != SEL_KERN_CS) {
-        logmsgdf("%s: stack  ss = 0x%x\n", __func__, iret_stack[4]);
-        logmsgdf("%s: stack esp = *%x\n", __func__, iret_stack[3]);
+    if (iret_stack[1] == SEL_KERN_CS) {
+        logmsgdf("%s: stack: efl=0x%x, cs:eip=%x:%x\n",
+                __func__, iret_stack[2], iret_stack[1], iret_stack[0]);
+    } else {
+        logmsgdf("%s: stack: ss:esp=%x:%x, efl=0x%x, cs:eip=%x:%x\n", __func__,
+                iret_stack[4], iret_stack[3], iret_stack[2], iret_stack[1], iret_stack[0]);
     }
-    logmsgdf("%s: stack efl = 0x%x\n", __func__, iret_stack[2]);
-    logmsgdf("%s: stack  cs = 0x%x\n", __func__, iret_stack[1]);
-    logmsgdf("%s: stack eip = *%x\n", __func__, iret_stack[0]);
 }
 
 static inline void task_cpu_load(task_struct *task) {
@@ -82,18 +82,17 @@ static inline void task_cpu_load(task_struct *task) {
 
     /* load next task */
     uint16_t pl = ((task->tss.cs == SEL_KERN_CS) ? PL_KERN : PL_USER);
-    segment_selector tss_sel = make_segment_selector(task->tss_index, SEL_TI_GDT, pl);
+    segment_selector tasksel = make_segment_selector(task->tss_index, SEL_TI_GDT, pl);
 
-    logmsgdf("%s:    eflags = 0x%x\n", __func__, task->tss.eflags);
-    logmsgdf("%s:   tss_sel = 0x%x\n", __func__, tss_sel.as.word);
-    logmsgdf("%s:      tssd = %x %x\n", __func__, tssd->as.ints[0], tssd->as.ints[1]);
-    logmsgdf("%s: tssd.base = 0x%x\n", __func__, tssd->as.strct.base_l +
-            (tssd->as.strct.base_m << 16) + (tssd->as.strct.base_h << 24));
-    logmsgdf("%s:       cr3 = @%x\n", __func__, task->tss.cr3);
+    logmsgdf("%s: tasksel = 0x%x, eflags = 0x%x, cr3 = @%x\n",
+            __func__, tasksel.as.word, task->tss.eflags, task->tss.cr3);
+    logmsgdf("%s: tssd = %x %x, base = *%x\n",
+            __func__, tssd->as.ints[0], tssd->as.ints[1],
+            tssd->as.strct.base_l + (tssd->as.strct.base_m << 16) + (tssd->as.strct.base_h << 24)
+    );
 
-    i386_load_task_reg( tss_sel );
+    i386_load_task_reg(tasksel);
     i386_switch_pagedir((void *)task->tss.cr3);
-    logmsgdf("%s: task loaded\n", __func__);
 }
 
 static void task_timer_handler(uint tick) {
@@ -104,9 +103,9 @@ static void task_timer_handler(uint tick) {
     if (!next)
         return; // no next task, keep the current one
 
-    logmsgdf("%s: tick=%d\n", __func__, tick);
-
     // switch to the next task:
+    logmsgdf("%s(tick=%d)\n", __func__, tick);
+
     task_struct *current = (task_struct*)theCurrentTask;    // make a non-volatile copy
     task_save_context(current);
 
@@ -183,19 +182,6 @@ inline void task_kthread_init(task_struct *ktask, void *entry, void *k_esp) {
     task_init(ktask, entry, k_esp, k_esp, kcs, kds);
 }
 
-void task_switch(task_struct *task) {
-    segment_selector tasksel =
-        make_segment_selector(task->tss_index, SEL_TI_GDT, PL_KERN);
-
-    logmsgdf("%s:   tss_index = %x\n", __func__, task->tss_index);
-    logmsgdf("%s:      eflags = 0x%x\n", __func__, i386_eflags());
-    logmsgdf("%s: next eflags = 0x%x\n", __func__, task->tss.eflags);
-    logmsgdf("%s:         eip = *%x\n", __func__, task->tss.eip);
-
-    theCurrentTask = task;
-    i386_load_task_reg(tasksel);
-    i386_iret(task->tss.eip, task->tss.cs, task->tss.eflags, task->tss.esp, task->tss.ss);
-}
 
 /*
  *  Scheduling
@@ -217,6 +203,11 @@ int sched_add_task(task_struct *task) {
     return 0;
 }
 
+void task_yield(task_struct *task) {
+    logmsgdf("%s: task=*%x\n", __func__, task);
+    task_timer_handler(0);
+}
+
 /*
  *  Setup
  */
@@ -235,6 +226,11 @@ void tasks_setup(task_struct *default_task) {
     task_set_scheduler(the_scheduler);
     timer_push_ontimer(task_timer_handler);
 
-    task_switch(default_task);
+    task_cpu_load(default_task);
+    theCurrentTask = default_task;
+
+    tss_t *tss = &default_task->tss;
+    i386_iret(tss->eip, tss->cs, tss->eflags, tss->esp, tss->ss);
+
     //logmsgef("%s: unreachable", __func__);
 }

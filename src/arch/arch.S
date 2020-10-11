@@ -114,18 +114,22 @@ i386_cpuid_info:
  ***/
 .global i386_switch_pagedir
 i386_switch_pagedir:
+    # the first parameter: physical address of the new page directory:
     movl 4(%esp), %eax
 
-    movl %cr0, %edx
-    andl $(~CR0_PG), %edx
-    movl %edx, %cr0     // disable paging
-
+    /*
+     *   NB: DO NOT disable and re-enable paging around this switch.
+     *   CPU still needs to fetch the instructions from their virtual addresses
+     *      even if there are no data memory accesses.
+     *   This also flushes TLB, no need for INVPLG here.
+     */
     movl %eax, %cr3
+    ret
 
-    movl %cr0, %eax
-    orl  $(CR0_PG | CR0_WP), %eax
-    movl %eax, %cr0         // enable paging and write-protection
-
+.global i386_flush_tlb
+i386_flush_tlb:
+    movl %cr3, %eax
+    movl %eax, %cr3
     ret
 
 

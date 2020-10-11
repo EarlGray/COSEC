@@ -83,7 +83,7 @@ void paging_setup(void) {
 
     // switch
     void * phy_pagedir = __pa(thePageDirectory);
-    k_printf("switching page directory to *%x\n", phy_pagedir);
+    k_printf("thePageDirectory at @%x\n", phy_pagedir);
     i386_switch_pagedir(phy_pagedir);
 }
 

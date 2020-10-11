@@ -27,7 +27,6 @@ struct interrupt_context {
 extern uint32_t  intr_err_code(void);
 extern void* intr_context_esp(void);
 extern void  intr_set_context_esp(uintptr_t esp);
-extern void  intr_switch_cr3(uintptr_t cr3);
 
 // enter points
 extern void isr00(void);    // #DE, division by zero,   fault,  no code

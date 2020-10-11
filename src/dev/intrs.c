@@ -124,8 +124,6 @@ void irq_set_mask(uint16_t mask) {
     outb(PIC2_DATA_PORT, m);
 }
 
-extern uintptr_t switch_to_cr3;
-
 void irq_handler(void *stack, uint32_t irq_num) {
     irq_happened[irq_num] += 1;
 
@@ -141,8 +139,6 @@ void irq_handler(void *stack, uint32_t irq_num) {
         outb(PIC2_CMD_PORT, PIC_EOI);
     }
     outb_p(PIC1_CMD_PORT, PIC_EOI);
-
-    if (switch_to_cr3) logmsgdf("%s: switch_to_cr3=0x%x\n", __func__, switch_to_cr3);
 }
 
 inline void irq_set_handler(irqnum_t irq_num, intr_handler_f handler) {

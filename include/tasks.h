@@ -7,7 +7,9 @@
 
 enum taskstate {
     TS_READY    = 0,
+    TS_BLOCKED  = 1,
     TS_STOPPED  = 2,
+    TS_EXITED   = 3,
 };
 
 struct task {
@@ -45,5 +47,7 @@ void task_init(task_struct *task, void *entry,
 void tasks_setup(task_struct *default_task);
 
 int sched_add_task(task_struct *task);
+
+void task_yield(task_struct *task);
 
 #endif // __TASKS_H__

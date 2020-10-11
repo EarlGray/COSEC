@@ -290,7 +290,7 @@ void run_init(void) {
     /* run the process */
     theProcessTable[pid] = proc;
     sched_add_task(&proc->ps_task);
-    logmsgif("%s: ready to rock!", __func__);
+    logmsgif("%s: ready to rock!\n", __func__);
 #else
     logmsgif("%s: TODO", __func__);
 #endif

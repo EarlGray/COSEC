@@ -44,10 +44,6 @@ context_esp:
 switch_to_esp:
 .long 0
 
-.global switch_to_cr3
-switch_to_cr3:
-.long 0
-
 /* last exception error code */
 intr_error:
 .long 0
@@ -119,12 +115,6 @@ intr_set_context_esp:
     movl %eax, switch_to_esp
     ret
 
-.global intr_switch_cr3
-intr_switch_cr3:
-    movl 4(%esp), %eax
-    movl %eax, switch_to_cr3
-    ret
-
 .global intr_err_code
 intr_err_code:
     movl intr_error, %eax
@@ -178,7 +168,6 @@ intr_start_rdtsc:
     /* save an interrupt's stack context pointer */
     movl %esp, context_esp
     movl $0, switch_to_esp
-    movl $0, switch_to_cr3
 
     movl %esp, %esi
     addl $0x30, %esi    // the size of saved registers
@@ -198,7 +187,7 @@ intr_start_rdtsc:
     popa
 .endm
 
-.macro ENTRY_NOERR name, handler, return_eax=0
+.macro ENTRY_NOERR name, handler
 .extern \handler
 .global \name
 \name :
@@ -206,9 +195,6 @@ intr_start_rdtsc:
 
     pushl %esi          // argument 1: the context
     call \handler
-.ifne \return_eax
-    movl %eax, 0x30(%esp) // write %eax as the return status
-.endif
     jmp noerr_return
 .endm
 
@@ -232,6 +218,7 @@ noerr_return:
     call \handler
     jmp err_return
 .endm
+
 
 err_return:
     addl $8, %esp       // pop the handler arguments
@@ -258,22 +245,13 @@ irq_return:
     call irq_handler
     addl $8, %esp       // pop the handler arguments
 
-
-    movl switch_to_cr3, %eax
-    test %eax, %eax
-    jz .L4
-    pushl %eax
-    call i386_switch_pagedir
-    addl $4, %esp
-.L4:
-
     INTR_PROFILING_END
     INTR_END
     iret
 
 /******** multiple entries ***********/
 ENTRY_NOERR dummyentry,     int_dummy
-ENTRY_NOERR syscallentry,   int_syscall, 1     // return %eax
+ENTRY_NOERR syscallentry,   int_syscall
 ENTRY_NOERR isr14to1F,      int_odd_exception
 
 /************* exceptions ************/

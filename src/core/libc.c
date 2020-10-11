@@ -3,6 +3,7 @@
 #include <setjmp.h>
 
 #include <cosec/log.h>
+#include <machine/setjmp.h>
 
 #include "arch/i386.h"
 #include "libc.h"
