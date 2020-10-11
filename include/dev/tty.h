@@ -28,6 +28,8 @@ int tty_write(mindev_t ttyno, const char *buf, size_t buflen);
 
 int tty_read(mindev_t ttyno, char *buf, size_t buflen, size_t *written);
 
+void tty_switch(mindev_t ttyno);
+
 #include <dev/kbd.h>
 
 void tty_keyboard_handler(scancode_t sc);

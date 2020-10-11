@@ -52,12 +52,18 @@ process_t * proc_by_pid(pid_t pid) {
 }
 
 pid_t current_pid(void) {
-    return theCurrentPID;
+    return current_proc()->ps_pid;
+}
+
+int sys_getpid() {
+    return current_pid();
 }
 
 process_t * current_proc(void) {
-    return theProcessTable[theCurrentPID];
+    return (process_t *)task_current();
 }
+
+
 
 int alloc_fd_for_pid(pid_t pid) {
     int i;
@@ -79,11 +85,6 @@ filedescr * get_filedescr_for_pid(pid_t pid, int fd) {
             "%s: fd=%d out of range\n", __func__, fd);
 
     return p->ps_fds + fd;
-}
-
-
-int sys_getpid() {
-    return theCurrentPID;
 }
 
 
@@ -167,6 +168,77 @@ static bool elf_is_runnable(const Elf32_Ehdr *elfhdr) {
     return true;
 }
 
+static int process_attach_tty(process_t *proc, const char *ttyfile) {
+    int ret = 0;
+    mountnode *sb = NULL;
+    inode_t ino = 0;
+
+    filedescr_t * fds = proc->ps_fds;
+    filedescr *infd =   fds + STDIN_FILENO;
+    filedescr *outfd =  fds + STDOUT_FILENO;
+    filedescr *errfd =  fds + STDERR_FILENO;
+    logmsgdf("%s: infd = *%x\n", __func__, (uintptr_t)infd);
+
+    ret = vfs_lookup(ttyfile, &sb, &ino);
+    returnv_err_if(ret, "%s: vfs_lookup('%s'): %s",
+                   __func__, ttyfile, strerror(ret));
+    logmsgdf("%s: %s ino=%d\n", __func__, ttyfile, ino);
+
+    infd->fd_sb  = outfd->fd_sb  = errfd->fd_sb  = sb;
+    infd->fd_ino = outfd->fd_ino = errfd->fd_ino = ino;
+    infd->fd_pos = outfd->fd_pos = errfd->fd_pos = -1;
+    return 0;
+}
+
+static int process_segment_from_memory(Elf32_Phdr hdr, void *elfmem, void *pagedir) {
+    assert(hdr.p_align == PAGE_SIZE, -EINVAL,
+            "%s: p_align=0x%x, PT_LOAD not on page boundary", __func__, hdr.p_align);
+
+    size_t off = 0;
+    if (hdr.p_vaddr & 0xFFF) {
+        uintptr_t vaddr = hdr.p_vaddr & 0xFFFFF000;
+        size_t voff = hdr.p_vaddr & 0xFFF;
+        size_t size = PAGE_SIZE - voff;
+
+        uint32_t mask = PTE_WRITABLE | PTE_USER;
+        void *paddr = pagedir_get_or_new(pagedir, (void*)vaddr, mask);
+        assert(paddr, -ENOMEM, "%s: failed to allocate page at *%x", __func__, vaddr);
+
+        void *page = __va(paddr);
+
+        size_t bytes_to_copy = size;
+        if (bytes_to_copy > hdr.p_filesz) {
+            bytes_to_copy = hdr.p_filesz;
+        }
+        // TODO: set the preceding part to 0 to if it's a fresh page
+        memcpy(page + voff, elfmem + hdr.p_offset + off, bytes_to_copy);
+        memset(page + voff + bytes_to_copy, 0, size - bytes_to_copy);
+
+        off += size;
+    }
+
+    for (; off < hdr.p_memsz; off += PAGE_SIZE) {
+        uintptr_t vaddr = hdr.p_vaddr + off;
+
+        uint32_t mask = PTE_WRITABLE | PTE_USER; // TODO: check if
+        void *paddr = pagedir_get_or_new(pagedir, (void*)vaddr, mask);
+        assert(paddr, -ENOMEM, "%s: failed to allocate page at *%x", __func__, vaddr);
+
+        void *page = __va(paddr);
+
+        size_t bytes_to_copy = 0;
+        if (off < hdr.p_filesz) {
+            bytes_to_copy = hdr.p_filesz - off;
+            if (bytes_to_copy > PAGE_SIZE)
+                bytes_to_copy = PAGE_SIZE;
+        }
+        memcpy(page, elfmem + hdr.p_offset + off, bytes_to_copy);
+        memset(page + bytes_to_copy, 0, PAGE_SIZE - bytes_to_copy);
+    }
+
+    return 0;
+}
+
 process_t theInitProcess;
 
 void run_init(void) {
@@ -211,49 +283,10 @@ void run_init(void) {
         if (hdr.p_type != PT_LOAD)
             continue;
 
-        assertv(hdr.p_align == PAGE_SIZE,
-                "%s: p_align=0x%x, PT_LOAD not on page boundary", __func__, hdr.p_align);
-        //assertv((hdr.p_vaddr & 0xFFF) == 0, "%s: p_vaddr=0x%x, not on page boundary", __func__, hdr.p_vaddr);
-        off = 0;
-        if (hdr.p_vaddr & 0xFFF) {
-            uintptr_t vaddr = hdr.p_vaddr & 0xFFFFF000;
-            size_t voff = hdr.p_vaddr & 0xFFF;
-            size_t size = PAGE_SIZE - voff;
-
-            uint32_t mask = PTE_WRITABLE | PTE_USER;
-            void *paddr = pagedir_get_or_new(pagedir, (void*)vaddr, mask);
-            assertv(paddr, "%s: failed to allocate page at *%x", __func__, vaddr);
-
-            void *page = __va(paddr);
-
-            size_t bytes_to_copy = size;
-            if (bytes_to_copy > hdr.p_filesz) {
-                bytes_to_copy = hdr.p_filesz;
-            }
-            // TODO: set the preceding part to 0 to if it's a fresh page
-            memcpy(page + voff, elfmem + hdr.p_offset + off, bytes_to_copy);
-            memset(page + voff + bytes_to_copy, 0, size - bytes_to_copy);
-
-            off += size;
-        }
-
-        for (; off < hdr.p_memsz; off += PAGE_SIZE) {
-            uintptr_t vaddr = hdr.p_vaddr + off;
-
-            uint32_t mask = PTE_WRITABLE | PTE_USER; // TODO: check if
-            void *paddr = pagedir_get_or_new(pagedir, (void*)vaddr, mask);
-            assertv(paddr, "%s: failed to allocate page at *%x", __func__, vaddr);
-
-            void *page = __va(paddr);
-
-            size_t bytes_to_copy = 0;
-            if (off < hdr.p_filesz) {
-                bytes_to_copy = hdr.p_filesz - off;
-                if (bytes_to_copy > PAGE_SIZE)
-                    bytes_to_copy = PAGE_SIZE;
-            }
-            memcpy(page, elfmem + hdr.p_offset + off, bytes_to_copy);
-            memset(page + bytes_to_copy, 0, PAGE_SIZE - bytes_to_copy);
+        int ret = process_segment_from_memory(hdr, elfmem, pagedir);
+        if (ret) {
+            logmsgef("%s: segment load failed: %d", __func__, ret);
+            goto cleanup_pagedir;
         }
     }
 
@@ -285,15 +318,20 @@ void run_init(void) {
     );
     proc->ps_task.tss.cr3 = (uintptr_t)pagedir;
 
-
+    /* file descriptors */
 #if 1
+    process_attach_tty(proc, "/dev/tty1");
+    const char *msg = "\n\tCOSEC tty1\n\tPress F1 to go back to tty0\n\n";
+    tty_write(1, msg, strlen(msg));
+    tty_switch(1);
+#else
+    process_attach_tty(proc, "/dev/tty0");
+#endif
+
     /* run the process */
     theProcessTable[pid] = proc;
     sched_add_task(&proc->ps_task);
     logmsgif("%s: ready to rock!\n", __func__);
-#else
-    logmsgif("%s: TODO", __func__);
-#endif
     return;
 
 cleanup_pagedir:
@@ -325,24 +363,7 @@ void cosecd_setup(int pid) {
     task_kthread_init(task, task->entry, esp0);
     task->tss.cr3 = (uintptr_t)pagedir;
 
-    /* initialize input/output from /dev/tty0 */
-    int ret = 0;
-    mountnode *sb = NULL;
-    inode_t ino = 0;
-
-    filedescr_t * fds = theCosecThread.ps_fds;
-    filedescr *infd =   fds + STDIN_FILENO;
-    filedescr *outfd =  fds + STDOUT_FILENO;
-    filedescr *errfd =  fds + STDERR_FILENO;
-    logmsgdf("%s: infd = *%x\n", __func__, (uint)infd);
-
-    ret = vfs_lookup("/dev/tty0", &sb, &ino);
-    returnv_err_if(ret, "%s: vfs_lookup('/dev/tty0'): %s", __func__, strerror(ret));
-    logmsgdf("%s: /dev/tty0 ino=%d\n", __func__, ino);
-
-    infd->fd_sb  = outfd->fd_sb  = errfd->fd_sb  = sb;
-    infd->fd_ino = outfd->fd_ino = errfd->fd_ino = ino;
-    infd->fd_pos = outfd->fd_pos = errfd->fd_pos = -1;
+    process_attach_tty(&theCosecThread, "/dev/tty0");
 
     /* make it official */
     theProcessTable[pid] = &theCosecThread;

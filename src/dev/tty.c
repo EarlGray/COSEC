@@ -64,6 +64,12 @@ struct termios stty_raw = {
 };
 */
 
+void tty_switch(mindev_t ttyno) {
+    assertv(ttyno < N_VCSA_DEVICES, "%s: no tty%d", __func__, ttyno);
+
+    theActiveTTY = ttyno;
+    vcsa_switch(ttyno);
+}
 
 /*
  *      TTY input queue
@@ -553,8 +559,7 @@ void tty_keyboard_handler(scancode_t sc) {
 
     /* on F1-F8 : switch to tty 0-7 */
     if ((0x3b <= sc) && (sc <= 0x42)) {
-        theActiveTTY = (sc - 0x3b);
-        vcsa_switch(sc - 0x3b);
+        tty_switch(sc - 0x3b);
         return;
     }
 
