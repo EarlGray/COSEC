@@ -11,8 +11,9 @@ LUA          := 1
 
 host_os := $(shell uname)
 
+# brew install i686-elf-gcc
 ifeq ($(host_os),Darwin)
-crosscompile ?= /usr/local/gcc-4.8.1-for-linux64/bin/x86_64-pc-linux-
+crosscompile ?= i686-elf-
 endif
 
 cc      ?= $(crosscompile)gcc
@@ -135,7 +136,7 @@ init:
 
 $(build):
 	@echo "\n#### Compiling"
-	@mkdir -p $(build)
+	@mkdir -p $(build) $(top_dir)/tmp
 	@for d in $(src_dir)/* ; do \
 	    [ -d $$d ] && mkdir $(build)/$${d#$(src_dir)/} || true; \
 	done

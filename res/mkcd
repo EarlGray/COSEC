@@ -22,7 +22,7 @@ cp res/stage2_eltorito $GRUB_DIR/
 cp $BLDDIR/kernel $CD_DIR \
     || die "$BLDDIR/kernel not found"
 
-for MODULE in $BLDDIR/kernel.nm tmp/raw.lua usr/init ; do
+for MODULE in $BLDDIR/kernel.nm usr/init ; do
     cp $MODULE $CD_DIR || die "$MODULE not found"
 done
 
@@ -50,8 +50,8 @@ else
 fi
 echo "MKISO program is '$MKISO'"
 
-$MKISO -R -b boot/grub/stage2_eltorito \
-       -no-emul-boot -boot-load-size 4 \
-       -boot-info-table -o $CD_IMG $CD_DIR
+$MKISO -R -V COSEC \
+       -b boot/grub/stage2_eltorito -no-emul-boot -boot-load-size 4 -boot-info-table \
+       -o $CD_IMG $CD_DIR
 
 [ "$KEEP" ] || rm -r $CD_DIR

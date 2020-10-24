@@ -52,7 +52,7 @@ inline void move_hw_cursor(uint cursorX, uint cursorY) {
 }
 
 
-inline void print_console_debug(const char *msg) {
+static inline void print_console_debug(const char *msg) {
     char *buf = (char *)VIDEOBUF + (SCR_HEIGHT - 1) * SCR_WIDTH * 2;
     const char *s = msg;
     while (true) {
