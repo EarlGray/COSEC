@@ -370,7 +370,11 @@ void cosecd_setup(int pid) {
     task->kstack_size = KERN_STACK_SIZE;
     task->entry = kshell_run;
 
-    void *esp0 = task->kstack + task->kstack_size - 0x10;
+    /* This esp0 is pointing to the stack this function uses.
+     * It's possible to step on our own toes here.
+     * TODO: figure out a safe offset. */
+    void *esp0 = task->kstack + task->kstack_size - 0x100;
+    logmsgdf("%s: esp0 = *%x\n", __func__, esp0);
     task_kthread_init(task, task->entry, esp0);
     task->tss.cr3 = (uintptr_t)pagedir;
 
