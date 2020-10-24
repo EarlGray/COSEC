@@ -389,14 +389,36 @@ size_t strnlen(const char *s, size_t maxlen) {
     return (size_t)(c - s);
 }
 
-void* memcpy(void *dest, const void *src, size_t size) {
-    //arch_memcpy(dest, src, size);
-    index_t i = 0;
-    uint8_t *d = dest;
-    const uint8_t *s = src;
-    while (i++ < size)
-        *d++ = *s++;
+
+static inline void *memcpy_from_start(uint8_t *dest, const uint8_t *src, size_t size) {
+    for (size_t i = 0; i < size; ++i) {
+        dest[i] = src[i];
+    }
     return dest;
+}
+
+static inline void *memcpy_from_end(uint8_t *dest, const uint8_t *src, size_t size) {
+    for (size_t i = 0; i < size; ++i) {
+        dest[size - 1 - i] = src[size - 1 - i];
+    }
+    return dest;
+}
+
+void* memcpy(void *dest, const void *src, size_t size) {
+    if (dest == src)
+        return dest;
+    return memcpy_from_start(dest, src, size);
+}
+
+void* memmove(void *dst, const void *src, size_t len) {
+    if (dst == src)
+        return dst;
+
+    if ((src < dst) && (dst < src+len)) {
+        /* an overlapping case that requires backward copying */
+        return memcpy_from_end(dst, src, len);
+    }
+    return memcpy_from_start(dst, src, len);
 }
 
 void *memset(void *s, int c, size_t n) {
