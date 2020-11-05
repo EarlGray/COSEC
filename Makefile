@@ -8,6 +8,7 @@ CACHE_DIR    ?= $(top_dir)/.cache
 
 LUA          := 1
 #SECD		 := 1
+RUST		 := 1
 
 host_os := $(shell uname)
 
@@ -53,6 +54,10 @@ libsecd		:= $(build)/libsecd.o
 secdsrc		:= build/libsecd.c
 cc_flags	+= -DCOSEC_SECD=1
 endif
+ifneq ($(RUST),)
+librs		:= lib/rosec/librosec.a
+cc_flags	+= -DCOSEC_RUST=1
+endif
 
 ### for 64bit host
 cc_flags  += -m32
@@ -61,7 +66,6 @@ ld_flags  += -melf_i386
 
 kernel    := $(build)/kernel
 libkernc  := lib/c/libc0.a
-librs     := lib/rosec/librosec.a
 init      := usr/init
 
 cd_img      := cosec.iso
@@ -135,9 +139,6 @@ $(init):
 init:
 	@make CROSSCOMP=$(crosscompile) -C $(dir $(init))
 
-$(librs):
-	make -C lib/rosec
-
 $(build):
 	@echo "\n#### Compiling"
 	@mkdir -p $(build) $(top_dir)/tmp
@@ -163,7 +164,7 @@ clean: clean_kern
 	make -C lib/c clean || true
 	make -C usr/ clean || true
 
-distclean: clean clean_lua clean_secd
+distclean: clean clean_lua clean_secd clean_rust
 
 help:
 	@echo "USAGE:"; \
