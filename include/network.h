@@ -297,4 +297,6 @@ void net_neighbor_remember(struct netiface *, union ipv4_addr_t, macaddr_t);
 
 void net_neighbors_print(struct netiface *iface);
 
+void test_net_ping(union ipv4_addr_t ip);
+
 #endif  // __COSEC_NETWORK_H__

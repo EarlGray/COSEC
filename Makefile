@@ -79,7 +79,7 @@ qemu_debug  := -D tmp/qemu.log -d int,unimp,guest_errors
 ifneq ($(QEMU_TAP),)
 qemu_net    := -netdev tap,ifname=$(QEMU_TAP),id=tap0,script=no,downscript=no
 qemu_net    += -device virtio-net-pci,netdev=tap0
-#qemu_debug  += -object filter-dump,id=tap0,netdev=tap0,file=qemu.pcap
+qemu_debug  += -object filter-dump,id=tap0,netdev=tap0,file=tmp/qemu.pcap
 else
 qemu_net    := -netdev user,id=usr0
 qemu_net    += -device virtio-net-pci,netdev=usr0

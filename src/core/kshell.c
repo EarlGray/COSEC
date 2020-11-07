@@ -523,6 +523,17 @@ void kshell_net_neigh(const char *cmdline) {
     }
 }
 
+void kshell_net_ping(const struct kshell_command *cmd, const char *arg) {
+    skip_gaps(arg);
+
+    union ipv4_addr_t ip;
+    arg = get_ipv4_opt(arg, &ip);
+    returnv_err_if(!arg, "Failed to parse IP");
+
+    printf("ping %d.%d.%d.%d\n", ip.oct[0], ip.oct[1], ip.oct[2], ip.oct[3]);
+    test_net_ping(ip);
+}
+
 void kshell_io(const struct kshell_command *this, const char *arg) {
     int port = 0;
     int val = 0;
@@ -780,8 +791,9 @@ void test_net_dhcp(void);
 
 const struct kshell_subcmd  net_cmds[] = {
     { .name = "link",       .handler = kshell_net_link },
-    { .name = "dhcp",       .handler = test_net_dhcp  },
     { .name = "neigh",      .handler = kshell_net_neigh },
+    { .name = "dhcp",       .handler = test_net_dhcp  },
+    { .name = "ping",       .handler = kshell_net_ping },
     { .name = 0,            .handler = 0 }
 };
 

@@ -7,7 +7,7 @@
 #define __DEBUG
 #include <cosec/log.h>
 
-#include <attrs.h>
+#include "attrs.h"
 #include "network.h"
 #include "mem/pmem.h"
 #include "time.h"
@@ -372,7 +372,7 @@ void net_wait_udp4(struct netbuf **nbuf, uint16_t port, uint32_t timeout_s) {
 
         if (time(NULL) > endtime)
             break;
-        // TODO: timing out
+
         cpu_halt();
     }
 }
@@ -384,14 +384,12 @@ void net_wait_udp4(struct netbuf **nbuf, uint16_t port, uint32_t timeout_s) {
 /*
  *  UDP over IPv4 over Ethernet
  */
+static struct ipv4_hdr_t *
+net_buf_ipv4_init(uint8_t *frame, const union ipv4_addr_t srcaddr, const union ipv4_addr_t dstaddr) {
+    struct eth_hdr_t *eth = (struct eth_hdr_t *)frame;
+    eth->ethertype = htons(ETHERTYPE_IPV4);
 
-
-uint8_t * net_buf_udp4_init(uint8_t *frame,
-                             const union ipv4_addr_t srcaddr, uint16_t srcport,
-                             const union ipv4_addr_t dstaddr, uint16_t dstport)
-{
-    // init ipv4
-    struct ipv4_hdr_t *ipv4 = (struct ipv4_hdr_t*)(frame + sizeof(struct eth_hdr_t));
+    struct ipv4_hdr_t *ipv4 = (struct ipv4_hdr_t*)(eth + 1);
     ipv4->version = 4;
     ipv4->nwords = 5;
     ipv4->qos = 0;
@@ -400,9 +398,27 @@ uint8_t * net_buf_udp4_init(uint8_t *frame,
     ipv4->ident = 0;
     ipv4->flags = 0;
     ipv4->ttl = IPV4_DEFAULT_TTL;
-    ipv4->proto = IPV4TYPE_UDP;
+    //ipv4->proto = IPV4TYPE_UDP;
     ipv4->src.num = srcaddr.num;
     ipv4->dst.num = dstaddr.num;
+
+    return ipv4;
+}
+
+static uint16_t net_buf_ipv4_checksum(struct ipv4_hdr_t *ipv4) {
+    ipv4->checksum = 0;
+    uint16_t checksum = ones_complement_words_sum((uint8_t*)ipv4, sizeof(struct ipv4_hdr_t));
+    ipv4->checksum = htons(~checksum);
+    return checksum;
+}
+
+uint8_t * net_buf_udp4_init(uint8_t *frame,
+                             const union ipv4_addr_t srcaddr, uint16_t srcport,
+                             const union ipv4_addr_t dstaddr, uint16_t dstport)
+{
+    // init ipv4
+    struct ipv4_hdr_t *ipv4 = net_buf_ipv4_init(frame, srcaddr, dstaddr);
+    ipv4->proto = IPV4TYPE_UDP;
 
     struct udp_hdr_t *udp = (struct udp_hdr_t*)((uint8_t *)ipv4 + 4*ipv4->nwords);
     udp->src_port = htons(srcport);
@@ -441,9 +457,7 @@ size_t net_buf_udp4_checksum(uint8_t *data, size_t datalen) {
     */
 
     // ipv4 header checksum:
-    ipv4->checksum = 0;
-    checksum = ones_complement_words_sum((uint8_t*)ipv4, sizeof(struct ipv4_hdr_t));
-    ipv4->checksum = htons(~checksum);
+    net_buf_ipv4_checksum(ipv4);
 
     // init ethernet
     struct eth_hdr_t *eth = (struct eth_hdr_t *)((uint8_t *)ipv4 - sizeof(struct eth_hdr_t));
@@ -528,6 +542,37 @@ static void net_arp_receive(struct netiface *iface, struct arp_hdr *arp) {
 /*
  *  ICMP
  */
+
+uint8_t * net_buf_icmp4_init(uint8_t *frame,
+        const union ipv4_addr_t srcaddr,
+        const union ipv4_addr_t dstaddr,
+        icmp_type_t type, uint8_t code, uint32_t seq
+) {
+    struct ipv4_hdr_t * ipv4 = net_buf_ipv4_init(frame, srcaddr, dstaddr);
+    ipv4->proto = IPV4TYPE_ICMP;
+
+    struct icmp_hdr_t *icmp = (struct icmp_hdr_t *)((uint8_t *)ipv4 + 4*ipv4->nwords);
+    icmp->type = type;
+    icmp->code = code;
+    icmp->rest.data = seq;
+    icmp->checksum = 0;
+
+    return (uint8_t *)(icmp + 1);
+}
+
+size_t net_buf_icmp4_checksum(uint8_t *data, size_t datalen) {
+    struct icmp_hdr_t *icmp = (struct icmp_hdr_t *)data - 1;
+    struct ipv4_hdr_t *ipv4 = (struct ipv4_hdr_t *)icmp - 1;
+
+    icmp->checksum = 0;
+    uint16_t checksum = ones_complement_words_sum((uint8_t *)icmp, sizeof(struct icmp_hdr_t) + datalen);
+    icmp->checksum = htons(~checksum);
+
+    ipv4->iplen = htons(sizeof(struct ipv4_hdr_t) + sizeof(struct icmp_hdr_t) + datalen);;
+    net_buf_ipv4_checksum(ipv4);
+    return sizeof(struct eth_hdr_t) + 4 * ipv4->nwords + sizeof(struct icmp_hdr_t) + datalen;
+}
+
 static void net_icmp_receive(struct netiface *iface, uint8_t *frame) {
     struct eth_hdr_t *eth = (struct eth_hdr_t*)frame;
     struct ipv4_hdr_t *ip = (struct ipv4_hdr_t*)(frame + sizeof(struct eth_hdr_t));
@@ -536,54 +581,57 @@ static void net_icmp_receive(struct netiface *iface, uint8_t *frame) {
 
     if (icmp->type == ICMP_ECHO_REQUEST) {
         assertv(icmp->code == 0, "%s: ICMP echo request has code %d\n", icmp->type);
-
         /* TODO: stash MAC into ARP cache */
 
         /* reply */
-        uint16_t ethlen = sizeof(struct eth_hdr_t);
-        uint8_t *rframe = iface->transmit_frame_alloc();
-        returnv_err_if(!rframe, "Failed to allocate frame");
+        uint8_t *reply = iface->transmit_frame_alloc();
+        returnv_err_if(!reply, "Failed to allocate frame");
 
-        struct eth_hdr_t *reth = (struct eth_hdr_t*)rframe;
-        reth->ethertype = htons(ETHERTYPE_IPV4);
-        memcpy(reth->dst, eth->src, ETH_ALEN);
-        memcpy(reth->src, iface->get_mac().oct, ETH_ALEN);
+        uint32_t seq = icmp->rest.data;
+        uint8_t *data = net_buf_icmp4_init(reply, iface->ip_addr, ip->src, ICMP_ECHO_REPLY, 0, seq);
 
-        struct ipv4_hdr_t *rip = (struct ipv4_hdr_t*)(rframe + sizeof(struct eth_hdr_t));
-        rip->version = 4; rip->nwords = 5; rip->qos = 0;
-        rip->ident = 0; rip->flags = 0; rip->ttl = IPV4_DEFAULT_TTL;
-        rip->proto = IPV4TYPE_ICMP;
-        rip->src.num = iface->ip_addr.num;
-        rip->dst.num = ip->src.num;
-        rip->iplen = ip->iplen; rip->checksum = 0;
-
-        struct icmp_hdr_t *ricmp = (struct icmp_hdr_t*)((uint8_t*)rip + 4*rip->nwords);
-        ricmp->type = ICMP_ECHO_REPLY; ricmp->code = 0;
-        ricmp->rest.data = icmp->rest.data;
-
-        uint8_t *rpayload = (uint8_t *)ricmp + sizeof(struct icmp_hdr_t);
         uint16_t datalen = ntohs(ip->iplen);
-        ethlen += datalen;
-        datalen -= 4*ip->nwords - sizeof(struct icmp_hdr_t);
-        memcpy(rpayload, payload, datalen);
+        datalen -= 4*ip->nwords + sizeof(struct icmp_hdr_t);
 
-        uint16_t checksum;
-        /* ICMP checksum */
-        ricmp->checksum = 0;
-        checksum = ones_complement_words_sum((uint8_t*)ricmp, sizeof(struct icmp_hdr_t) + datalen);
-        ricmp->checksum = htons(~checksum);
+        memcpy(data, payload, datalen);
 
-        /* IP checksum */
-        rip->checksum = 0;
-        checksum = ones_complement_words_sum((uint8_t*)rip, sizeof(struct ipv4_hdr_t));
-        rip->checksum = htons(~checksum);
-
-        int ret = net_transmit_frame(iface, rframe, ethlen);
+        size_t ethlen = net_buf_icmp4_checksum(data, datalen);
+        int ret = net_transmit_frame(iface, reply, ethlen);
         returnv_msg_if(ret, "%s: failed to reply (%d)\n", ret);
+        return;
+    } else if (icmp->type == ICMP_ECHO_REPLY) {
+        logmsgif("ICMP ECHO REPLY from %d.%d.%d.%d [seq=0x%x]",
+                ip->src.oct[0], ip->src.oct[1], ip->src.oct[2], ip->src.oct[3],
+                icmp->rest.data);
+        // TODO: signal about this somehow.
         return;
     }
 
     lognetf("%s: ICMP type %d, dropping\n", __func__, icmp->type);
+}
+
+
+void test_net_ping(union ipv4_addr_t ip) {
+    uint32_t seq = 0;
+    struct netiface * iface;
+    uint8_t *frame = NULL;
+
+    iface = net_interface_for_destination(&ip);
+    returnv_err_if(!iface, "No interface for %d.%d.%d.%d",
+                    ip.oct[0], ip.oct[1], ip.oct[2], ip.oct[3]);
+
+    /* Send ECHO REQUEST */
+    frame = iface->transmit_frame_alloc();
+    returnv_err_if(!frame, "Failed to allocate frame");
+
+    uint8_t *data = net_buf_icmp4_init(frame, iface->ip_addr, ip, ICMP_ECHO_REQUEST, 0, seq);
+
+    const char *msg = "Hello from COSEC!";
+    size_t datalen = strlen(msg)+1;
+    memcpy(data, msg, datalen);
+
+    size_t ethlen = net_buf_icmp4_checksum(data, datalen);
+    net_transmit_frame(iface, frame, ethlen);
 }
 
 
