@@ -10,33 +10,36 @@
 
 
 int sys_mount(mount_info_t *mnt) {
+    logmsgdf("%s(*%x)\n", __func__, mnt);
     return ETODO; //vfs_mount(mnt->source, mnt->target, mnt->fstype);
 }
 
 int sys_mkdir(const char *pathname, mode_t mode) {
+    logmsgdf("%s('%s', 0x%x)\n", __func__, pathname, mode);
     /* TODO : check for absolute path, make abspath if needed */
     return vfs_mkdir(pathname, mode);
 }
 
 int sys_lsdir(const char *pathname, struct cosec_dirent *dirs, size_t count) {
+    logmsgdf("%s('%s')\n", __func__, pathname);
     return ETODO;
 }
 
 int sys_open(const char *pathname, int flags) {
-    const char *funcname = __FUNCTION__;
+    logmsgdf("%s('%s', 0x%x)\n", __func__, pathname, flags);
     int ret;
 
     /* validate flags */
     int rw = flags & (O_RDWR | O_RDONLY | O_WRONLY);
     if (!rw) {
-        logmsgdf("%s: no O_RDWR | O_RDONLY | O_WRONLY set\n", funcname);
+        logmsgdf("%s: no O_RDWR | O_RDONLY | O_WRONLY set\n", __func__);
         return -EINVAL;
     }
     if (  ((rw & O_RDWR)   && (rw & ~O_RDWR))
        || ((rw & O_RDONLY) && (rw & ~O_RDONLY))
        || ((rw & O_WRONLY) && (rw & ~O_WRONLY)))
     {
-        logmsgdf("%s: only one of O_RDWR | O_RDONLY | O_WRONLY may be set\n", funcname);
+        logmsgdf("%s: only one of O_RDWR | O_RDONLY | O_WRONLY may be set\n", __func__);
         return -EINVAL;
     }
 
@@ -60,13 +63,13 @@ int sys_open(const char *pathname, int flags) {
     /* get process info */
     pid_t pid = current_pid();
     process *p = current_proc();
-    return_err_if(!p, -EKERN, "%s: no current pid", funcname);
+    return_err_if(!p, -EKERN, "%s: no current pid", __func__);
 
     /* TODO: protect with mutex till the end of function */
     int fd = alloc_fd_for_pid(pid); /* does not actually alloc, just gets a free fd */
     return_dbg_if(fd < 0, -EMFILE,
-            "%s; pid=%d fds exhausted\n", funcname, pid);
-    logmsgdf("%s: fd=%d\n", funcname, fd);
+            "%s; pid=%d fds exhausted\n", __func__, pid);
+    logmsgdf("%s: fd=%d\n", __func__, fd);
 
     filedescr *filedes = get_filedescr_for_pid(pid, fd);
 
@@ -76,11 +79,11 @@ int sys_open(const char *pathname, int flags) {
     if ((ino == 0) && (flags & O_CREAT)) {
         /* create a regular file */
         ret = vfs_mknod(pathname, S_IFREG | p->ps_umask, 0);
-        return_dbg_if(ret, -ret, "%s: vfs_mknod failed(%d)\n", funcname, ret);
+        return_dbg_if(ret, -ret, "%s: vfs_mknod failed(%d)\n", __func__, ret);
 
         ret = vfs_lookup(pathname, &sb, &ino);
         return_err_if(ret, -EKERN,
-                "%s: cannot find ino for created path='%s'\n", funcname, pathname);
+                "%s: cannot find ino for created path='%s'\n", __func__, pathname);
     }
 
     /* update the inode */
@@ -117,21 +120,21 @@ int sys_open(const char *pathname, int flags) {
 }
 
 int sys_read(int fd, void *buf, size_t count) {
-    const char *funcname = __FUNCTION__;
+    logmsgdf("%s(%d, *%x, %d)\n", __func__, fd, buf, count);
     int ret;
     size_t nread = 0;
 
     process *p = current_proc();
-    return_err_if(!p, -EKERN, "%s: no current pid", funcname);
+    return_err_if(!p, -EKERN, "%s: no current pid", __func__);
 
     return_dbg_if(!((0 <= fd) && (fd < N_PROCESS_FDS)), -EINVAL,
             "%s(fd=%d): EINVAL\n", fd);
 
     filedescr *filedes = p->ps_fds + fd;
     return_dbg_if(!filedes, -EBADF,
-            "%s(fd=%d): EBADF\n", funcname, fd);
+            "%s(fd=%d): EBADF\n", __func__, fd);
     return_dbg_if(filedes->fd_flags & O_WRONLY, -EBADF,
-            "%s(fd=%d): write-only, EBADF\n", funcname, fd);
+            "%s(fd=%d): write-only, EBADF\n", __func__, fd);
 
     /* TODO: check if fd is writable */
     ret = vfs_inode_read(filedes->fd_sb, filedes->fd_ino, filedes->fd_pos,
@@ -145,21 +148,21 @@ int sys_read(int fd, void *buf, size_t count) {
 }
 
 int sys_write(int fd, const void *buf, size_t count) {
-    const char *funcname = __FUNCTION__;
+    logmsgdf("%s(%d, *%x, %d)\n", __func__, fd, buf, count);
     int ret;
     size_t nwritten = 0;
 
     process *p = current_proc();
-    return_err_if(!p, -EKERN, "%s: no current pid", funcname);
+    return_err_if(!p, -EKERN, "%s: no current pid", __func__);
 
     return_dbg_if(!((0 <= fd) && (fd < N_PROCESS_FDS)), -EINVAL,
             "%s(fd=%d): EINVAL\n", fd);
 
     filedescr *filedes = p->ps_fds + fd;
     return_dbg_if(!filedes, -EBADF,
-            "%s(fd=%d): EBADF\n", funcname, fd);
+            "%s(fd=%d): EBADF\n", __func__, fd);
     return_dbg_if(filedes->fd_flags & O_RDONLY, -EBADF,
-            "%s(fd=%d): O_RDONLY, EBADF\n", funcname, fd);
+            "%s(fd=%d): O_RDONLY, EBADF\n", __func__, fd);
 
     ret = vfs_inode_write(filedes->fd_sb, filedes->fd_ino, filedes->fd_pos,
                 buf, count, &nwritten);
@@ -172,17 +175,17 @@ int sys_write(int fd, const void *buf, size_t count) {
 }
 
 int sys_close(int fd) {
-    const char *funcname = __FUNCTION__;
+    logmsgdf("%s(%d)\n", __func__, fd);
     int ret;
 
     pid_t pid = current_pid();
 
     filedescr *filedes = get_filedescr_for_pid(pid, fd);
-    return_dbg_if(!filedes, EBADF, "%s: EBADF fd=%d\n", funcname, fd);
+    return_dbg_if(!filedes, EBADF, "%s: EBADF fd=%d\n", __func__, fd);
 
     struct inode idata;
     ret = vfs_inode_get(filedes->fd_sb, filedes->fd_ino, &idata);
-    return_dbg_if(ret, ret, "%s: inode_get failed(%d)\n", funcname, ret);
+    return_dbg_if(ret, ret, "%s: inode_get failed(%d)\n", __func__, ret);
 
     --idata.i_nfds;
     /* inode may be deleted if i_nfds == 0 and i_nlinks == 0 */
@@ -194,20 +197,20 @@ int sys_close(int fd) {
 
 /* @returns negative error if error or the new offset */
 off_t sys_lseek(int fd, off_t offset, int whence) {
-    const char *funcname = __FUNCTION__;
+    logmsgdf("%s(%d, %d, %d)\n", __func__, fd, offset, whence);
     int ret;
 
     filedescr *fildes = get_filedescr_for_pid(current_pid(), fd);
     return_dbg_if(!fildes, -EBADF,
-            "%s(fd=%d): EBADF\n", funcname, fd);
+            "%s(fd=%d): EBADF\n", __func__, fd);
     return_dbg_if(0 == fildes->fd_ino, -EBADF,
-            "%s(fd=%d): fd_ino=0, EBADF\n", funcname, fd, fildes->fd_ino);
+            "%s(fd=%d): fd_ino=0, EBADF\n", __func__, fd, fildes->fd_ino);
     return_dbg_if(fildes->fd_pos < 0, -ESPIPE,
-            "%s(fd=%d): fd_pos < 0, ESPIPE\n", funcname, fd);
+            "%s(fd=%d): fd_pos < 0, ESPIPE\n", __func__, fd);
 
     struct inode idata;
     ret = vfs_inode_get(fildes->fd_sb, fildes->fd_ino, &idata);
-    return_dbg_if(ret, -ret, "%s: inode_get failed(%d)\n", funcname, ret);
+    return_dbg_if(ret, -ret, "%s: inode_get failed(%d)\n", __func__, ret);
 
     device *dev;
     switch (idata.i_mode & S_IFMT) {
@@ -217,9 +220,9 @@ off_t sys_lseek(int fd, off_t offset, int whence) {
         return -EISDIR;
       case S_IFCHR:
         dev = device_by_devno(DEV_CHR, inode_devno(&idata));
-        return_dbg_if(!dev, -ENXIO, "%s: ENODEV\n", funcname);
+        return_dbg_if(!dev, -ENXIO, "%s: ENODEV\n", __func__);
         return_dbg_if(dev->dev_ops->dev_has_data, -ESPIPE,
-                    "%s(fd=%d): device is not seekable\n", funcname, fd);
+                    "%s(fd=%d): device is not seekable\n", __func__, fd);
         break;
     }
 
@@ -247,14 +250,17 @@ off_t sys_lseek(int fd, off_t offset, int whence) {
 }
 
 int sys_ftruncate(int fd, off_t length) {
+    logmsgdf("%s(%d, %d)\n", __func__, fd, length);
     /* TODO */
     return ETODO;
 }
 
 int sys_unlink(const char *path) {
+    logmsgdf("%s('%s')\n", __func__, path);
     return vfs_unlink(path);
 }
 
 int sys_rename(const char *oldpath, const char *newpath) {
+    logmsgdf("%s('%s', '%s')\n", __func__, oldpath, newpath);
     return vfs_rename(oldpath, newpath);
 }
