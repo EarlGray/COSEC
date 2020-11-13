@@ -305,7 +305,7 @@ static int lua_modinit(
     return 0;
 }
 
-void kshell_lua_test(void) {
+void lua_shell(void) {
     const char *prompt = "lua> ";
     char cmd_buf[CMD_SIZE];
     lua_State *lua;
@@ -323,11 +323,16 @@ void kshell_lua_test(void) {
     lua_modinit(lua, "sys", luamod_sys);
     luaL_openlibs(lua);
 
-    const char *custom = "dir = function(t) for k, v in pairs(t) do print(k, v) end end";
+    const char *custom = "_ENV['dir'] = function(t) for k, v in pairs(t) do print(k, v) end end";
     int err = luaL_loadbuffer(lua, custom, strlen(custom), "<cosec>");
-    if (err) {
+    if (err != LUA_OK) {
         logmsgef("### Error: %s\n", lua_tostring(lua, -1));
         lua_pop(lua, 1);
+    } else {
+        if ((err = lua_pcall(lua, 0, 0, 0)) != LUA_OK) {
+            fprintf(stderr, "### Exception: %s\n", lua_tostring(lua, -1));
+            lua_pop(lua, 1);
+        }
     }
 
     for (;;) {
@@ -338,14 +343,15 @@ void kshell_lua_test(void) {
             break;
 
         int err = luaL_loadbuffer(lua, cmd_buf, strlen(cmd_buf), "*input*");
-        if (err == LUA_OK) {
-            err = lua_pcall(lua, 0, 0, 0);
-            if (err != LUA_OK) {
-                fprintf(stderr, "### Exception: %s\n", lua_tostring(lua, -1));
-                lua_pop(lua, 1);
-            }
-        } else {
+        if (err != LUA_OK) {
             fprintf(stderr, "### Error: %s\n", luaL_checkstring(lua, -1));
+            continue;
+        }
+
+        err = lua_pcall(lua, 0, 0, 0);
+        if (err != LUA_OK) {
+            fprintf(stderr, "### Exception: %s\n", lua_tostring(lua, -1));
+            lua_pop(lua, 1);
         }
     }
 
@@ -356,7 +362,7 @@ void kshell_lua_test(void) {
 void kshell_lua() {
     int ret = exitpoint();
     if (ret == EXITENV_EXITPOINT) {
-        kshell_lua_test();
+        lua_shell();
     } else {
         logmsgif("... exit code %d", ret);
     }
