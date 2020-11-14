@@ -58,6 +58,12 @@ inline int sys_ftruncate(int fd, off_t length) {
     return __syscall2(SYS_TRUNC, fd, length);
 }
 
+inline time_t sys_time(time_t *tloc) {
+    int32_t epoch = __syscall0(SYS_TIME);
+    if (tloc) *tloc = (time_t)epoch;
+    return (time_t)epoch;
+}
+
 // inline int sys_symlink(const char *oldpath, const char *newpath) { return syscall(SYS_
 // inline char *sys_pwd(char *buf) { return (char *)syscall() };
 // inline int sys_lsdir(const char *pathname, struct cosec_dirent *dirs, count_t count);
@@ -85,4 +91,16 @@ void *krealloc(void *ptr, size_t size) {
 void panic(const char *msg) {
     fprintf(stderr, "FATAL: %s\n", msg);
     abort();
+}
+
+/*
+ *  Time
+ */
+clock_t clock(void) {
+    fprintf(stderr, "%s: TODO\n", __func__);
+    return -1;
+}
+
+inline time_t time(time_t *tloc) {
+    return sys_time(tloc);
 }

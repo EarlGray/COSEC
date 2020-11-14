@@ -25,6 +25,11 @@ static void print_welcome(void) {
     k_printf("\t\t\t<<<<< Welcome to COSEC >>>>>\n\n");
 }
 
+// libc thinks it's absolutely must-have.
+void main() {
+    panic("main()");
+}
+
 void kinit(uint32_t magic, struct multiboot_info *mbi) {
     if (magic != MULTIBOOT_BOOTLOADER_MAGIC) {
         k_printf("invalid boot\n\n");
@@ -51,7 +56,9 @@ void kinit(uint32_t magic, struct multiboot_info *mbi) {
     intrs_enable();
     pci_setup();
 
+#ifdef COSEC_RUST
     hello_rust();
+#endif
     proc_setup();
     panic("kinit: an unreachable point");
 }

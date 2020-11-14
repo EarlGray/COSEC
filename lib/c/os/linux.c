@@ -2,10 +2,13 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <signal.h>
+#include <time.h>
+
 
 #define SYSCALL_NO_TLS  1
 #include <linux/unistd_i386.h>
 #include <linux/syscall_i386.h>
+#include <linux/times.h>
 
 void exit(int status) {
     __syscall1(__NR_exit, status);
@@ -53,7 +56,27 @@ int sys_unlink(const char *pathname) {
 int sys_kill(pid_t pid, int sig) {
     return __syscall2(__NR_kill, pid, sig);
 }
+clock_t sys_times(struct tms *tms) {
+    return __syscall1(__NR_times, (intptr_t)tms);
+}
 
+/*
+ *  Time
+ */
+inline time_t time(time_t *tloc) {
+    int32_t epoch = __syscall0(__NR_time);
+    if (tloc) *tloc = (time_t)epoch;
+    return (time_t)epoch;
+}
+
+clock_t clock() {
+    struct tms tms;
+    return sys_times(&tms);
+}
+
+/*
+ *  Memory
+ */
 void *kmalloc(size_t size) {
     fprintf(stderr, "%s: TODO\n", __func__);
     return NULL;

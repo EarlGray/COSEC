@@ -8,7 +8,7 @@ CACHE_DIR    ?= $(top_dir)/.cache
 
 LUA          := 1
 #SECD		 := 1
-RUST		 := 1
+#RUST		 := 1
 
 host_os := $(shell uname)
 

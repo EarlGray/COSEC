@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <setjmp.h>
+#include <time.h>
 
 #include <cosec/log.h>
 #include <machine/setjmp.h>
@@ -51,10 +52,6 @@ void abort(void) {
     longjmp(theExitInfo.exit_env, EXITENV_ABORTED);
 }
 
-int setjmp(jmp_buf env) {
-    return i386_setjmp(env);
-}
-
-void longjmp(jmp_buf env, int val) {
-    i386_longjmp(env, val);
+clock_t clock() {
+    return (clock_t)-1;
 }

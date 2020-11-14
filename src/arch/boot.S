@@ -9,9 +9,6 @@
 #define CR4_PSE     0x00000010
 #define CR4_PGE     0x00000080
 
-.globl _start
-.globl start
-
 .text
 jmp_start:
     jmp multiboot_entry
@@ -29,6 +26,7 @@ multiboot_header:
     .long multiboot_entry
 #endif
 
+.globl start, _start
 start:
 _start:
 multiboot_entry:

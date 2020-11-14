@@ -637,3 +637,12 @@ char *getenv(const char *name) {
     logmsgf("TODO: getenv('%s')\n", name);
     return NULL;
 }
+
+
+int setjmp(jmp_buf env) {
+    return i386_setjmp(env);
+}
+
+void longjmp(jmp_buf env, int val) {
+    i386_longjmp(env, val);
+}

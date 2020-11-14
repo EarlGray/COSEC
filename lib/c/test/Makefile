@@ -15,6 +15,9 @@ LDFLAGS  += -ffreestanding -nostdlib -static -fno-pie $(LIBC)
 
 .PHONY: clean
 
+lua: ../../liblua.a $(LIBC) lua.c
+	$(CC) lua.c ../../liblua.a -o $@ -I../../../include $(CFLAGS) $(LDFLAGS)
+
 %: %.c $(LIBC)
 	$(CC) $< -o $@ $(CFLAGS) $(LDFLAGS)
 

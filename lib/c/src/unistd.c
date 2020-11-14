@@ -1,6 +1,8 @@
-#include "cosec/syscall.h"
-#include <unistd.h>
+#include <stdbool.h>
+#include <stdint.h>
 #include <signal.h>
+#include <time.h>
+#include <unistd.h>
 
 #include <cosec/sys.h>
 
