@@ -10,6 +10,10 @@ CFLAGS   += -m32 -nostdinc -static -fno-pic
 CFLAGS   += -isystem ../include
 CFLAGS   += -DLINUX=1
 
+ifneq ($(DEBUG),)
+CFLAGS   += -g
+endif
+
 LDFLAGS  += -ffreestanding -nostdlib -static -fno-pie $(LIBC)
 
 

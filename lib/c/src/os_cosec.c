@@ -1,3 +1,5 @@
+#if COSEC
+
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -9,10 +11,6 @@
 /*
  *  Syscalls
  */
-inline void exit(int status) {
-    __syscall1(SYS_EXIT, status);
-}
-
 inline int sys_getpid(void) {
 	return __syscall0(SYS_GETPID);
 }
@@ -68,6 +66,25 @@ inline time_t sys_time(time_t *tloc) {
 // inline char *sys_pwd(char *buf) { return (char *)syscall() };
 // inline int sys_lsdir(const char *pathname, struct cosec_dirent *dirs, count_t count);
 
+/*
+ *  Process lifecycle
+ */
+void _init(void *stack) {
+    (void)stack;
+}
+
+void _exit(int status)  {
+    __syscall1(SYS_EXIT, status);
+}
+
+inline void exit(int status) {
+    __syscall1(SYS_EXIT, status);
+}
+
+void panic(const char *msg) {
+    fprintf(stderr, "FATAL: %s\n", msg);
+    abort();
+}
 
 /*
  *  Memory management
@@ -88,10 +105,9 @@ void *krealloc(void *ptr, size_t size) {
     return NULL;
 }
 
-void panic(const char *msg) {
-    fprintf(stderr, "FATAL: %s\n", msg);
-    abort();
-}
+// TODO: sbrk
+// TODO: initialize heap
+
 
 /*
  *  Time
@@ -104,3 +120,5 @@ clock_t clock(void) {
 inline time_t time(time_t *tloc) {
     return sys_time(tloc);
 }
+
+#endif // COSEC

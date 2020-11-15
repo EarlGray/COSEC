@@ -1,3 +1,5 @@
+#if LINUX
+
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -12,8 +14,10 @@
 #include <linux/times.h>
 
 #include <bits/libc.h>
+#include <bits/alloc_firstfit.h>
 
 static void *theHeapEnd = NULL;
+static void *theHeap = NULL;
 
 void exit(int status) {
     __syscall1(__NR_exit, status);
@@ -67,13 +71,8 @@ clock_t sys_times(struct tms *tms) {
 intptr_t sys_brk(void *addr) {
     return __syscall1(__NR_brk, (intptr_t)addr);
 }
-
-/*
- *  Process
- */
-void panic(const char *msg) {
-    fprintf(stderr, "FATAL: %s\n", msg);
-    abort();
+void sys_exit(int status) {
+    __syscall1(__NR_exit, status);
 }
 
 /*
@@ -93,33 +92,44 @@ clock_t clock() {
 /*
  *  Memory
  */
-void *kmalloc(size_t size) {
-    fprintf(stderr, "%s: TODO\n", __func__);
-    return NULL;
-}
+static inline void * heap_init() {
+    const int pagesize = sysconf(_SC_PAGESIZE);
+    const size_t initsize = pagesize * 160;    // 640 KB
 
-int kfree(void *ptr) {
-    fprintf(stderr, "%s: TODO\n", __func__);
-    return 0;
-}
-
-void *krealloc(void *ptr, size_t size) {
-    (void)size;
-    fprintf(stderr, "%s: TODO\n", __func__);
-    return NULL;
-}
-
-void *sbrk(intptr_t increment) {
     /* lazy init */
     if (!theHeapEnd) {
         const size_t pagesize = sysconf(_SC_PAGESIZE);
-        uintptr_t p = (uintptr_t)&_end;
+        uintptr_t p = (uintptr_t)sys_brk((void *)&_end);
         if (p & (pagesize - 1)) {
             // move to the next page
             p = (p & ~(pagesize - 1)) + pagesize;
         }
         theHeapEnd = (void *)p;
     }
+
+    void *heap_start = sbrk(initsize);
+    if (!heap_start) panic("Failed to allocate heap");
+
+    return firstfit_new(heap_start, initsize);
+}
+
+inline void *kmalloc(size_t size) {
+    struct firstfit_allocator *heap = theHeap;
+    return firstfit_malloc(heap, size);
+}
+
+inline int kfree(void *ptr) {
+    struct firstfit_allocator *heap = theHeap;
+    firstfit_free(heap, ptr);
+    return 0;
+}
+
+inline void *krealloc(void *ptr, size_t size) {
+    struct firstfit_allocator *heap = theHeap;
+    return firstfit_realloc(heap, ptr, size);
+}
+
+void *sbrk(intptr_t increment) {
 
     /* is this just a request about the heap end? */
     if (increment == 0)
@@ -134,3 +144,27 @@ void *sbrk(intptr_t increment) {
     theHeapEnd = newbrk;
     return oldbrk;
 }
+
+
+/*
+ *  Process
+ */
+void _init(void *stack) {
+    // TODO: find argv
+    // TODO: find environ
+    // TODO: find auxv
+
+    theHeap = heap_init();
+}
+
+void _exit(int status) {
+    sys_exit(status);
+}
+
+void panic(const char *msg) {
+    fprintf(stderr, "FATAL: %s\n", msg);
+    abort();
+}
+
+
+#endif  // LINUX

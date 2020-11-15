@@ -202,9 +202,10 @@ int fprintf(FILE *stream, const char *format, ...) {
 }
 
 int vfprintf(FILE *stream, const char *format, va_list ap) {
-    logmsgdf("vsprintf(fd=%d, '%s', ...)\n", stream->file_fd, format);
+    logmsgdf("%s(fd=%d, '%s', ...)\n", __func__, stream->file_fd, format);
     int ret = 0;
 
+    /* TODO: this is so very ugly, make this better */
     int bufsize = 64;
     char *buf = malloc(bufsize);
     while (1) {

@@ -17,10 +17,6 @@ void *realloc(void *ptr, size_t size);
 
 void free(void *ptr);
 
-
-void *kmalloc(size_t);
-int kfree(void *);
-
 int abs(int i);
 int atoi(const char *nptr);
 double strtod(const char *nptr, char **endptr);

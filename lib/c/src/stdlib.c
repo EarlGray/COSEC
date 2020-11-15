@@ -1,6 +1,5 @@
 #include <stdlib.h>
 #include <stdio.h>
-
 #include <string.h>
 #include <stdbool.h>
 #include <ctype.h>
@@ -13,6 +12,8 @@
 #include <machine/setjmp.h>
 
 #include <cosec/log.h>
+
+#include <bits/libc.h>
 
 // TODO: kernel/userspace ambiguity
 extern void *krealloc(void *p, size_t size);
@@ -631,9 +632,11 @@ int system(const char *command) {
 }
 
 char *getenv(const char *name) {
+#if COSEC_KERN
     if (!strcmp(name, "UNAME")) {
         return "COSEC";
     }
+#endif
     logmsgf("TODO: getenv('%s')\n", name);
     return NULL;
 }

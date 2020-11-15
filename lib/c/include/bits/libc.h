@@ -5,6 +5,12 @@
 
 #define UKNERR_BUF_LEN 40
 
+void *kmalloc(size_t);
+void *krealloc(void *ptr, size_t size);
+int kfree(void *);
+
+void panic(const char *msg);
+
 /* TODO: gather all the mutable state here */
 struct libc {
     int errno;
