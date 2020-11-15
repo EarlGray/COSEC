@@ -6,7 +6,7 @@
 static inline
 int syscall(int num, intptr_t arg1, intptr_t arg2, intptr_t arg3) {
     int ret;
-    asm("int $0x80  \n"
+    asm volatile ("int $0x80  \n"
         :"=a"(ret)
         :"a"(num), "c"(arg1), "d"(arg2), "b"(arg3)
         :"memory");
