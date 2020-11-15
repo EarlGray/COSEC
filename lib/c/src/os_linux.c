@@ -149,10 +149,24 @@ void *sbrk(intptr_t increment) {
 /*
  *  Process
  */
+struct auxval { int key, value; };
+
+char **environ;
+static struct auxval *auxv;
+
 void _init(void *stack) {
-    // TODO: find argv
-    // TODO: find environ
-    // TODO: find auxv
+    // argc at stack[0]
+    int *p = stack + 1;
+
+    // skip argv
+    while (*p) ++p;
+    ++p;
+    environ = (char **)p;
+
+    // skip environ
+    while (*p) ++p;
+    ++p;
+    auxv = (struct auxval *)p;
 
     theHeap = heap_init();
 }
