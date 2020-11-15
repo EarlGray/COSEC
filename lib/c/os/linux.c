@@ -2,13 +2,18 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <signal.h>
+#include <sys/errno.h>
 #include <time.h>
-
+#include <unistd.h>
 
 #define SYSCALL_NO_TLS  1
 #include <linux/unistd_i386.h>
 #include <linux/syscall_i386.h>
 #include <linux/times.h>
+
+#include <bits/libc.h>
+
+static void *theHeapEnd = NULL;
 
 void exit(int status) {
     __syscall1(__NR_exit, status);
@@ -59,6 +64,17 @@ int sys_kill(pid_t pid, int sig) {
 clock_t sys_times(struct tms *tms) {
     return __syscall1(__NR_times, (intptr_t)tms);
 }
+intptr_t sys_brk(void *addr) {
+    return __syscall1(__NR_brk, (intptr_t)addr);
+}
+
+/*
+ *  Process
+ */
+void panic(const char *msg) {
+    fprintf(stderr, "FATAL: %s\n", msg);
+    abort();
+}
 
 /*
  *  Time
@@ -93,7 +109,28 @@ void *krealloc(void *ptr, size_t size) {
     return NULL;
 }
 
-void panic(const char *msg) {
-    fprintf(stderr, "FATAL: %s\n", msg);
-    abort();
+void *sbrk(intptr_t increment) {
+    /* lazy init */
+    if (!theHeapEnd) {
+        const size_t pagesize = sysconf(_SC_PAGESIZE);
+        uintptr_t p = (uintptr_t)&_end;
+        if (p & (pagesize - 1)) {
+            // move to the next page
+            p = (p & ~(pagesize - 1)) + pagesize;
+        }
+        theHeapEnd = (void *)p;
+    }
+
+    /* is this just a request about the heap end? */
+    if (increment == 0)
+        return theHeapEnd;
+
+    void *oldbrk = theHeapEnd;
+    void *newbrk = (void *)sys_brk(oldbrk + increment);
+    if (newbrk < oldbrk + increment) {
+        theErrNo = ENOMEM;
+        return (void *)-1;
+    }
+    theHeapEnd = newbrk;
+    return oldbrk;
 }

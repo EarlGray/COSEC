@@ -3,8 +3,21 @@
 #include <signal.h>
 #include <time.h>
 #include <unistd.h>
+#include <sys/errno.h>
 
 #include <cosec/sys.h>
+
+#include <bits/libc.h>
+
+inline long sysconf(int name) {
+    switch (name) {
+    case _SC_PAGESIZE:
+        return 0x1000; // TODO: unify with include/conf.h
+    default:
+        theErrNo = EINVAL;
+        return -1;
+    }
+}
 
 ssize_t write(int fd, const void *buf, size_t count) {
     return sys_write(fd, buf, count);

@@ -19,4 +19,18 @@ ssize_t write(int fd, const void *buf, size_t count);
 
 pid_t getpid(void);
 
+void *sbrk(intptr_t increment);
+
+
+enum sysconf_name {
+    _SC_NULL,
+    _SC_PAGESIZE,
+};
+
+#define _SC_PAGESIZE    _SC_PAGESIZE
+#define PAGESIZE        _SC_PAGESIZE
+#define PAGE_SIZE       _SC_PAGESIZE
+
+long sysconf(int name);
+
 #endif //__CSCLIBC_UNISTD_H__
