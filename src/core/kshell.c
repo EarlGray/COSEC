@@ -601,11 +601,13 @@ void kshell_mem(const struct kshell_command *this, const char *arg) {
 
 
 void test_strs(void);
+void test_vga(const char *);
 const struct kshell_subcmd  test_cmds[] = {
     { .name = "sprintf", .handler = test_sprintf    },
     { .name = "timer",   .handler = test_timer,     },
     { .name = "serial",  .handler = test_serial,    },
     { .name = "kbd",     .handler = test_kbd,       },
+    { .name = "vga",     .handler = test_vga,       },
     { .name = "tasks",   .handler = test_tasks,     },
     { .name = "ring3",   .handler = test_userspace, },
     { .name = "usleep",  .handler = test_usleep,    },

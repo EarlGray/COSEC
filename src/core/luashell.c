@@ -72,6 +72,37 @@ int syslua_outb(lua_State *L) {
     return 0;
 }
 
+int syslua_inw(lua_State *L) {
+    const char *funcname = __FUNCTION__;
+    int argc = lua_gettop(L);
+    if (argc < 1)
+        LUA_ERROR(L, "expected a port to read from");
+    if (!lua_isnumber(L, 1))
+        LUA_ERROR(L, "port number is not a number");
+
+    uint16_t port = (uint16_t)lua_tonumber(L, 1);
+    uint16_t val = 0;
+    inw(port, val);
+    lua_pushnumber(L, val);
+    logmsgdf("%s(%d) -> %d\n", funcname, (int)port, (int)val);
+    return 1; /* 1 result */
+}
+
+int syslua_outw(lua_State *L) {
+    const char *funcname = __FUNCTION__;
+    int argc = lua_gettop(L);
+    if (argc != 2)
+        LUA_ERROR(L, "arguments must be <port> and <val>");
+    if (!lua_isnumber(L, 1) || !lua_isnumber(L, 2))
+        LUA_ERROR(L, "arguments must be numbers");
+
+    uint16_t port = (uint16_t)lua_tonumber(L, 1);
+    uint16_t  val = (uint16_t)lua_tonumber(L, 2);
+    outb(port, val);
+    logmsgdf("%s(%d, %d)\n", funcname, (int)port, (int)val);
+    return 0;
+}
+
 int syslua_symaddr(lua_State *L) {
     const char *funcname = __FUNCTION__;
     int argc = lua_gettop(L);
@@ -275,6 +306,8 @@ const struct luamod_entry luamod_sys[] = {
     { .fname = "meml",      .fptr = syslua_meml     },
     { .fname = "inb",       .fptr = syslua_inb      },
     { .fname = "outb",      .fptr = syslua_outb     },
+    { .fname = "inw",       .fptr = syslua_inw      },
+    { .fname = "outw",      .fptr = syslua_outw     },
     { .fname = "msr",       .fptr = syslua_msr      },
     { .fname = "cpuid",     .fptr = syslua_cpuid    },
     { .fname = "symaddr",   .fptr = syslua_symaddr  },

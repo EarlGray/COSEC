@@ -42,7 +42,7 @@ MKISO=''
 if which xorriso 2>&1 >/dev/null ; then
     MKISO='xorriso -as mkisofs'
 elif which genisoimage 2>&1 >/dev/null ; then
-    MKISO='genisoimage'
+    MKISO='genisoimage -quiet'
 elif which mkisofs 2>&1 >/dev/null ; then
     MKISO='mkisofs'
 else

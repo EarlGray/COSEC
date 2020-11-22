@@ -3,8 +3,10 @@
  *  it might contain really bad temporary code.
  */
 
+#include <ctype.h>
 #include <misc/test.h>
 
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
@@ -247,6 +249,74 @@ void test_kbd(void) {
     k_printf("\n");
 }
 
+/*
+ *  Bochs/QEMU vga
+ */
+#define VBE_DISPI_IOPORT_INDEX  0x01CE
+#define VBE_DISPI_IOPORT_DATA   0x01CF
+
+enum vbe_index {
+    VBE_DISPI_INDEX_ID = 0,
+    VBE_DISPI_INDEX_XRES = 1,
+    VBE_DISPI_INDEX_YRES = 2,
+    VBE_DISPI_INDEX_BPP = 3,
+    VBE_DISPI_INDEX_ENABLE = 4,
+    VBE_DISPI_INDEX_BANK = 5,
+    VBE_DISPI_INDEX_VIRT_WIDTH = 6,
+    VBE_DISPI_INDEX_VIRT_HEIGHT = 7,
+    VBE_DISPI_INDEX_X_OFFSET = 8,
+    VBE_DISPI_INDEX_Y_OFFSET = 9,
+};
+
+static inline uint16_t vbe_get_index(enum vbe_index index) {
+    outw_p(VBE_DISPI_IOPORT_INDEX, (uint16_t)index);
+    uint16_t val;
+    inw_p(VBE_DISPI_IOPORT_DATA, val);
+    return val;
+}
+
+static inline void vbe_set_index(enum vbe_index index, uint16_t value) {
+    outw_p(VBE_DISPI_IOPORT_INDEX, (uint16_t)index);
+    outw_p(VBE_DISPI_IOPORT_DATA, value);
+}
+
+void test_vga(const char *arg) {
+    uint16_t id = vbe_get_index(VBE_DISPI_INDEX_ID);
+    logmsgif("%s: ID = 0x%x\n", __func__, id);
+    if (id < 0xB0C0) {
+        logmsgef("%s: BGA does not work", __func__);
+        return;
+    }
+    vbe_set_index(VBE_DISPI_INDEX_ENABLE, 3); // enable + capabilities
+    uint16_t maxw = vbe_get_index(VBE_DISPI_INDEX_XRES);
+    uint16_t maxh = vbe_get_index(VBE_DISPI_INDEX_YRES);
+    logmsgif("%s: max resolution is %dx%d", __func__, maxw, maxh);
+
+    vbe_set_index(VBE_DISPI_INDEX_ENABLE, 0);
+
+    uint32_t w = 640;
+    uint32_t h = 480;
+    uint32_t d = 32;
+    arg = sscan_uint(arg, &w, 10);  while (isspace(*arg)) ++arg;
+    arg = sscan_uint(arg, &h, 10);  while (isspace(*arg)) ++arg;
+    arg = sscan_uint(arg, &d, 10);
+    logmsgf("%s: width=%d, height=%d, bpp=%d\n", __func__, w, h, d);
+
+    vbe_set_index(VBE_DISPI_INDEX_XRES, w);
+    vbe_set_index(VBE_DISPI_INDEX_YRES, h);
+    vbe_set_index(VBE_DISPI_INDEX_BPP, d);
+    /* TODO: verify that the resolution is set */
+
+    vbe_set_index(VBE_DISPI_INDEX_ENABLE, 1);
+
+    vbe_set_index(VBE_DISPI_INDEX_BANK, 2);
+
+    uint32_t *videomem = (uint32_t *)0xa0000;
+    for (uint32_t i = 0; i < w/2; ++i) {
+        videomem[i+i] = 0x00ffff;
+    }
+}
+
 
 /***
   *     Example tasks
@@ -434,4 +504,3 @@ void test_userspace(void) {
         task3.tss.esp, task3.tss.ss
     );
 }
-
