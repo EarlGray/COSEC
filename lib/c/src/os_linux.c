@@ -149,14 +149,18 @@ void *sbrk(intptr_t increment) {
 /*
  *  Process
  */
-struct auxval { int key, value; };
+struct auxval {
+    /* see sys/auxv.h */
+    int key;
+    intptr_t value;
+};
 
-char **environ;
+extern char **environ;
 static struct auxval *auxv;
 
 void _init(void *stack) {
     // argc at stack[0]
-    int *p = stack + 1;
+    int *p = stack + sizeof(int);
 
     // skip argv
     while (*p) ++p;

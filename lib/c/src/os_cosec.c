@@ -77,7 +77,7 @@ void _exit(int status)  {
     __syscall1(SYS_EXIT, status);
 }
 
-inline void exit(int status) {
+void exit(int status) {
     __syscall1(SYS_EXIT, status);
 }
 

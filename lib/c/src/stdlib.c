@@ -605,21 +605,36 @@ char *setlocale(int category, const char *locale) {
     return "C";
 }
 
+/*
+ *  Environment
+ */
+char **environ;
+
+char *getenv(const char *name) {
+#if COSEC_KERN
+    if (!strcmp(name, "UNAME")) {
+        return "COSEC";
+    }
+#endif
+    if (!environ) {
+        logmsgf("TODO: getenv('%s')\n", name);
+        return NULL;
+    }
+
+    size_t namelen = strlen(name);
+    for (char **pair = environ; *pair; ++pair) {
+        if (strncmp(name, *pair, namelen) == 0 && (*pair)[namelen] == '=') {
+            return *pair + namelen + 1;
+        }
+    }
+    return NULL;
+}
+
 
 /*
  *  System control flow
  *  setjmp/longjmp
  */
-
-/*
-int setjmp(jmp_buf env) {
-    return i386_setjmp(env);
-}
-
-void longjmp(jmp_buf env, int val) {
-    i386_longjmp(env, val);
-}
-*/
 
 void __stack_chk_fail(void) {
     panic("__stack_chk_fail()");
@@ -629,16 +644,6 @@ void __stack_chk_fail(void) {
 int system(const char *command) {
     logmsgef("TODO: system('%s')", command);
     return -ETODO;
-}
-
-char *getenv(const char *name) {
-#if COSEC_KERN
-    if (!strcmp(name, "UNAME")) {
-        return "COSEC";
-    }
-#endif
-    logmsgf("TODO: getenv('%s')\n", name);
-    return NULL;
 }
 
 
