@@ -69,7 +69,4 @@ FILE *tmpfile(void);
 int remove(const char *pathname);
 int rename(const char *oldpath, const char *newpath);
 
-const char * sscan_uint(const char *str, uint *res, const uint8_t base);
-const char * sscan_int(const char *str, int *res, const uint8_t base);
-
 #endif //__STDIO_H__

@@ -46,6 +46,11 @@ size_t strspn(const char *s, const char *accept);
 
 char const *strerror(int err);
 
+/* non-standard */
+
 uint32_t strhash(const char *key, size_t len);
+
+const char * sscan_uint(const char *str, uint *res, const uint8_t base);
+const char * sscan_int(const char *str, int *res, const uint8_t base);
 
 #endif //__STRING_H__

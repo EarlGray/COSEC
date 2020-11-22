@@ -7,6 +7,7 @@
 #include "arch/multiboot.h"
 #include "arch/mboot.h"
 
+#include "mem/kheap.h"
 #include "dev/screen.h"
 #include "dev/acpi.h"
 #include "misc/elf.h"

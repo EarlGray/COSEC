@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
@@ -6,18 +7,19 @@
 #include <sys/dirent.h>
 #include <sys/stat.h>
 
-#include <conf.h>
-#include <attrs.h>
-
-#include <dev/screen.h>
-#include <fs/vfs.h>
-#include <fs/ramfs.h>
-#include <fs/devices.h>
-
+#define __DEBUG
 #include <cosec/log.h>
 
-#include <arch/mboot.h>
-#include <arch/multiboot.h>
+#include "conf.h"
+#include "attrs.h"
+
+#include "arch/mboot.h"
+#include "arch/multiboot.h"
+#include "mem/kheap.h"
+#include "dev/screen.h"
+#include "fs/vfs.h"
+#include "fs/ramfs.h"
+#include "fs/devices.h"
 
 static const char *
 vfs_match_mountpath(mountnode *parent_mnt, mountnode **match_mnt, const char *path);
@@ -627,6 +629,74 @@ static void build_file_from_string(const char *path, const char *s, size_t size)
     pos += nwrit;
 }
 
+/*
+ *  Tar files
+ */
+#define TAR_BLOCKSIZE   512
+
+#define TAR_MAGIC       "ustar "
+#define TAR_MAGIC_LEN   6
+#define TAR_VERSION     0x2020
+#define TAR_VERSION_LEN 2
+#define TAR_NAME_LEN    100
+
+/* typeflag */
+#define TAR_TYPEFLAG_REG    '0'
+#define TAR_TYPEFLAG_REG0   '\0'
+#define TAR_TYPEFLAG_LINK   '1'
+#define TAR_TYPEFLAG_SYMLNK '2'
+#define TAR_TYPEFLAG_CHRDEV '3'
+#define TAR_TYPEFLAG_BLKDEV '4'
+#define TAR_TYPEFLAG_DIR    '5'
+#define TAR_TYPEFLAG_FIFO   '6'
+
+struct tar_header {
+    char name[TAR_NAME_LEN];
+    char mode[8];
+    char uid[8];
+    char gid[8];
+    char size[12];
+    char mtime[12];
+    char chksum[8];
+    char typeflag;
+    char linkname[100];
+    char magic[TAR_MAGIC_LEN];
+    char version[TAR_VERSION_LEN];
+    char uname[32];
+    char gname[32];
+    char devmajor[8];
+    char devminor[8];
+    char prefix[155];
+};
+
+static void build_dir_from_tar(const char *dirname, const void *archive, size_t size) {
+    char filepath[TAR_NAME_LEN+2];
+    logmsgdf("%s('%s', *%x, %d)\n", __func__, dirname, archive, size);
+
+    for (const void *block = archive; block < (archive + size); block += TAR_BLOCKSIZE) {
+        const struct tar_header *info = block;
+        if (strncmp(info->magic, TAR_MAGIC, TAR_MAGIC_LEN))
+            continue;
+
+        size_t filesize;
+        sscan_uint(info->size, &filesize, 8);
+
+        snprintf(filepath, sizeof(filepath), "%s%s", dirname, info->name);
+
+        logmsgif("  mode=%s\tsize=%d\t%s", info->mode, filesize, filepath);
+
+        switch (info->typeflag) {
+        case TAR_TYPEFLAG_REG:
+        case TAR_TYPEFLAG_REG0:
+            build_file_from_string(filepath, block+TAR_BLOCKSIZE, filesize);
+            break;
+        default:
+            logmsgf("%s: typeflag is not supported for file %s",
+                    __func__, info->typeflag, info->name);
+        }
+    }
+}
+
 #if COSEC_SECD
 # include <secd/repl.inc>
 #endif
@@ -660,10 +730,13 @@ static void build_boot_dir() {
         size_t size = mods[i].mod_end - mods[i].mod_start;
         k_printf(" module *%x (len=0x%x) :\t%s\n", mods[i].mod_start, size, name);
 
-        build_file_from_string(name, modstart, size);
+        size_t namelen = strlen(name);
+        if (0 == strcmp(name + namelen - 4, ".tar")) {
+            build_dir_from_tar("/", modstart, size);
+        } else {
+            build_file_from_string(name, modstart, size);
+        }
     }
-
-    /* TODO : check for tarballs, make their files available too */
 }
 
 void vfs_setup(void) {

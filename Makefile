@@ -68,6 +68,8 @@ kernel    := $(build)/kernel
 libkernc  := lib/c/libc0.a
 init      := usr/init
 
+bootfs    := $(build)/boot.tar
+
 cd_img      := cosec.iso
 
 fuse    := $(shell which ext2fuse 2>/dev/null)
@@ -115,7 +117,12 @@ run: install
 	        echo "@@@@ Error: VirtualBox, qemu or Bochs must be installed"; \
 	else $(qemu) $(qemu_cdboot) $(qemu_flags) -curses; fi
 
-$(cd_img): $(kernel) $(init)
+$(bootfs): res/boot.files
+	@mv $(build)/boot $(build)/boot.save; mkdir -p $(build)/boot
+	cp $(shell cat res/boot.files res/boot.local) $(build)/boot/
+	cd $(build) && tar cf $(notdir $(bootfs)) boot/
+
+$(cd_img): $(kernel) $(init) $(bootfs)
 	@echo "Creating a LiveCD..."
 	@res/mkcd
 

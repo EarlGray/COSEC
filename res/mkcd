@@ -11,6 +11,9 @@ die () {
     echo "Error: $@" >&2
     exit 1
 }
+warn () {
+    echo "WARN: $@" >&2
+}
 
 [ -d $BLDDIR ] || die "Build directory not found at $BLDDIR"
 
@@ -22,9 +25,10 @@ cp res/stage2_eltorito $GRUB_DIR/
 cp $BLDDIR/kernel $CD_DIR \
     || die "$BLDDIR/kernel not found"
 
-for MODULE in $BLDDIR/kernel.nm usr/init ; do
-    cp $MODULE $CD_DIR || die "$MODULE not found"
-done
+cp $BLDDIR/boot.tar $CD_DIR \
+    || warn "$BLDDIR/boot.tar not found"
+
+cp usr/init $CD_DIR
 
 mkdir -p $SRC_DIR/res $SRC_DIR/lib
 cp -R include/ src/ usr/ $SRC_DIR/

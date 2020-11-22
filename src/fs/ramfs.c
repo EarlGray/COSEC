@@ -3,11 +3,12 @@
 #include <sys/types.h>
 #include <sys/errno.h>
 
-#include <mem/pmem.h>
-#include <fs/ramfs.h>
-#include <conf.h>
-
 #include <cosec/log.h>
+
+#include "conf.h"
+#include "mem/kheap.h"
+#include "mem/pmem.h"
+#include "fs/ramfs.h"
 
 typedef void (*btree_leaf_free_f)(void *);
 
