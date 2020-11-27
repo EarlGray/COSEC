@@ -22,7 +22,7 @@
 #include "process.h"
 
 
-#define USER_STACK_TOP  (KERN_OFF - PAGE_SIZE)
+#define USER_STACK_TOP  (KERN_OFF - PAGE_BYTES)
 
 
 /*
@@ -104,12 +104,12 @@ int process_grow_stack(process_t *proc, void *faultaddr) {
     void *pagedir = process_pagedir(proc);
 
     while (proc->ps_userstack > faultaddr) {
-        void *ustack = proc->ps_userstack - PAGE_SIZE;
+        void *ustack = proc->ps_userstack - PAGE_BYTES;
         void *paddr = pagedir_get_or_new(pagedir, ustack, PTE_WRITABLE | PTE_USER);
         assert(paddr, -1, "%s: cannot allocate page for *%x\n", __func__, ustack);
 
         void *page = __va(paddr);
-        memset(page, 0, PAGE_SIZE);
+        memset(page, 0, PAGE_BYTES);
 
         proc->ps_userstack = ustack;
     }
@@ -202,14 +202,14 @@ static int process_attach_tty(process_t *proc, const char *ttyfile) {
 }
 
 static int process_segment_from_memory(Elf32_Phdr hdr, void *elfmem, void *pagedir) {
-    assert(hdr.p_align == PAGE_SIZE, -EINVAL,
+    assert(hdr.p_align == PAGE_BYTES, -EINVAL,
             "%s: p_align=0x%x, PT_LOAD not on page boundary", __func__, hdr.p_align);
 
     size_t off = 0;
     if (hdr.p_vaddr & 0xFFF) {
         uintptr_t vaddr = hdr.p_vaddr & 0xFFFFF000;
         size_t voff = hdr.p_vaddr & 0xFFF;
-        size_t size = PAGE_SIZE - voff;
+        size_t size = PAGE_BYTES - voff;
 
         uint32_t mask = PTE_WRITABLE | PTE_USER;
         void *paddr = pagedir_get_or_new(pagedir, (void*)vaddr, mask);
@@ -228,7 +228,7 @@ static int process_segment_from_memory(Elf32_Phdr hdr, void *elfmem, void *paged
         off += size;
     }
 
-    for (; off < hdr.p_memsz; off += PAGE_SIZE) {
+    for (; off < hdr.p_memsz; off += PAGE_BYTES) {
         uintptr_t vaddr = hdr.p_vaddr + off;
 
         uint32_t mask = PTE_WRITABLE | PTE_USER; // TODO: check if
@@ -240,11 +240,11 @@ static int process_segment_from_memory(Elf32_Phdr hdr, void *elfmem, void *paged
         size_t bytes_to_copy = 0;
         if (off < hdr.p_filesz) {
             bytes_to_copy = hdr.p_filesz - off;
-            if (bytes_to_copy > PAGE_SIZE)
-                bytes_to_copy = PAGE_SIZE;
+            if (bytes_to_copy > PAGE_BYTES)
+                bytes_to_copy = PAGE_BYTES;
         }
         memcpy(page, elfmem + hdr.p_offset + off, bytes_to_copy);
-        memset(page + bytes_to_copy, 0, PAGE_SIZE - bytes_to_copy);
+        memset(page + bytes_to_copy, 0, PAGE_BYTES - bytes_to_copy);
     }
 
     return 0;
@@ -319,10 +319,11 @@ void run_init(void) {
     proc->ps_cwd = "/";
     proc->ps_tty = CONSOLE_TTY;
     proc->ps_userstack = userstack;
+    proc->ps_heap_end = (void *)pagealign_up(heap_end);
 
     const segment_selector cs = { .as.word = SEL_USER_CS };
     const segment_selector ds = { .as.word = SEL_USER_DS };
-    void *esp = userstack + PAGE_SIZE - 0x10;
+    void *esp = userstack + PAGE_BYTES - 0x10;
 
     task_init(&proc->ps_task, entry,
             esp0, esp, cs, ds

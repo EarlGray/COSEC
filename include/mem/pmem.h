@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "conf.h"
 #include "mem/paging.h"
 
 /** allocate a page **/
@@ -12,6 +13,20 @@ index_t pg_alloc(void);
 /** free the page **/
 void pg_free(index_t);
 
+/*
+ *     Alignment
+ */
+static inline uintptr_t pagealign_up(uintptr_t p) {
+    uintptr_t i = p / PAGE_BYTES;
+    uintptr_t r = p % PAGE_BYTES;
+    if (r)
+        i += 1;
+    return PAGE_BYTES * i;
+}
+
+static inline uintptr_t pagealign_down(uintptr_t p) {
+    return (p / PAGE_BYTES) * PAGE_BYTES;
+}
 
 /*
  *  Allocate consequent pageframes,

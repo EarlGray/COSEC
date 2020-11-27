@@ -31,7 +31,7 @@
 typedef size_t pageindex_t;
 
 #define UPPER_MEMORY_OFFSET         0x100000
-#define UPPER_MEMORY_PAGE_OFFSET    (UPPER_MEMORY_OFFSET / PAGE_SIZE)
+#define UPPER_MEMORY_PAGE_OFFSET    (UPPER_MEMORY_OFFSET / PAGE_BYTES)
 
 extern char _end;
 
@@ -41,6 +41,19 @@ pageindex_t theEndOfUpperMemory;
 /*
  *      Utilities
  */
+
+/*      page_aligned(n*PAGE_BYTES) = n*PAGE_BYTES
+ *      page_aligned(n*PAGE_BYTES + 1) = (n+1)*PAGE_BYTES
+ */
+static inline index_t page_aligned(uintptr_t addr) {
+    if (addr % PAGE_BYTES == 0) return addr / PAGE_BYTES;
+    return (1 + addr / PAGE_BYTES);
+}
+
+static inline index_t page_aligned_back(uintptr_t addr) {
+    return (addr / PAGE_BYTES);
+}
+
 void pmem_info(void) {
     struct memory_map *mmmap = (struct memory_map *)mboot_mmap_addr();
     size_t upper_memory = mboot_uppermem_kb();
@@ -59,31 +72,15 @@ void pmem_info(void) {
     }
 }
 
-/***
-  *     Alignment
- ***/
-
-/*      aligned(n*PAGE_SIZE) = n*PAGE_SIZE
- *      aligned(n*PAGE_SIZE + 1) = (n+1)*PAGE_SIZE
- */
-static inline index_t page_aligned(uintptr_t addr) {
-    if (addr % PAGE_SIZE == 0) return addr / PAGE_SIZE;
-    return (1 + addr / PAGE_SIZE);
-}
-
-static inline index_t page_aligned_back(uintptr_t addr) {
-    return (addr / PAGE_SIZE);
-}
-
 void pmem_setup(void) {
-    pageindex_t upper_memory_pages = mboot_uppermem_kb() / (PAGE_SIZE/1024);
+    pageindex_t upper_memory_pages = mboot_uppermem_kb() / (PAGE_BYTES/1024);
     if (upper_memory_pages >= 1024 * 1024) {
         upper_memory_pages = (1024 * 1024) - 1;
         k_printf("Using only 4096 MB RAM out of %d MB\n",
-                upper_memory_pages / (1024 * 1024 / PAGE_SIZE));
+                upper_memory_pages / (1024 * 1024 / PAGE_BYTES));
     }
 
-    theEndOfUpperMemory = (UPPER_MEMORY_OFFSET / PAGE_SIZE) + upper_memory_pages;
+    theEndOfUpperMemory = (UPPER_MEMORY_OFFSET / PAGE_BYTES) + upper_memory_pages;
 
     uintptr_t free_pmem_edge = (uintptr_t)__pa(&_end);
 
@@ -114,9 +111,9 @@ void * pmem_alloc(size_t pages_count) {
         return 0;
     }
 
-    logmsgdf("%s(0x%x) -> *%08x\n", __func__, pages_count, PAGE_SIZE * old_edge);
+    logmsgdf("%s(0x%x) -> *%08x\n", __func__, pages_count, PAGE_BYTES * old_edge);
     theEdgeOfAllocatedMemory = new_edge;
-    return (void *)(PAGE_SIZE * old_edge);
+    return (void *)(PAGE_BYTES * old_edge);
 }
 
 err_t pmem_free(index_t start_page, size_t pages_count) {
@@ -139,25 +136,25 @@ err_t pmem_free(index_t start_page, size_t pages_count) {
 
 static const char *chrram_mem_get_roblock(device *cmem, off_t block) {
     UNUSED(cmem);
-    size_t addr = block * PAGE_SIZE;
+    size_t addr = block * PAGE_BYTES;
     return (const char *)addr;
 }
 
 static char *chrram_mem_get_rwblock(device *cmem, off_t block) {
     UNUSED(cmem);
-    size_t addr = block * PAGE_SIZE;
+    size_t addr = block * PAGE_BYTES;
     return (char *)addr;
 }
 
 static size_t chrram_mem_blocksize(device *cmem) {
     UNUSED(cmem);
-    return PAGE_SIZE;
+    return PAGE_BYTES;
 }
 
 static off_t chrram_mem_size(device *cmem) {
     UNUSED(cmem);
     off_t msize = mboot_uppermem_kb();
-    ulong usize = ((ulong)msize * 1024) / PAGE_SIZE;
+    ulong usize = ((ulong)msize * 1024) / PAGE_BYTES;
     /* TODO: check for off_t boundary */
     msize = (off_t)usize;
     return msize;

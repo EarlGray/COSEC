@@ -1,7 +1,7 @@
 #ifndef __CONF_H__
 #define __CONF_H__
 
-#define PAGE_SIZE       0x1000
+#define PAGE_BYTES      0x1000
 
 #define PAGING          (1)
 

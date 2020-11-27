@@ -25,8 +25,8 @@
 #define PDE_SIZE        4
 #define PTE_SIZE        4
 
-#define N_PDE           (PAGE_SIZE / PDE_SIZE)
-#define PTE_PER_ENTRY   (PAGE_SIZE / PTE_SIZE)
+#define N_PDE           (PAGE_BYTES / PDE_SIZE)
+#define PTE_PER_ENTRY   (PAGE_BYTES / PTE_SIZE)
 
 #define CR0_PG      0x80000000
 #define CR0_WP      0x00010000

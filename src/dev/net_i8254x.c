@@ -105,8 +105,8 @@
 #define ETH_BUFSZ           2048
 
 #define NUM_DESCR_PAGES     3     /* pages per descriptor table */
-#define NUM_RX_DESCRIPTORS  (PAGE_SIZE * NUM_DESCR_PAGES / sizeof(i825xx_rx_desc_t))
-#define NUM_TX_DESCRIPTORS  (PAGE_SIZE * NUM_DESCR_PAGES / sizeof(i825xx_tx_desc_t))
+#define NUM_RX_DESCRIPTORS  (PAGE_BYTES * NUM_DESCR_PAGES / sizeof(i825xx_rx_desc_t))
+#define NUM_TX_DESCRIPTORS  (PAGE_BYTES * NUM_DESCR_PAGES / sizeof(i825xx_tx_desc_t))
 
 union i8254x_rxdescr_sta {
     struct {
@@ -223,8 +223,8 @@ int i8254x_rx_init(i8254x_nic *nic) {
     assert(rxda, ENOMEM, "%s: pmem_alloc(rxdescrs) failed\n", funcname);
     nic->rxda = (volatile i825xx_rx_desc_t *)rxda;
 
-    size_t n_rxbuf_pages = NUM_RX_DESCRIPTORS * ETH_BUFSZ / PAGE_SIZE;
-    if (NUM_RX_DESCRIPTORS * ETH_BUFSZ % PAGE_SIZE) ++n_rxbuf_pages;
+    size_t n_rxbuf_pages = NUM_RX_DESCRIPTORS * ETH_BUFSZ / PAGE_BYTES;
+    if (NUM_RX_DESCRIPTORS * ETH_BUFSZ % PAGE_BYTES) ++n_rxbuf_pages;
     uint8_t *rxbufs = pmem_alloc(n_rxbuf_pages);
     assert(rxbufs, ENOMEM, "%s: pmem_alloc(rxbufs) failed\n", funcname);
     logmsgf("[%x]: rxbuf = *%x (%d pages)\n", nic->hwid, (uint)rxbufs, n_rxbuf_pages);

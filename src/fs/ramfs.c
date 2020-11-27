@@ -842,7 +842,7 @@ static int ramfs_read_superblock(mountnode *sb) {
     logmsgdf("%s()\n", funcname);
     int ret;
 
-    sb->sb_blksz = PAGE_SIZE;
+    sb->sb_blksz = PAGE_BYTES;
     sb->sb_fs = &ramfs_driver;
 
     ret = ramfs_data_new(sb);
@@ -961,18 +961,18 @@ static char * ramfs_block_by_index(struct inode *idata, off_t index) {
     if (!ind1blk)
         return NULL;
 
-    if ((size_t)(index - N_DIRECT_BLOCKS) < PAGE_SIZE/sizeof(off_t)) {
+    if ((size_t)(index - N_DIRECT_BLOCKS) < PAGE_BYTES/sizeof(off_t)) {
         return (char *)(size_t)ind1blk[index - N_DIRECT_BLOCKS];
     }
 
-    logmsgef("%s: index > N_DIRECT_BLOCKS+PAGE_SIZE/sizeof(off_t)", funcname);
+    logmsgef("%s: index > N_DIRECT_BLOCKS+PAGE_BYTES/sizeof(off_t)", funcname);
     return NULL;
 }
 
 static char * ramfs_block_by_index_or_new(struct inode *idata, off_t index) {
     const char *funcname = __FUNCTION__;
     char *blkdata;
-    off_t n_indblocks = PAGE_SIZE/sizeof(off_t);
+    off_t n_indblocks = PAGE_BYTES/sizeof(off_t);
 
     if (index < N_DIRECT_BLOCKS) {
         blkdata = (char *)idata->as.reg.directblock[index];
@@ -1017,7 +1017,7 @@ static void ramfs_free_blocks_in_list(off_t *blklst) {
     if (!blklst) return;
 
     size_t i;
-    for (i = 0; i < PAGE_SIZE / sizeof(off_t); ++i) {
+    for (i = 0; i < PAGE_BYTES / sizeof(off_t); ++i) {
         char *blkdata = (char *)(size_t)blklst[i];
         if (!blkdata) continue;
 
@@ -1029,7 +1029,7 @@ static void ramfs_free_blocks_2ndlvl(off_t *ind2lst) {
     if (!ind2lst) return;
     size_t i;
 
-    for (i = 0; i < PAGE_SIZE / sizeof(off_t); ++i) {
+    for (i = 0; i < PAGE_BYTES / sizeof(off_t); ++i) {
         off_t *ind1lst = (off_t *)(size_t)ind2lst[i];
         ramfs_free_blocks_in_list(ind1lst);
     }
@@ -1062,16 +1062,16 @@ static int ramfs_read_inode(
     struct inode *idata = ramfs_idata_by_inode(sb, ino);
     return_dbg_if(!idata, ENOENT, "%s(ino = %d): ENOENT\n", funcname, ino);
 
-    off_t blkindex = pos / PAGE_SIZE;
+    off_t blkindex = pos / PAGE_BYTES;
     size_t nread = 0;
 
     if (pos >= idata->i_size)
         goto fun_exit;
 
-    size_t offset = pos % PAGE_SIZE;
+    size_t offset = pos % PAGE_BYTES;
     if (offset) {
         /* copy initial partial block */
-        nread = PAGE_SIZE - offset;
+        nread = PAGE_BYTES - offset;
         if (nread > buflen)
             nread = buflen;
         if ((int)nread > idata->i_size)
@@ -1087,17 +1087,17 @@ static int ramfs_read_inode(
         ++blkindex;
     }
 
-    while (((nread + PAGE_SIZE) <= buflen)
-           && ((int)(pos + nread + PAGE_SIZE) <= idata->i_size))
+    while (((nread + PAGE_BYTES) <= buflen)
+           && ((int)(pos + nread + PAGE_BYTES) <= idata->i_size))
     {
         /* copy full blocks while possible */
         char *blkdata = ramfs_block_by_index(idata, blkindex);
         if (blkdata) {
-            memcpy(buf + nread, blkdata, PAGE_SIZE);
+            memcpy(buf + nread, blkdata, PAGE_BYTES);
         } else {
-            memset(buf + nread, 0, PAGE_SIZE);
+            memset(buf + nread, 0, PAGE_BYTES);
         }
-        nread += PAGE_SIZE;
+        nread += PAGE_BYTES;
         ++blkindex;
     }
 
@@ -1131,16 +1131,16 @@ static int ramfs_write_inode(
     struct inode *idata = ramfs_idata_by_inode(sb, ino);
     return_dbg_if(!idata, ENOENT, "%s(ino = %d): ENOENT\n", funcname, ino);
 
-    off_t blkindex = pos / PAGE_SIZE;
+    off_t blkindex = pos / PAGE_BYTES;
     size_t nwrite = 0;
 
-    size_t offset = pos % PAGE_SIZE;
+    size_t offset = pos % PAGE_BYTES;
     if (offset) {
         /* copy initial partial block */
         char *blkdata = ramfs_block_by_index_or_new(idata, blkindex);
         if (!blkdata) { ret = EIO; goto fun_exit; }
 
-        nwrite = PAGE_SIZE - offset;
+        nwrite = PAGE_BYTES - offset;
         if (nwrite > buflen)
             nwrite = buflen;
         memcpy(blkdata + offset, buf, nwrite);
@@ -1148,13 +1148,13 @@ static int ramfs_write_inode(
         ++blkindex;
     }
 
-    while ((nwrite + PAGE_SIZE) <= buflen) {
+    while ((nwrite + PAGE_BYTES) <= buflen) {
         /* copy full blocks while possible */
         char *blkdata = ramfs_block_by_index_or_new(idata, blkindex);
         if (!blkdata) { ret = EIO; goto fun_exit; }
 
-        memcpy(blkdata, buf + nwrite, PAGE_SIZE);
-        nwrite += PAGE_SIZE;
+        memcpy(blkdata, buf + nwrite, PAGE_BYTES);
+        nwrite += PAGE_BYTES;
         ++blkindex;
     }
 

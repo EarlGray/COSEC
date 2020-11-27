@@ -12,7 +12,7 @@
 #include "tasks.h"
 
 
-pde_t thePageDirectory[N_PDE] __attribute__((aligned (PAGE_SIZE)));
+pde_t thePageDirectory[N_PDE] __attribute__((aligned (PAGE_BYTES)));
 
 void pg_fault(uint32_t *context, err_t err) {
     uintptr_t fault_addr;
@@ -24,7 +24,7 @@ void pg_fault(uint32_t *context, err_t err) {
 
     process_t *proc = (process_t *)task_current();
     if (proc && fault_error == 6
-        && ((uintptr_t)(proc->ps_userstack - 10 * PAGE_SIZE) <= fault_addr)
+        && ((uintptr_t)(proc->ps_userstack - 10 * PAGE_BYTES) <= fault_addr)
         && (fault_addr < (uintptr_t)proc->ps_userstack))
     {
         logmsgf("%s: err=0x%x from %x:%x accessing *%x, grow stack for pid=%d\n",
@@ -91,7 +91,7 @@ void paging_setup(void) {
 pde_t * pagedir_alloc(void) {
     void *pagedir = pmem_alloc(1);      // phys. addr.
     pde_t *vpde = __va(pagedir);
-    memset(vpde, 0, PAGE_SIZE);
+    memset(vpde, 0, PAGE_BYTES);
 
     /* set up kernel memory */
     size_t kpde_offset = (KERN_OFF >> PDE_SHIFT);
@@ -142,7 +142,7 @@ void* pagedir_get_or_new(pde_t *pagedir, void *vaddr, uint32_t pte_mask) {
         logmsgdf("%s(*%x): new PTE at @%x\n", __func__, vaddr, pagetbl);
 
         vpte = __va(pagetbl);
-        memset(vpte, 0, PAGE_SIZE);
+        memset(vpte, 0, PAGE_BYTES);
 
         pde.bit.present = 1;
         pde.bit.writable = 1;

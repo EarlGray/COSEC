@@ -48,7 +48,7 @@
 #define VIRTIO_NET_CTLQ 2
 
 #define VIRTIO_PAD  4096
-#define FRAME_SIZE             (PAGE_SIZE/2)
+#define FRAME_SIZE             (PAGE_BYTES/2)
 #define MAX_VIRTIO_FRAME_SIZE  (sizeof(struct virtio_net_hdr) + sizeof(struct eth_hdr_t) + ETH_MTU + 4)
 
 /* VIO_DEV_STA register */
@@ -134,21 +134,16 @@ static int virtio_vring_alloc(struct virtioq *q, uint16_t qsz) {
     size_t avail_sz = (3 + qsz) * sizeof(uint16_t);
     size_t used_sz = 3 * sizeof(uint16_t) + qsz * sizeof(struct vring_used_elem);
 
-    size_t p = desctbl_sz + avail_sz;
-    if (p % PAGE_SIZE) {
-        p = ((p / PAGE_SIZE) + 1) * PAGE_SIZE;
-    }
+    size_t p = pagealign_up(desctbl_sz + avail_sz);
     size_t used_off = p;
     p += used_sz;
-    if (p % PAGE_SIZE) {
-        p = ((p / PAGE_SIZE) + 1) * PAGE_SIZE;
-    }
+    p = pagealign_up(p);
 
-    size_t npages = p / PAGE_SIZE;
+    size_t npages = p / PAGE_BYTES;
     char *qmem = pmem_alloc(npages);
     return_err_if(!qmem, -ENOMEM,
                   "%s: pmem_alloc(%d) failed\n", __func__, npages);
-    memset(qmem, 0, npages * PAGE_SIZE);
+    memset(qmem, 0, npages * PAGE_BYTES);
     q->size = qsz;
     q->npages = npages;
     q->desc = (struct vring_desc *)qmem;
@@ -268,7 +263,7 @@ uint8_t * net_virtio_frame_alloc(void) {
 
 static inline void net_virtio_frame_free(uint8_t *buf) {
     assertv(buf, "%s(NULL)", __func__);
-    pmem_free((uintptr_t)buf / PAGE_SIZE, 1);
+    pmem_free((uintptr_t)buf / PAGE_BYTES, 1);
 }
 
 static void net_virtio_rxbuf_cleanup(struct netbuf *nbuf) {
@@ -422,7 +417,7 @@ static int net_virtio_setup(struct virtio_net_device *nic) {
     logmsgdf("%s: tx_q[%d] at *%x (%d pages)\n", __func__,
              (int)hval, nic->txq.desc, nic->txq.npages);
 
-    val = (uint32_t)nic->txq.desc / PAGE_SIZE;
+    val = (uint32_t)nic->txq.desc / PAGE_BYTES;
     outl_p(nic->virtio.iobase + VIO_Q_ADDR, val);
 
     /* rx queue */
@@ -439,9 +434,7 @@ static int net_virtio_setup(struct virtio_net_device *nic) {
 
     /* netbuf: fill rx queue */
     const uint32_t netbufsz = nic->rxq.size * FRAME_SIZE;
-    size_t netbuf_pages = netbufsz / PAGE_SIZE;
-    if (netbufsz % PAGE_SIZE)
-        ++netbuf_pages;
+    size_t netbuf_pages = pagealign_up(netbufsz) / PAGE_BYTES;
     uint8_t *netbuf = pmem_alloc(netbuf_pages);
     return_err_if(!netbuf, -ENOMEM,
                   "%s: failed to allocate netbuf\n", __func__);
@@ -463,7 +456,7 @@ static int net_virtio_setup(struct virtio_net_device *nic) {
     rxavail->flags = 0;  // we do need an interrupt after each packet
     rxavail->idx = nic->rxq.size - 1; // TODO: fix off-by-one
 
-    val = (uint32_t)nic->rxq.desc / PAGE_SIZE;
+    val = (uint32_t)nic->rxq.desc / PAGE_BYTES;
     outl_p(nic->virtio.iobase + VIO_Q_ADDR, val);
 
     /* negotiate features */
