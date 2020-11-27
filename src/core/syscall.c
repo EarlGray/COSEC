@@ -1,31 +1,24 @@
+#include <cosec/log.h>
+#include <cosec/syscall.h>
+
 #include "syscall.h"
 #include "process.h"
-#include "arch/intr.h"
 #include "tasks.h"
 
-#define __DEBUG
-#include <cosec/log.h>
+#include "arch/intr.h"
 
 
 int sys_print(const char **fmt) {
-    logmsgdf("sys_printf()");
-    k_printf(*fmt);
+    process_t *proc = current_proc();
+
+    /* TODO: make userspace stack into va_list somehow */
+    logmsgf("[PID %d] %s", proc->ps_pid, *fmt);
+
     return 0;
 }
 
-int sys_exit(int status) {
-    process_t *proc = (process_t *)task_current();
-    logmsgdf("%s(%d), pid=%d\n", __func__, status, proc->ps_pid);
-
-    proc->ps_task.state = TS_EXITED;
-    proc->ps_task.tss.eax = status;
-
-    task_yield((task_struct*)proc);
-
-    // TODO: cleanup resources
-    // TODO: send SIGCHLD
-    // TODO: orphan children to PID1
-
+int _sys_exit(int status) {
+    sys_exit(status);
     return 0;
 }
 
@@ -48,6 +41,8 @@ const syscall_handler syscalls[] = {
     [SYS_LSEEK]     = sys_lseek,
     [SYS_GETPID]    = sys_getpid,
     [SYS_MOUNT]     = sys_mount,
+
+    [SYS_PRINT]     = sys_print,
 };
 
 void int_syscall() {

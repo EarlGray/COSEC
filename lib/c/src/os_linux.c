@@ -184,5 +184,11 @@ void panic(const char *msg) {
     abort();
 }
 
+int vlprintf(const char *fmt, va_list ap) {
+    (void)fmt;
+    (void)ap;
+    /* TODO */
+    return 0;
+}
 
 #endif  // LINUX

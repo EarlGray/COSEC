@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include <sys/types.h>
 
+#include <cosec/syscall.h>
+
 #include "mem/paging.h"
 #include "fs/vfs.h"
 #include "tasks.h"
@@ -52,8 +54,6 @@ int process_grow_stack(process_t *, void *faultaddr);
 
 int alloc_fd_for_pid(pid_t pid);
 filedescr * get_filedescr_for_pid(pid_t pid, int fd);
-
-int sys_getpid();
 
 void run_init(void);
 void proc_setup(void);

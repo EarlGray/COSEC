@@ -1,3 +1,5 @@
+#include <cosec/log.h>
+#include <cosec/syscall.h>
 #if COSEC
 
 #include <stdint.h>
@@ -119,6 +121,11 @@ clock_t clock(void) {
 
 inline time_t time(time_t *tloc) {
     return sys_time(tloc);
+}
+
+int vlprintf(const char *fmt, va_list ap) {
+    /* TODO: do snprintf to a buffer, pass the buffer */
+    return __syscall1(SYS_PRINT, (intptr_t)&fmt);
 }
 
 #endif // COSEC

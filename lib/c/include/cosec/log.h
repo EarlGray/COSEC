@@ -9,15 +9,14 @@
 #ifdef COSEC_KERN
 int logging_setup();
 
-# define KERN_API
 int k_printf(const char *fmt, ...);
+
 #else
-# define KERN_API __attribute__((weak))
 # define k_printf(...)
 #endif
 
 int lprintf(const char *fmt, ...);
-int vlprintf(const char *fmt, va_list ap) KERN_API;
+int vlprintf(const char *fmt, va_list ap);
 
 
 #define logmsg(msg) lprintf(msg)

@@ -45,8 +45,8 @@
 #include <stdint.h>
 #include <stdarg.h>
 
-int lprintf(const char *fmt, ...) __attribute__((weak));
-
+/* logging */
+int lprintf(const char *fmt, ...);
 int vlprintf(const char *fmt, va_list ap);
 
 /*
