@@ -96,5 +96,8 @@ int sys_ftruncate(int fd, off_t length);
 int sys_kill(pid_t pid, int sig);
 pid_t sys_getpid(void);
 
+intptr_t sys_brk(void *addr);
+void sys_exit(int status);
+
 #endif
 #endif

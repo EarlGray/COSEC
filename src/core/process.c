@@ -117,6 +117,57 @@ int process_grow_stack(process_t *proc, void *faultaddr) {
     return 0;
 }
 
+intptr_t sys_brk(void *addr) {
+    uintptr_t brk = (uintptr_t)addr;
+    process_t *proc = (process_t *)task_current();
+
+    logmsgdf("%s(*%x), pid=%d, heapend=*%x\n",
+            __func__, brk, proc->ps_pid, proc->ps_heap_end);
+
+    if (!brk)
+        return (intptr_t)proc->ps_heap_end;
+
+    uintptr_t vaddr = (uintptr_t)proc->ps_heap_end;
+    void *pagedir = process_pagedir(proc);
+
+    for (; vaddr < brk; vaddr += PAGE_BYTES) {
+        void *paddr = pagedir_get_or_new(pagedir, (void *)vaddr, PTE_WRITABLE | PTE_USER);
+        if (!paddr)
+            goto fail_cleanup;
+        //logmsgdf("%s: *%x -> @%x\n", __func__, vaddr, paddr);
+
+        /*
+        void *page = __va(paddr);
+        memset(page, 0, PAGE_BYTES);
+        */
+    }
+
+    proc->ps_heap_end = (void *)vaddr;
+    return (intptr_t)vaddr;
+
+fail_cleanup:
+    logmsgef("%s: allocation failed, cleanup: TODO", __func__);
+    return 0;
+}
+
+/*
+ *  Process life cycle
+ */
+void sys_exit(int status) {
+    process_t *proc = (process_t *)task_current();
+    logmsgdf("%s(status=%d), pid=%d\n", __func__, status, proc->ps_pid);
+
+    proc->ps_task.state = TS_EXITED;
+    proc->ps_task.tss.eax = status;
+
+    task_yield((task_struct*)proc);
+
+    // TODO: cleanup resources
+    // TODO: send SIGCHLD
+    // TODO: orphan children to PID1
+}
+
+
 /*
  *      Test init process
  *   temporary init test: use physical memory if applicable
@@ -272,6 +323,7 @@ void run_init(void) {
     returnv_msg_if(!ok, "%s: parsing ELF failed", __func__);
     logmsgif("%s: ok, 'init' is a correct ELF binary", __func__);
 
+    uintptr_t heap_end = 0;
     void *entry = (void*)elfhdr->e_entry;
     logmsgif("%s:   entry = *%0.8x", __func__, entry);
 
@@ -299,17 +351,25 @@ void run_init(void) {
             logmsgef("%s: segment load failed: %d", __func__, ret);
             goto cleanup_pagedir;
         }
+
+        uintptr_t p_end = hdr.p_vaddr + hdr.p_memsz;
+        if (heap_end < p_end)
+            heap_end = p_end;
     }
+    heap_end = pagealign_up(heap_end);
+    logmsgdf("%s: heap_end=*%x\n", __func__, heap_end);
 
     /* allocate stack and heap regions */
     void *kernstack = pmem_alloc(1);
     assertv(kernstack, "%s: failed to allocate kernstack", __func__);
     logmsgf("%s: kernstack @%x\n", __func__, kernstack);
-    void *esp0 = __va(kernstack) + PAGE_SIZE - 0x20;
+    void *esp0 = __va(kernstack) + PAGE_BYTES - 0x20;
 
-    void *userstack = (void *)(USER_STACK_TOP - PAGE_SIZE);
+    void *userstack = (void *)(USER_STACK_TOP - PAGE_BYTES);
     void *stack = pagedir_get_or_new(pagedir, userstack, PTE_WRITABLE | PTE_USER);
     logmsgf("%s: userstack @%x\n", __func__, stack);
+
+    /* TODO: initialize the new stack with argv, environ and auxval */
 
     /* setting the new process */
     const pid_t pid = PID_INIT;

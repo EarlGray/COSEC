@@ -35,6 +35,7 @@ typedef struct process {
     task_struct ps_task;        /* context-switching info, keep it first */
 
     void *      ps_userstack;   /* vaddr of bottom of the user stack */
+    void *      ps_heap_end;
 
     pid_t   ps_pid;
     pid_t   ps_ppid;

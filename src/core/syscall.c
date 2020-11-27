@@ -26,7 +26,7 @@ int _sys_exit(int status) {
 typedef int (*syscall_handler)();
 
 const syscall_handler syscalls[] = {
-    [SYS_EXIT]      = sys_exit,
+    [SYS_EXIT]      = _sys_exit,
     [SYS_READ]      = sys_read,
     [SYS_WRITE]     = sys_write,
 
@@ -42,6 +42,8 @@ const syscall_handler syscalls[] = {
     [SYS_GETPID]    = sys_getpid,
     [SYS_MOUNT]     = sys_mount,
 
+    [SYS_BRK]       = (syscall_handler)sys_brk,
+
     [SYS_PRINT]     = sys_print,
 };
 
@@ -52,7 +54,7 @@ void int_syscall() {
     uint32_t arg2 = ctx->edx;
     uint32_t arg3 = ctx->ebx;
 
-    logmsgdf("%s: syscall(%d, 0x%x, 0x%x, 0x%x)\n",
+    logmsgdf("%s(%d, 0x%x, 0x%x, 0x%x)\n",
             __func__, intr_num, arg1, arg2, arg3);
 
     // TODO: kill the process on unavailable syscall
@@ -67,6 +69,7 @@ void int_syscall() {
     }
 
     uint32_t result = callee(arg1, arg2, arg3);
-    logmsgdf("%s: syscall result = %d\n", __func__, result);
+    logmsgdf("%s(%d) -> %d (0x%x)\n",
+            __func__, intr_num, result, result);
     ctx->eax = result;
 }

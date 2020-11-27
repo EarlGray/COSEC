@@ -64,20 +64,16 @@ inline time_t sys_time(time_t *tloc) {
     return (time_t)epoch;
 }
 
+inline intptr_t sys_brk(void *addr) {
+    return (intptr_t)__syscall1(SYS_BRK, (intptr_t)addr);
+}
+inline void sys_exit(int status) {
+    __syscall1(SYS_EXIT, status);
+}
+
 // inline int sys_symlink(const char *oldpath, const char *newpath) { return syscall(SYS_
 // inline char *sys_pwd(char *buf) { return (char *)syscall() };
 // inline int sys_lsdir(const char *pathname, struct cosec_dirent *dirs, count_t count);
-
-/*
- *  Process lifecycle
- */
-void _init(void *stack) {
-    (void)stack;
-}
-
-void _exit(int status)  {
-    __syscall1(SYS_EXIT, status);
-}
 
 void exit(int status) {
     __syscall1(SYS_EXIT, status);
@@ -87,28 +83,6 @@ void panic(const char *msg) {
     fprintf(stderr, "FATAL: %s\n", msg);
     abort();
 }
-
-/*
- *  Memory management
- */
-
-void *kmalloc(size_t size) {
-    fprintf(stderr, "%s: TODO\n", __func__);
-    return NULL;
-}
-
-int kfree(void *ptr) {
-    fprintf(stderr, "%s: TODO\n", __func__);
-    return 0;
-}
-
-void *krealloc(void *ptr, size_t size) {
-    fprintf(stderr, "%s: TODO\n", __func__);
-    return NULL;
-}
-
-// TODO: sbrk
-// TODO: initialize heap
 
 
 /*

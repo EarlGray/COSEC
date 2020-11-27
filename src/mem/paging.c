@@ -124,7 +124,7 @@ void* pagedir_get_or_new(pde_t *pagedir, void *vaddr, uint32_t pte_mask) {
 
     const uint32_t pte_index = ((uint32_t)vaddr >> PTE_SHIFT) & 0x3ff;
     const uint32_t pde_index = (uint32_t)vaddr >> PDE_SHIFT;
-    logmsgdf("%s(*%x): pde=0x%x, pte=0x%x\n", __func__, vaddr, pde_index, pte_index);
+    //logmsgdf("%s(*%x): pde=0x%x, pte=0x%x\n", __func__, vaddr, pde_index, pte_index);
 
     pde_t *vpde = __va(pagedir);
     pde_t pde = vpde[pde_index];
