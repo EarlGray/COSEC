@@ -1,3 +1,4 @@
+#include <sys/errno.h>
 #include <cosec/log.h>
 #include <cosec/syscall.h>
 
@@ -22,29 +23,51 @@ int _sys_exit(int status) {
     return 0;
 }
 
+pid_t sys_waitpid(pid_t pid, int *wstatus, int flags) {
+    logmsgef("%s: TODO", __func__);
+    return -ECHILD;
+}
+
+int sys_sigaction(int signum, const struct sigaction *act, struct sigaction *oldact) {
+    logmsgef("%s: TODO", __func__);
+    return -ETODO;
+}
+
+int sys_setsid(void) {
+    logmsgef("%s: TODO", __func__);
+    return -ETODO;
+}
+
 
 typedef int (*syscall_handler)();
 
 const syscall_handler syscalls[] = {
-    [SYS_EXIT]      = _sys_exit,
-    [SYS_READ]      = sys_read,
-    [SYS_WRITE]     = sys_write,
+    [SYS_exit]      = _sys_exit,
+    [SYS_read]      = sys_read,
+    [SYS_write]     = sys_write,
 
-    [SYS_OPEN]      = sys_open,
-    [SYS_CLOSE]     = sys_close,
+    [SYS_open]      = sys_open,
+    [SYS_close]     = sys_close,
 
-    [SYS_MKDIR]     = sys_mkdir,
-    [SYS_RENAME]    = sys_rename,
+    [SYS_waitpid]   = sys_waitpid,
 
-    [SYS_UNLINK]    = sys_unlink,
+    [SYS_mkdir]     = sys_mkdir,
+    [SYS_rename]    = sys_rename,
 
-    [SYS_LSEEK]     = sys_lseek,
-    [SYS_GETPID]    = sys_getpid,
-    [SYS_MOUNT]     = sys_mount,
+    [SYS_unlink]    = sys_unlink,
+    //[SYs_execve]    = sys_execve,
 
-    [SYS_BRK]       = (syscall_handler)sys_brk,
+    [SYS_lseek]     = sys_lseek,
+    [SYS_getpid]    = sys_getpid,
+    [SYS_setsid]    = sys_setsid,
+    [SYS_mount]     = sys_mount,
 
-    [SYS_PRINT]     = sys_print,
+    [SYS_brk]       = (syscall_handler)sys_brk,
+
+    [SYS_sigaction] = sys_sigaction,
+    [SYS_fstat]     = sys_fstat,
+
+    [SYS_print]     = sys_print,
 };
 
 void int_syscall() {

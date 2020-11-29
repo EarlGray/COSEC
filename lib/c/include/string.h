@@ -44,6 +44,9 @@ char *strnrchr(const char *s, size_t n, int c);
 char *strpbrk(const char *s, const char *accept);
 size_t strspn(const char *s, const char *accept);
 
+char *strtok(char *str, const char *delim);
+char *strtok_r(char *str, const char *delim, char **saveptr);
+
 char const *strerror(int err);
 
 /* non-standard */

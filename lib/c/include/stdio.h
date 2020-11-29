@@ -55,6 +55,8 @@ int feof(FILE *);
 void clearerr(FILE *);
 int ferror(FILE *stream);
 
+void perror(const char *s);
+
 int setvbuf(FILE *stream, char *buf, int mode, size_t size);
 
 int fclose(FILE *);

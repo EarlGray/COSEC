@@ -1,12 +1,13 @@
 #include <stdlib.h>
 #include <fcntl.h>
 #include <sys/errno.h>
-
-#include <fs/vfs.h>
-#include <process.h>
+#include <sys/stat.h>
 
 #include <cosec/log.h>
 #include <cosec/syscall.h>
+
+#include "fs/vfs.h"
+#include "process.h"
 
 
 int sys_mount(mount_info_t *mnt) {
@@ -263,4 +264,9 @@ int sys_unlink(const char *path) {
 int sys_rename(const char *oldpath, const char *newpath) {
     logmsgdf("%s('%s', '%s')\n", __func__, oldpath, newpath);
     return vfs_rename(oldpath, newpath);
+}
+
+int sys_fstat(int fd, struct stat *statbuf) {
+    logmsgef("%s: TODO", __func__);
+    return -ETODO;
 }

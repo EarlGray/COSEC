@@ -33,6 +33,7 @@ int system(const char *command);
 
 void abort(void);
 void exit(int status);
+void _Exit(int status);
 
 int exitpoint(void);
 

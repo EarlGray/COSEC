@@ -1,5 +1,5 @@
-#ifndef __COSEC_ERRNO_H__
-#define __COSEC_ERRNO_H__
+#ifndef __COSEC_SYS_ERRNO_H__
+#define __COSEC_SYS_ERRNO_H__
 
 #define EPERM            1      /* Operation not permitted */
 #define ENOENT           2      /* No such file or directory */
@@ -40,5 +40,5 @@
 #define ETODO           39      /* Not implemented yet */
 #define EKERN           40      /* Kernel bug */
 
-#endif //__COSEC_ERRNO_H__
+#endif //__COSEC_SYS_ERRNO_H__
 

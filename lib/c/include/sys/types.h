@@ -1,5 +1,5 @@
-#ifndef __COSEC_TYPES_H__
-#define __COSEC_TYPES_H__
+#ifndef __COSEC_SYS_TYPES_H__
+#define __COSEC_SYS_TYPES_H__
 
 /*
  *  primitive types
@@ -47,4 +47,4 @@ typedef size_t inode_t;
 # define minor(dev) gnu_dev_minor (dev)
 # define makedev(maj, min) gnu_dev_makedev (maj, min)
 
-#endif //__COSEC_TYPES_H__
+#endif //__COSEC_SYS_TYPES_H__

@@ -1,6 +1,11 @@
 #ifndef __COSEC_LIBC_SIGNAL__
 #define __COSEC_LIBC_SIGNAL__
 
+#include <stdint.h>
+#define SIG_IGN     ((void *)0)
+#define SIG_DFL     ((void *)1)
+#define SIG_ERR     ((void *)-1)
+
 /* ISO C99 signals.  */
 #define SIGINT      2   /* Interactive attention signal.  */
 #define SIGILL      4   /* Illegal instruction.  */
@@ -35,6 +40,8 @@
 #define SIGUSR1     30  /* User-defined signal 1.  */
 #define SIGUSR2     31  /* User-defined signal 2.  */
 
+#define SIGMAX      32
+
 /* Nonstandard signals found in all modern POSIX systems
    (including both BSD and Linux).  */
 #define SIGWINCH    28  /* Window size change (4.3 BSD, Sun).  */
@@ -56,6 +63,19 @@ int kill(pid_t pid, int sig);
 typedef void (*sighandler_t)(int);
 
 sighandler_t signal(int signum, sighandler_t handler);
+
+/* sensible signals */
+
+typedef uint32_t   sigset_t;
+
+struct sigaction {
+    void    (*sa_handler)(int);
+    void    (*sa_sigaction)();
+    sigset_t sa_mask;
+    int     sa_flags;
+};
+
+int sigaction(int signum, const struct sigaction *act, struct sigaction *oldact);
 
 #endif  // NOT_CC
 #endif  // __COSEC_LIBC_SIGNAL__

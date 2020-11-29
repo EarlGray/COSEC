@@ -432,11 +432,11 @@ void test_tasks(void) {
 uint32_t test_syscall(uint32_t num, uint32_t arg1, uint32_t arg2, uint32_t arg3);
 
 static uint32_t test_sys_write(int fd, const char *buf, size_t len) {
-    return test_syscall(SYS_WRITE, (uint32_t)fd, (uint32_t)buf, (uint32_t)len);
+    return test_syscall(SYS_write, (uint32_t)fd, (uint32_t)buf, (uint32_t)len);
 }
 
 static uint32_t test_sys_read(int fd, char *buf, size_t buflen) {
-    return test_syscall(SYS_READ, (uint32_t)fd, (uint32_t)buf, (uint32_t)buflen);
+    return test_syscall(SYS_read, (uint32_t)fd, (uint32_t)buf, (uint32_t)buflen);
 }
 
 void run_userspace(void) {

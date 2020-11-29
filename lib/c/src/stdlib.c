@@ -88,6 +88,14 @@ int get_errno(void) {
     return theErrNo;
 }
 
+void perror(const char *s) {
+    if (s && s[0]) {
+        fprintf(stderr, "%s: %s\n", s, strerror(theErrNo));
+    } else {
+        fprintf(stderr, "%s\n", strerror(theErrNo));
+    }
+}
+
 /* misc from stdlib.h */
 int abs(int i) {
     if (i >= 0) return i;
@@ -486,6 +494,45 @@ char *strpbrk(const char *s, const char *accept) {
             return c;
 
     return NULL;
+}
+
+char *theStrtok = NULL;
+
+char *strtok(char *str, const char *delim) {
+    return strtok_r(str, delim, &theStrtok);
+}
+
+char *strtok_r(char *str, const char *delim, char **saveptr) {
+    if (str == NULL) {
+        str = *saveptr;
+    }
+    if (str == NULL) {
+        return NULL;
+    }
+
+    /* skip all delimiters */
+    while (str[0] && strchr(delim, str[0])) {
+        ++str;
+    }
+    if (str[0] == '\0') {
+        return NULL;
+    }
+    *saveptr = str;    // the start of the token
+
+    /* consume the token */
+    while (str[0] && !strchr(delim, str[0])) {
+        ++str;
+    }
+    if (str[0] == '\0') {
+        char *tok = *saveptr;
+        *saveptr = NULL;  // no more tokens
+        return tok;
+    }
+
+    str[0] = '\0';
+    char *tok = *saveptr;
+    *saveptr = str + 1;
+    return tok;
 }
 
 /* Source: http://en.wikipedia.org/wiki/Jenkins_hash_function */

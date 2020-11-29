@@ -22,10 +22,16 @@ int vlprintf(const char *fmt, va_list ap);
 #define logmsg(msg) lprintf(msg)
 #define logmsgf(...) lprintf(__VA_ARGS__)
 
+#if defined(COSEC) || defined(COSEC_KERN)
 #define logmsge(...) do { \
     logmsg("Error: "); logmsgf(__VA_ARGS__); logmsg("\n"); \
     k_printf("Error: "); k_printf(__VA_ARGS__); k_printf("\n"); \
 } while (0)
+#else
+# include <stdio.h>
+# define logmsge(...)  fprintf(stderr, __VA_ARGS__)
+#endif
+
 #define logmsgef(...)  logmsge(__VA_ARGS__)
 
 #define logmsgi(...) do { \
