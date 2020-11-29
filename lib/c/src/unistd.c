@@ -103,7 +103,7 @@ inline int isatty(int fd) {
         return 0;  // errno is set
     }
 
-    switch (gnu_dev_major(stat.st_dev)) {
+    switch (gnu_dev_major(stat.st_rdev)) {
     case 4:     // tty
     case 88:    // pty
         return 1;
