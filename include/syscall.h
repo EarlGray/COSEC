@@ -4,6 +4,6 @@
 #include <stdint.h>
 
 /* the common user/kernel syscall interface */
-#include <cosec/syscall.h>
+#include <cosec/sysnum.h>
 
 #endif //__CSC_SYSCALLS

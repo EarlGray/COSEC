@@ -1,6 +1,7 @@
 #include <sys/errno.h>
+
 #include <cosec/log.h>
-#include <cosec/syscall.h>
+#include <cosec/sysnum.h>
 
 #include "syscall.h"
 #include "process.h"
@@ -55,7 +56,7 @@ const syscall_handler syscalls[] = {
     [SYS_rename]    = sys_rename,
 
     [SYS_unlink]    = sys_unlink,
-    //[SYs_execve]    = sys_execve,
+    //[SYS_execve]    = sys_execve,
 
     [SYS_lseek]     = sys_lseek,
     [SYS_getpid]    = sys_getpid,
@@ -64,8 +65,8 @@ const syscall_handler syscalls[] = {
 
     [SYS_brk]       = (syscall_handler)sys_brk,
 
-    [SYS_sigaction] = sys_sigaction,
-    [SYS_fstat]     = sys_fstat,
+    //[SYS_sigaction] = sys_sigaction,
+    //[SYS_fstat]     = sys_fstat,
 
     [SYS_print]     = sys_print,
 };
@@ -80,19 +81,22 @@ void int_syscall() {
     logmsgdf("%s(%d, 0x%x, 0x%x, 0x%x)\n",
             __func__, intr_num, arg1, arg2, arg3);
 
-    // TODO: kill the process on unavailable syscall
-    assertv(intr_num < N_SYSCALLS,
-            "%s: invalid syscall 0x%x\n", __func__, intr_num);
+    if (intr_num >= N_SYSCALLS)
+        goto unknown_syscall;
 
     const syscall_handler callee = syscalls[intr_num];
-    if (!callee) {
-        logmsgif("%s: invalid handler for syscall[0x%x]\n", __func__, intr_num);
-        // TODO: kill the process on unavailable syscall
-        return;
-    }
+    if (!callee)
+        goto unknown_syscall;
 
     uint32_t result = callee(arg1, arg2, arg3);
     logmsgdf("%s(%d) -> %d (0x%x)\n",
             __func__, intr_num, result, result);
     ctx->eax = result;
+    return;
+
+unknown_syscall:
+    /* if syscall is not available, return ENOSYS */
+    logmsgif("%s(%d or 0x%x): ENOSYS\n", __func__, intr_num, intr_num);
+    ctx->eax = -ENOSYS;
+    return;
 }

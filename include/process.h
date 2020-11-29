@@ -3,8 +3,7 @@
 
 #include <stdint.h>
 #include <sys/types.h>
-
-#include <cosec/syscall.h>
+#include <sys/syscall.h>
 
 #include "mem/paging.h"
 #include "fs/vfs.h"

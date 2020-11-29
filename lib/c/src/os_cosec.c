@@ -5,10 +5,10 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <fcntl.h>
-
+#include <sys/syscall.h>
 #include <signal.h>
+
 #include <cosec/log.h>
-#include <cosec/sys.h>
 
 /*
  *  Syscalls
@@ -22,7 +22,7 @@ inline int sys_setpgid(pid_t pid, pid_t pgid) {
 inline pid_t sys_setsid(void) {
     return __syscall0(SYS_setsid);
 }
-inline int sys_fstat(int fd, void *stat) {
+inline int sys_fstat(int fd, struct stat *stat) {
     return __syscall2(SYS_fstat, fd, (intptr_t)stat);
 }
 inline int sys_mkdir(const char *pathname, mode_t mode) {

@@ -2,9 +2,9 @@
 #include <fcntl.h>
 #include <sys/errno.h>
 #include <sys/stat.h>
+#include <sys/syscall.h>
 
 #include <cosec/log.h>
-#include <cosec/syscall.h>
 
 #include "fs/vfs.h"
 #include "process.h"

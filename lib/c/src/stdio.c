@@ -10,8 +10,10 @@
 #include <fcntl.h>
 #include <sys/errno.h>
 
+// TODO: move to unistd wrappers
+#include <sys/syscall.h>
+
 #include <cosec/log.h>
-#include <cosec/sys.h>
 
 extern int theErrNo;
 

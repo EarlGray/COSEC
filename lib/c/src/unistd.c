@@ -7,11 +7,16 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <sys/syscall.h>
 
 #include <cosec/log.h>
-#include <cosec/sys.h>
 
 #include <bits/libc.h>
+
+static inline int negative_to_errno(int result) {
+    if (result < 0) { theErrNo = -result; result = -1; }
+    return result;
+}
 
 inline long sysconf(int name) {
     switch (name) {
@@ -32,7 +37,9 @@ int stat(const char *pathname, struct stat *statbuf) { return sys_stat(pathname,
 int lstat(const char *pathname, struct stat *statbuf) { return sys_lstat(pathname, statbuf); }
 */
 int fstat(int fd, struct stat *statbuf) {
-    return sys_fstat(fd, statbuf);
+    return negative_to_errno(
+        sys_fstat(fd, statbuf)
+    );
 }
 
 pid_t fork(void) {
@@ -84,9 +91,9 @@ inline pid_t wait(int *wstatus) {
 }
 
 inline pid_t waitpid(pid_t pid, int *wstatus, int flags) {
-    pid_t ret = sys_waitpid(pid, wstatus, flags);
-    if (ret < 0) { theErrNo = -ret; ret = -1; }
-    return ret;
+    return negative_to_errno(
+        sys_waitpid(pid, wstatus, flags)
+    );
 }
 
 inline int isatty(int fd) {

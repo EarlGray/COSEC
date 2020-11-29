@@ -13,9 +13,9 @@
 #include <stdio.h>
 #include <time.h>
 #include <unistd.h>
+#include <sys/syscall.h>
 
 #include <cosec/log.h>
-#include <cosec/syscall.h>
 
 #include "dev/timer.h"
 #include "dev/kbd.h"

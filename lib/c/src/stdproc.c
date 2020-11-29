@@ -3,11 +3,10 @@
 #include <unistd.h>
 #include <signal.h>
 #include <sys/errno.h>
+#include <sys/syscall.h>
 
 #include <bits/alloc_firstfit.h>
 #include <bits/libc.h>
-
-#include <cosec/syscall.h>
 
 
 static void *theHeapEnd = NULL;

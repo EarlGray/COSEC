@@ -1,52 +1,36 @@
-#ifndef __COSEC_STDC_SYSCALL
-#define __COSEC_STDC_SYSCALL
+#ifndef __COSEC_LIBC_COSEC_SYS__
+#define __COSEC_LIBC_COSEC_SYS__
 
-#define N_SYSCALLS      0x100
+#ifdef LINUX
+# define SYSCALL_NO_TLS  1
+# include <linux/sysnum.h>
+# include <linux/syscall_i386.h>
+#endif  // LINUX
 
-#define SYS_exit        0x01
-#define SYS_fork        0x02
-#define SYS_read        0x03
-#define SYS_write       0x04
-#define SYS_open        0x05
-#define SYS_close       0x06
-#define SYS_waitpid     0x07
-#define SYS_link        0x09
-#define SYS_unlink      0x0a
-#define SYS_execve      0x0b
-#define SYS_chdir       0x0c
-#define SYS_time        0x0d
-#define SYS_mknod       0x0e
-#define SYS_chmod       0x0f
-#define SYS_stat        0x12
-#define SYS_lseek       0x13
-#define SYS_getpid      0x14
+#ifdef COSEC_KERN
+# include <cosec/sysnum.h>
+#endif  // COSEC_KERN
 
-#define SYS_mount       0x15
-#define SYS_umount      0x16
+#ifdef COSEC
+# include <cosec/sysnum.h>
 
-#define SYS_kill        0x25
-#define SYS_rename      0x26
-#define SYS_mkdir       0x27
-#define SYS_rmdir       0x28
+static inline
+int syscall(int num, intptr_t arg1, intptr_t arg2, intptr_t arg3) {
+    int ret;
+    asm volatile ("int $0x80  \n"
+        :"=a"(ret)
+        :"a"(num), "c"(arg1), "d"(arg2), "b"(arg3)
+        :"memory");
+    return ret;
+}
 
-#define SYS_dup         0x29
-#define SYS_pipe        0x2a
+#define __syscall0(num)             syscall((num), 0, 0, 0)
+#define __syscall1(num, a)          syscall((num), (a), 0, 0)
+#define __syscall2(num, a, b)       syscall((num), (a), (b), 0)
+#define __syscall3(num, a, b, c)    syscall((num), (a), (b), (c))
 
-#define SYS_brk         0x2d
+#endif  // COSEC
 
-#define SYS_pread       0x31
-#define SYS_pwrite      0x33
-#define SYS_trunc       0x35
-
-#define SYS_setpgid     0x39
-#define SYS_setsid      0x42
-#define SYS_sigaction   0x43
-
-#define SYS_fstat       0x6c
-
-#define SYS_print       0xff
-
-#ifndef NOT_CC
 
 #include <stdint.h>
 #include <stdarg.h>
@@ -117,5 +101,4 @@ int sys_execve(const char *pathname, char *const argv[], char *const envp[]);
 void sys_exit(int status);
 sighandler_t sys_signal(int signum, sighandler_t handler);
 
-#endif
-#endif
+#endif  // __COSEC_LIBC_COSEC_SYS__

@@ -4,13 +4,12 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <signal.h>
-#include <sys/errno.h>
 #include <time.h>
 #include <unistd.h>
+#include <sys/errno.h>
+#include <sys/stat.h>
+#include <sys/syscall.h>
 
-#define SYSCALL_NO_TLS  1
-#include <linux/unistd_i386.h>
-#include <linux/syscall_i386.h>
 #include <linux/times.h>
 
 #include <bits/libc.h>
@@ -22,7 +21,7 @@ void exit(int status) {
 int sys_chdir(const char *path) {
     return __syscall1(SYS_chdir, (intptr_t)path);
 }
-int sys_fstat(int fd, void *stat) {
+int sys_fstat(int fd, struct stat *stat) {
     return __syscall2(SYS_fstat, fd, (intptr_t)stat);
 }
 int sys_close(int fd) {
@@ -73,14 +72,14 @@ clock_t sys_times(struct tms *tms) {
 intptr_t sys_brk(void *addr) {
     return __syscall1(SYS_brk, (intptr_t)addr);
 }
-intptr_t sys_signal(int signum, sighandler_t handler) {
+sighandler_t sys_signal(int signum, sighandler_t handler) {
     struct sigaction sigact = {
         .sa_handler = handler,
         .sa_sigaction = NULL,
         .sa_mask = 0,
         .sa_flags = 0,
     };
-    return __syscall3(SYS_signal, signum, (intptr_t)&sigact, 0);
+    return (sighandler_t)__syscall3(SYS_signal, signum, (intptr_t)&sigact, 0);
 }
 pid_t sys_fork(void) {
     return __syscall0(SYS_fork);
