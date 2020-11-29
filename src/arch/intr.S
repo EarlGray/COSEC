@@ -178,7 +178,8 @@ intr_start_rdtsc:
     test %eax, %eax
     cmovnz %eax, %esp
 
-    movl $0, context_esp
+    xor %eax, %eax
+    movl %eax, context_esp      // `movl $0` generates junk zeros
 
     popl %fs
     popl %gs
