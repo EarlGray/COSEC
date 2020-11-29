@@ -14,9 +14,9 @@ int main() {
     char cmd_buf[CMD_SIZE];
     lua_State *lua;
 
-    logmsg("starting Lua...\n");
-    k_printf("###\n###       Lua "LUA_VERSION_MAJOR"."LUA_VERSION_MINOR"\n###\n");
-    k_printf("###  type 'q' to exit\n###\n");
+    //logmsgf("starting Lua...\n");
+    printf("###\n###       Lua "LUA_VERSION_MAJOR"."LUA_VERSION_MINOR"\n###\n");
+    printf("###  type 'q' to exit\n###\n");
 
     lua = luaL_newstate();
     if (!lua)
@@ -38,7 +38,9 @@ int main() {
 
     for (;;) {
         printf("%s", prompt);
-        fgets(cmd_buf, CMD_SIZE, stdin);
+        if (!fgets(cmd_buf, CMD_SIZE, stdin)) {
+            break;
+        }
         if (!strcasecmp(cmd_buf, "q"))
             break;
 
