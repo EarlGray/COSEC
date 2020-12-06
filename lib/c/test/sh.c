@@ -7,6 +7,7 @@
 #include <errno.h>
 #include <unistd.h>
 #include <signal.h>
+#include <termios.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -99,7 +100,7 @@ void shell_remove_job(struct shell *sh, pid_t pid) {
 void shell_run_foreground(struct shell *sh, struct job *job) {
     pid_t pid = job->process_group;
 
-    shell_set_foreground(sh, pid);
+    //shell_set_foreground(sh, pid);
 
     if (job->stopped) {
         kill(pid, SIGCONT);
@@ -109,7 +110,11 @@ void shell_run_foreground(struct shell *sh, struct job *job) {
     int wstatus;
     int wpid;
     while ((wpid = waitpid(-1, &wstatus, WUNTRACED))) {
-        if (wpid == -1) { perror("waitpid^^"); }
+        //fprintf(stderr, "%s: wstatus=0x%x\n", __func__, wstatus);
+        if (wpid == -1) {
+            perror("waitpid");
+        }
+
         if (WIFSTOPPED(wstatus)) {
             fprintf(stderr, "%d stopped\n", wpid);
             struct job* job = shell_find_job(sh, wpid);
@@ -301,7 +306,7 @@ int main() {
             wpid = waitpid((pid_t)-1, &wstatus, WNOHANG | WUNTRACED | WCONTINUED);
             if (wpid == 0) break;
             if (wpid == -1) {
-                if (errno != ECHILD) perror("@@waitpid");
+                if (errno != ECHILD) perror("waitpid");
                 break;
             }
             if (WIFEXITED(wstatus)) {
@@ -377,16 +382,30 @@ int main() {
         if (pid == 0) {
             /* child */
             pid = getpid();
+
             /* create a new job */
-            if (setpgid(pid, 0)) {
+            if (setpgid(pid, pid)) {
                 perror("setpgid");
             }
+
+            /* macOS gives EPERM unless tcsetpgrp is done by the child process */
+            if (sh.interactive) {
+                if (tcsetpgrp(STDIN_FILENO, pid) < 0) { perror("tcsetpgrp"); }
+                if (tcsetpgrp(STDOUT_FILENO, pid) < 0) { perror("tcsetpgrp"); }
+            }
+
+            signal(SIGTTIN, SIG_DFL);
+            signal(SIGTTOU, SIG_DFL);
+            signal(SIGTSTP, SIG_DFL);
+
+            signal(SIGQUIT, SIG_DFL);
+            signal(SIGTERM, SIG_DFL);
+            signal(SIGHUP, SIG_DFL);
 
             /* jump into the child */
             execvp(tokens[0], tokens);
 
-            /* should be unreachable */
-            perror("execv"); 
+            perror("execv");
             exit(EXIT_FAILURE);
         } else if (pid > 0) {
             /* parent */
@@ -397,7 +416,7 @@ int main() {
         } else {
             perror("fork");
         }
-    } 
+    }
 
     return EXIT_SUCCESS;
 }
