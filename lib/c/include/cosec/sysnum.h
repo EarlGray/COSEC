@@ -37,6 +37,7 @@
 #define SYS_pread       0x31
 #define SYS_pwrite      0x33
 #define SYS_trunc       0x35
+#define SYS_ioctl       0x36
 
 #define SYS_setpgid     0x39
 #define SYS_setsid      0x42

@@ -11,7 +11,6 @@ enum sysconf_name {
     _SC_PAGESIZE,
 };
 
-#define _SC_PAGESIZE    _SC_PAGESIZE
 #define PAGESIZE        _SC_PAGESIZE
 #define PAGE_SIZE       _SC_PAGESIZE
 

@@ -1,5 +1,5 @@
-#ifndef __COSEC_LIBC_COSEC_SYS__
-#define __COSEC_LIBC_COSEC_SYS__
+#ifndef __COSEC_LIBC_COSEC_SYS_SYSCALL__
+#define __COSEC_LIBC_COSEC_SYS_SYSCALL__
 
 #ifdef LINUX
 # define SYSCALL_NO_TLS  1
@@ -101,4 +101,6 @@ int sys_execve(const char *pathname, char *const argv[], char *const envp[]);
 void sys_exit(int status);
 sighandler_t sys_signal(int signum, sighandler_t handler);
 
-#endif  // __COSEC_LIBC_COSEC_SYS__
+int sys_ioctl(int fd, unsigned long request, void *argp);
+
+#endif  // __COSEC_LIBC_COSEC_SYS_SYSCALL__

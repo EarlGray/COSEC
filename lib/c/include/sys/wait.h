@@ -11,14 +11,16 @@
 #define WEXITED     4
 #define WCONTINUED  8
 
-/* TODO: make it Linux-compatible */
-#define WIFEXITED(wstatus)      ((wstatus) & WEXITED)
-#define WEXITSTATUS(wstatus)    ((wstatus) & 0xff)
-#define WIFSIGNALED(wstatus)    (WTERMSIG(wstatus) != 0)
-#define WTERMSIG(wstatus)       (int)((wstatus >> 8) & 0xff)
-#define WIFSTOPPED(wstatus)     ((wstatus) & WSTOPPED)
-#define WSTOPSIG(wstatus)       (int)((wstatus >> 8) & 0xff)
-#define WIFCONTINUED(wstatus)   ((wstatus) & WCONTINUED)
+#define __WCOREFLAG 0x80
+
+#define WTERMSIG(wstatus)       ((wstatus) & 0x7f)
+#define WIFEXITED(wstatus)      (WTERMSIG(wstatus) == 0)
+#define WEXITSTATUS(wstatus)    (((wstatus) & 0xff00) >> 8)
+#define WIFSIGNALED(wstatus)    \
+  (((char) (((wstatus) & 0x7f) + 1) >> 1) > 0)
+#define WIFSTOPPED(wstatus)     (((wstatus) & 0xff == 0x7f))
+#define WSTOPSIG(wstatus)       (WEXITSTATUS(wstatus))
+#define WIFCONTINUED(wstatus)   ((wstatus) == 0xffff)
 
 pid_t wait(int *wstatus);
 

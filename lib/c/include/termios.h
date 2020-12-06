@@ -122,4 +122,10 @@ enum tty_ioctl {
     KDSKBMODE,
 };
 
+/*
+ *  ioctl_tty
+ */
+#define TERMIOS_SET_PROCESS_GROUP   0x5410
+#define TIOCSPGRP   TERMIOS_SET_PROCESS_GROUP
+
 #endif //__COSEC_TERMIOS_H__

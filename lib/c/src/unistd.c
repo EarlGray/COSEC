@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <signal.h>
 #include <time.h>
+#include <termios.h>
 #include <unistd.h>
 #include <sys/errno.h>
 #include <sys/stat.h>
@@ -12,6 +13,8 @@
 #include <cosec/log.h>
 
 #include <bits/libc.h>
+
+extern char **environ;
 
 static inline int negative_to_errno(int result) {
     if (result < 0) { theErrNo = -result; result = -1; }
@@ -28,6 +31,11 @@ inline long sysconf(int name) {
     }
 }
 
+int sys_ioctl(int fd, unsigned long request, void *argp) {
+    return __syscall3(SYS_ioctl, fd, request, (intptr_t)argp);
+}
+//inline size_t confstr(int name, char *buf, size_t len) { }
+
 ssize_t write(int fd, const void *buf, size_t count) {
     return sys_write(fd, buf, count);
 }
@@ -43,19 +51,29 @@ int fstat(int fd, struct stat *statbuf) {
 }
 
 pid_t fork(void) {
-    return sys_fork();
+    return negative_to_errno(
+        sys_fork()
+    );
 }
 
 int execve(const char *pathname, char *const argv[], char *const envp[]) {
-    return sys_execve(pathname, argv, envp);
+    if (pathname[0] != '/') {
+        logmsgef("%s('%s'): need an absolute path\n", __func__, pathname);
+        theErrNo = ENOENT;
+        return -1;
+    }
+
+    return negative_to_errno(
+        sys_execve(pathname, argv, envp)
+    );
 }
 
 //int execv(const char *pathname, char *const argv[]) { }
 
 int execvp(const char *file, char *const argv[]) {
-    logmsgef("%s: TODO\n", __func__);
-    theErrNo = ETODO;
-    return -1;
+    /* TODO: find the directory for file if needed */
+
+    return execve(file, argv, environ);
 }
 
 //int execvpe(const char *file, char *const argv[], char *const argv[]) { }
@@ -70,20 +88,22 @@ int raise(int sig) {
 }
 
 int kill(pid_t pid, int sig) {
-    return sys_kill(pid, sig);
+    return negative_to_errno(
+        sys_kill(pid, sig)
+    );
 }
 
 pid_t getpid(void) {
-    // TODO: cache it?
-    return sys_getpid();
+    // TODO: cache it? but forks.
+    return negative_to_errno(sys_getpid());
 }
 
 pid_t setsid(void) {
-    return sys_setsid();
+    return negative_to_errno(sys_setsid());
 }
 
 int setpgid(pid_t pid, pid_t pgid) {
-    return sys_setpgid(pid, pgid);
+    return negative_to_errno(sys_setpgid(pid, pgid));
 }
 
 inline pid_t wait(int *wstatus) {
@@ -113,9 +133,8 @@ inline int isatty(int fd) {
 }
 
 int tcsetpgrp(int fd, pid_t pgrp) {
-    (void)fd; (void)pgrp;
-    logmsgef("%s: TODO", __func__);
-
-    theErrNo = ETODO;
-    return -1;
+    pid_t *pid = &pgrp;
+    return negative_to_errno(
+        sys_ioctl(fd, TIOCSPGRP, pid)
+    );
 }
