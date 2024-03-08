@@ -1,0 +1,15 @@
+# used for building the COSEC kernel
+platform(
+    name = "i386-none",
+)
+
+# TODO: plaform(name = "i386-cosec")
+
+# used for testing
+platform(
+    name = "i386-linux",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:i386",
+    ]
+)

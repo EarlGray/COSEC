@@ -1,6 +1,10 @@
 cosec.img
 res/initfs
 build/*
+bazel-bin
+bazel-out
+bazel-cosec
+bazel-testlogs
 tags
 compile_commands.json
 tmp
