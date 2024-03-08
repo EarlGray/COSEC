@@ -176,6 +176,10 @@ const char * sscan_int(const char *str, int *res, const uint8_t base) {
     return end;
 }
 
+int puts(const char *str) {
+    return fputs(str, stdout);
+}
+
 int lprintf(const char *fmt, ...) {
     int ret;
     va_list ap;
@@ -633,6 +637,26 @@ char *fgets(char *s, int size, FILE *stream) {
     s[nread] = 0;
     logmsgdf("fgets: nread=%d, s='%s'\n", nread, s);
     return s;
+}
+
+int fputc(int ch, FILE *stream) {
+    fwrite((const char *)&ch, 1, 1, stream);
+    if (theErrNo != 0) {
+        return EOF;
+    }
+    return ch;
+}
+
+int fputs(const char *str, FILE *stream) {
+    size_t len = strlen(str);
+    size_t nwritten = fwrite(str, len, 1, stream);
+    if (theErrNo != 0) {
+        return EOF;
+    }
+    if (fputc('\n', stream) != '\n') {
+        return EOF;
+    }
+    return nwritten + 1;
 }
 
 long ftell(FILE *stream) {

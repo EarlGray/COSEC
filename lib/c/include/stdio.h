@@ -28,6 +28,9 @@ size_t fread(void *ptr, size_t size, size_t nmmeb, FILE *stream);
 size_t fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream);
 
 int fgetc(FILE *stream);
+int puts(const char *str);
+int fputs(const char *str, FILE *stream);
+int fputc(int ch, FILE *stream);
 int ungetc(int c, FILE *stream);
 char *fgets(char *s, int size, FILE *stream);
 
