@@ -1,7 +1,7 @@
 # see https://bazel.build/tutorials/ccp-toolchain-config
+load(":toolchain_config.bzl", "cc_toolchain_config")
 
 package(default_visibility = ["//visibility:public"])
-load(":toolchain_config.bzl", "cc_toolchain_config")
 
 filegroup(name = "empty")
 

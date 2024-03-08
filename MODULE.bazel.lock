@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 3,
-  "moduleFileHash": "0854cb38ba384d5e92bc110168f637d22a18a6c194ee84629fa87e824ce31aae",
+  "moduleFileHash": "94971e4d83ac1fb3a9ca45c4fc832d0c2156f2055d31e8bd6a05c3c58a5fc493",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
